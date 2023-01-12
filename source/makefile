@@ -1,4 +1,7 @@
-bouncers: *.c
+bouncers: *.c assets
 	arm-none-eabi-gcc -r -mlong-calls -fno-exceptions -march=armv6-m *.c -obouncers.bin -O2 -Wall -lgcc
 	arm-none-eabi-strip bouncers.bin -d -R.comment -R.ARM.attributes
 	../../Gopher2600/gopher2600 bouncers.bin
+
+assets: ../assets/*
+	python3 parse_assets.py

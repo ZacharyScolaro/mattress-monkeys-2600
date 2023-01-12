@@ -1,3 +1,4 @@
+#include "text.h"
 #include "vcsLib.h"
 #include <stdbool.h>
 
@@ -8,6 +9,7 @@ static uint8_t colupfBuffer[192];
 __attribute__((section(".noinit")))
 static uint8_t colubkBuffer[192];
 
+static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 11, 4, 10, 10, 12, 11, 5, 10, 6, 7, 8, 9 };
 #define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
 void setPF(int x, int y);
 
@@ -68,14 +70,23 @@ int elf_main(uint32_t* args)
 
 	// Render loop
 	while (true) {
+
+		PrintScore(scoreText);
+
 		vcsEndOverblank();
 		vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC);
 		
+		DisplayText();
+		
 		vcsSta3(WSYNC);
-		vcsNop2n(34);
+		vcsSta3(HMOVE);
+		vcsWrite5(COLUPF, 0x0f);
+		vcsWrite5(COLUBK, 0x0f);
+		vcsNop2n(26);
+		vcsJmp3();
 		vcsJmp3();
 		vcsWrite5(VBLANK, 0);
-		int line = 0;
+		int line = 19;
 		while(line < 64)
 		{
 			vcsSta3(HMOVE);

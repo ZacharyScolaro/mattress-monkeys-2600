@@ -11,10 +11,13 @@ def parse_score_sprites():
 	f = open('../assets/score-sprites.png', 'rb')
 	r = png.Reader(f)
 	width, height, rows, info = r.read()
-	pixel_width = width // 26
+	print(info)
+	planes = info['planes']
+	pixel_width = width // (13*8)
+	print(width, height, pixel_width, planes)
 	for row in rows:
 		if y % 4 == 0:
-			for x in range(0, width*4, pixel_width*8):
+			for x in range(0, width*planes, pixel_width*8*planes):
 				b = 0
 				i = x
 				mask = 0x40
@@ -22,7 +25,7 @@ def parse_score_sprites():
 					if row[i] != 0:
 						b |= mask
 					mask = mask >> 1
-					i = i + pixel_width
+					i = i + (pixel_width * planes)
 				sprites.append('0x{:02x}'.format(b))
 		y+=1
 	f.close()

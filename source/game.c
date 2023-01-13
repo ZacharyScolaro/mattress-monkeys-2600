@@ -9,7 +9,7 @@ static uint8_t colupfBuffer[192];
 __attribute__((section(".noinit")))
 static uint8_t colubkBuffer[192];
 
-static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 11, 4, 10, 10, 12, 11, 5, 10, 6, 7, 8, 9 };
+static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 12, 12, 10, 10, 12, 12, 12, 10, 6, 7, 8, 9 };
 #define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
 void setPF(int x, int y);
 

@@ -1,3 +1,4 @@
+#include "sprites.h"
 #include "text.h"
 #include "vcsLib.h"
 #include <stdbool.h>
@@ -15,6 +16,8 @@ void setPF(int x, int y);
 
 int elf_main(uint32_t* args)
 {
+	int frame = 0;
+	int fanFrame = 0;
 	// Always reset PC first, cause it's going to be close to the end of the 6507 address space
 	vcsJmp3();
 
@@ -73,8 +76,24 @@ int elf_main(uint32_t* args)
 
 		PrintScore(scoreText);
 
+		// Fan blade test
+		if (frame++ == 6) {
+			frame = 0;
+			fanFrame++;
+		}
+		if (fanFrame > 6)
+		{
+			fanFrame = 0;
+		}
+		for (int y = 0; y < 7; y++)
+		{
+			playfieldBuffer[(25 + y) * 5 + 1] = FanBladeGraphics[fanFrame][y * 2] >> 7;
+			playfieldBuffer[(25 + y) * 5 + 2] = FanBladeGraphics[fanFrame][y * 2] << 1 | FanBladeGraphics[fanFrame][y * 2 + 1] >> 7;
+			playfieldBuffer[(25 + y) * 5 + 3] = FanBladeGraphics[fanFrame][y * 2 + 1] << 1;
+		}
+
 		vcsEndOverblank();
-		vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC);
+		vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC);
 		
 		DisplayText();
 		
@@ -86,7 +105,7 @@ int elf_main(uint32_t* args)
 		vcsJmp3();
 		vcsJmp3();
 		vcsWrite5(VBLANK, 0);
-		int line = 19;
+		int line = 20;
 		while(line < 64)
 		{
 			vcsSta3(HMOVE);

@@ -9,6 +9,8 @@ __attribute__((section(".noinit")))
 static uint8_t colupfBuffer[192];
 __attribute__((section(".noinit")))
 static uint8_t colubkBuffer[192];
+__attribute__((section(".noinit")))
+static uint8_t grp0Buffer[192];
 
 static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 12, 12, 10, 10, 12, 12, 12, 10, 6, 7, 8, 9 };
 #define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
@@ -77,8 +79,7 @@ int elf_main(uint32_t* args)
 		PrintScore(scoreText);
 
 		// Fan blade test
-		if (frame++ == 6) {
-			frame = 0;
+		if ((frame++ & 7) == 0) {
 			fanFrame++;
 		}
 		if (fanFrame > 6)
@@ -92,6 +93,15 @@ int elf_main(uint32_t* args)
 			playfieldBuffer[(25 + y) * 5 + 3] = FanBladeGraphics[fanFrame][y * 2 + 1] << 1;
 		}
 
+		// Monkey Walking Test
+		for (int i = 0; i < 12; i++)
+		{
+			for (int j = 0; j < 12; j++)
+			{
+				grp0Buffer[i * 16 + j] = MonkeyWalkingGraphics[(frame >> 3) & 1][j];
+			}
+		}
+
 		vcsEndOverblank();
 		vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC);
 		
@@ -101,8 +111,11 @@ int elf_main(uint32_t* args)
 		vcsSta3(HMOVE);
 		vcsWrite5(COLUPF, 0x0f);
 		vcsWrite5(COLUBK, 0x0f);
-		vcsNop2n(26);
-		vcsJmp3();
+		vcsWrite5(COLUP0, 0xe8);
+		vcsWrite5(NUSIZ0, 0);
+		vcsNop2n(10);
+		vcsWrite5(RESP0, 0);
+		vcsNop2n(10);
 		vcsJmp3();
 		vcsWrite5(VBLANK, 0);
 		int line = 20;
@@ -110,14 +123,13 @@ int elf_main(uint32_t* args)
 		{
 			vcsSta3(HMOVE);
 			vcsWrite5(COLUPF, colupfBuffer[line]);
+			vcsWrite5(GRP0, grp0Buffer[line]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
 			vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
-			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
 			vcsWrite5(COLUBK, colubkBuffer[line]);
+			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
-			vcsJmp3();
-			vcsWrite5(PF1, playfieldBuffer[line * 5 + 3]);
-			vcsJmp3();
+			vcsWrite6(PF1, playfieldBuffer[line * 5 + 3]);
 			vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
 			vcsJmp3();
 			vcsJmp3();

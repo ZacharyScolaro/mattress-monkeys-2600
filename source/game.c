@@ -101,6 +101,11 @@ int elf_main(uint32_t* args)
 				grp0Buffer[i * 16 + j] = MonkeyWalkingGraphics[(frame >> 3) & 1][j];
 			}
 		}
+		// Monkey Idle Test
+		for (int j = 0; j < 12; j++)
+		{
+			grp0Buffer[2 * 16 + j] = MonkeyIdleGraphics[j];
+		}
 
 		vcsEndOverblank();
 		vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC);

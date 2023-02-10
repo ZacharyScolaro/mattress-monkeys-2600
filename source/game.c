@@ -13,6 +13,8 @@ __attribute__((section(".noinit")))
 static uint8_t grp0Buffer[192];
 __attribute__((section(".noinit")))
 static uint8_t grp1Buffer[192];
+__attribute__((section(".noinit")))
+static uint8_t colup1Buffer[192];
 
 static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 12, 12, 10, 10, 12, 12, 12, 10, 6, 7, 8, 9 };
 #define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
@@ -96,9 +98,9 @@ int elf_main(uint32_t* args)
 		}
 		for (int y = 0; y < 7; y++)
 		{
-			playfieldBuffer[(25 + y) * 5 + 1] = FanBladeGraphics[fanFrame][y * 2] >> 7;
-			playfieldBuffer[(25 + y) * 5 + 2] = FanBladeGraphics[fanFrame][y * 2] << 1 | FanBladeGraphics[fanFrame][y * 2 + 1] >> 7;
-			playfieldBuffer[(25 + y) * 5 + 3] = FanBladeGraphics[fanFrame][y * 2 + 1] << 1;
+			playfieldBuffer[(36 + y) * 5 + 1] = FanBladeGraphics[fanFrame][y * 2] >> 7;
+			playfieldBuffer[(36 + y) * 5 + 2] = FanBladeGraphics[fanFrame][y * 2] << 1 | FanBladeGraphics[fanFrame][y * 2 + 1] >> 7;
+			playfieldBuffer[(36 + y) * 5 + 3] = FanBladeGraphics[fanFrame][y * 2 + 1] << 1;
 		}
 
 		// Monkey Walking Test
@@ -123,6 +125,7 @@ int elf_main(uint32_t* args)
 		for (int i = 0; i < sizeof(FanChasisGraphics)/sizeof(FanChasisGraphics[0]); i++)
 		{
 			grp1Buffer[i+19] = FanChasisGraphics[i];
+			colup1Buffer[i + 19] = FanChasisColu[i];
 		}
 
 		vcsEndOverblank();
@@ -157,6 +160,7 @@ int elf_main(uint32_t* args)
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
 			vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
 			vcsWrite5(COLUPF, colupfBuffer[line]);
+			vcsWrite5(COLUP1, colup1Buffer[line]);
 			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
 			vcsWrite6(PF1, playfieldBuffer[line * 5 + 3]);

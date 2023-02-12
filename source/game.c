@@ -3,12 +3,15 @@
 #include "vcsLib.h"
 #include <stdbool.h>
 
+#define ColuBkScore 0x00
+#define ColuBkCeiling 0x0f
+#define ColuBkWall 0x64
+#define ColuBkSheet 0xda
+
 __attribute__((section(".noinit")))
 static uint8_t playfieldBuffer[192*5]; // 00001111 11112222 22220000 11111111 22222222
 __attribute__((section(".noinit")))
 static uint8_t colupfBuffer[192];
-__attribute__((section(".noinit")))
-static uint8_t colubkBuffer[192];
 __attribute__((section(".noinit")))
 static uint8_t grp0Buffer[192];
 __attribute__((section(".noinit")))
@@ -22,6 +25,7 @@ void setPF(int x, int y);
 
 int elf_main(uint32_t* args)
 {
+	int p0x = 0;
 	int frame = 0;
 	int fanFrame = 0;
 	// Always reset PC first, cause it's going to be close to the end of the 6507 address space
@@ -70,23 +74,24 @@ int elf_main(uint32_t* args)
 			}
 		}
 	}
-	//Cycle background colors
+	// Init PF colors
 	for (int i = 0; i < 64; i++)
 	{
 		colupfBuffer[i] = 0x00;
-		colubkBuffer[i] = 0x6a;
 	}
 	for (int i = 64; i < sizeof(colupfBuffer) / sizeof(colupfBuffer[0]); i++)
 	{
 		colupfBuffer[i] = i;
-		colubkBuffer[i] = (i ^ 0xff) & 0xe0;
 	}
-	colubkBuffer[19] = 0x0f;
 
 	// Render loop
 	while (true) {
 
 		PrintScore(scoreText);
+
+		p0x++;
+		if (p0x > 159)
+			p0x = 0;
 
 		// Fan blade test
 		if ((frame++ & 3) == 0) {
@@ -136,25 +141,64 @@ int elf_main(uint32_t* args)
 		vcsSta3(WSYNC);
 		int line = 19;
 		vcsSta3(HMOVE);
-		vcsWrite5(COLUPF, colupfBuffer[line]);
-		vcsWrite5(COLUBK, colubkBuffer[line]);
+		vcsWrite5(COLUPF, ColuBkCeiling); // Disable PF for this line and next
+		vcsWrite5(COLUBK, ColuBkCeiling);
 		vcsWrite5(COLUP0, 0xe8);
 		vcsWrite5(NUSIZ0, 0);
-		vcsWrite6(NUSIZ1, 0);
-		vcsLdx2(colubkBuffer[line + 1]);
-		vcsNop2n(4);
-		vcsJmp3();
-		vcsWrite5(RESPONE, 0);
-		vcsWrite5(RESP0, 0);
-		vcsNop2n(7);
+		vcsWrite5(NUSIZ1, 0);
+		vcsSta3(HMCLR);
+		vcsNop2n(3);
 		vcsWrite5(HMP1, 0x20);
-		vcsWrite5(VBLANK, 0);
+		vcsWrite5(RESPONE, 0);
 		line++;
+		vcsWrite5(COLUP1, colup1Buffer[line]);
+		vcsSta3(WSYNC);
+
+		// Position P0
+		{
+			int x = p0x;
+			if (x > 159)
+				x -= 160;
+			vcsSta3(HMOVE);
+			if (x < 11) {
+				vcsSta3(RESP0);
+				vcsWrite5(GRP1, grp1Buffer[line]);
+				vcsWrite5(COLUBK, ColuBkWall);
+				vcsNop2n(15);
+				vcsSta3(HMCLR);
+				vcsWrite5(HMP0, ((x + 3) ^ 0x07) << 4);
+			}
+			else if (x < 146) {
+				vcsWrite5(GRP1, grp1Buffer[line]);
+				vcsWrite5(COLUBK, ColuBkWall);
+				vcsNop2n(4);
+				while (x > 26) {
+					vcsWrite5(GRP0, 0x00);
+					x -= 15;
+				}
+				vcsSta3(HMCLR);
+				vcsSta3(RESP0);
+				vcsWrite5(HMP0, ((x - 11) ^ 0x07) << 4);
+			}
+			else {
+				vcsWrite5(GRP0, 0x00);
+				vcsWrite5(COLUBK, ColuBkWall);
+				vcsWrite5(GRP1, grp1Buffer[line]);
+				vcsNop2n(20);
+				vcsJmp3();
+				vcsSta3(HMCLR);
+				vcsWrite5(HMP0, ((x - 146) ^ 0x07) << 4);
+				vcsSta3(RESP0);
+			}
+			vcsSta3(WSYNC);
+			line++;
+		}
+
 		// Fan region
 		while (line < 64)
 		{
 			vcsSta3(HMOVE);
-			vcsStx3(COLUBK);
+			vcsJmp3();
 			vcsWrite5(GRP0, grp0Buffer[line]);
 			vcsWrite5(GRP1, grp1Buffer[line]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
@@ -166,20 +210,19 @@ int elf_main(uint32_t* args)
 			vcsWrite6(PF1, playfieldBuffer[line * 5 + 3]);
 			vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
 			vcsJmp3();
-			vcsLdx2(colubkBuffer[line + 1]);
 			vcsSta3(HMCLR);
 			vcsSta3(WSYNC);
 			line++;
 		}
 		// Level 1 - Wide bed
-		while (line < 64)
+		while (line < 128)
 		{
 			vcsSta3(HMOVE);
 			vcsWrite5(COLUPF, colupfBuffer[line]);
 			vcsWrite5(GRP0, grp0Buffer[line]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
 			vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
-			vcsWrite5(COLUBK, colubkBuffer[line]);
+			vcsWrite5(COLUBK, ColuBkSheet);
 			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
 			vcsWrite6(PF1, playfieldBuffer[line * 5 + 3]);
@@ -192,14 +235,14 @@ int elf_main(uint32_t* args)
 			line++;
 		}
 		// Level 2 Medium bed
-		while (line < 128)
+		while (line < 160)
 		{
 			vcsSta3(HMOVE);
 			vcsWrite5(COLUPF, colupfBuffer[line]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
 			vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
 			vcsJmp3();
-			vcsLdx2(colubkBuffer[line]);
+			vcsLdx2(ColuBkSheet);
 			vcsWrite5(COLUBK, 0xe2);
 			vcsStx4(COLUBK);
 			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
@@ -208,7 +251,7 @@ int elf_main(uint32_t* args)
 			vcsJmp3();
 			vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
 			vcsNop2n(3);
-			vcsLdx2(0x5c);
+			vcsLdx2(ColuBkWall);
 			vcsWrite5(COLUBK, 0xe2);
 			vcsStx4(COLUBK);
 			vcsSta3(WSYNC);
@@ -222,7 +265,7 @@ int elf_main(uint32_t* args)
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
 			vcsWrite6(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
 			vcsWrite6(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
-			vcsLdx2(colubkBuffer[line]);
+			vcsLdx2(ColuBkSheet);
 			vcsWrite5(COLUBK, 0xe2);
 			vcsStx4(COLUBK);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
@@ -230,7 +273,7 @@ int elf_main(uint32_t* args)
 			vcsJmp3();
 			vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
 			vcsJmp3();
-			vcsLdx2(0x5c);
+			vcsLdx2(ColuBkWall);
 			vcsWrite5(COLUBK, 0xe2);
 			vcsStx4(COLUBK);
 			vcsSta3(WSYNC);

@@ -29,6 +29,8 @@ void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
 int elf_main(uint32_t* args)
 {
 	int p0x = 0;
+	int fly_top_x = 20;
+	int fly_bot_x = 40;
 	int frame = 0;
 	int fanFrame = 0;
 	// Always reset PC first, cause it's going to be close to the end of the 6507 address space
@@ -95,6 +97,15 @@ int elf_main(uint32_t* args)
 		p0x++;
 		if (p0x > 159)
 			p0x = 0;
+
+		fly_top_x -= 1;
+		if (fly_top_x < 0)
+			fly_top_x = 159;
+
+		fly_bot_x++;
+		if (fly_bot_x > 159)
+			fly_bot_x = 0;
+
 
 		// Fan blade test
 		if ((frame++ & 3) == 0) {
@@ -224,8 +235,8 @@ int elf_main(uint32_t* args)
 			vcsSta3(WSYNC);
 			line++;
 		}
-		DrawFlyRegion(&line, 12, 20, 3, frame & 1);
-		DrawFlyRegion(&line, 12, 80, 3, frame & 1);
+		DrawFlyRegion(&line, 12, fly_top_x, fanFrame+3, frame & 1);
+		DrawFlyRegion(&line, 12, fly_bot_x, 9- fanFrame, frame & 1);
 
 		// Level 1 - Wide bed
 		while (line < 128)

@@ -17,3 +17,7 @@ extern const uint8_t MonkeyIdleColu[12];
 extern const uint8_t FanChasisGraphics[28];
 
 extern const uint8_t FanChasisColu[28];
+
+extern const uint8_t BonusBananaGraphics[13];
+
+extern const uint8_t BonusBananaColu[13];

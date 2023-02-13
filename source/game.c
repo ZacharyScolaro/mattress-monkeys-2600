@@ -7,6 +7,8 @@
 #define ColuBkCeiling 0x0f
 #define ColuBkWall 0x64
 #define ColuBkSheet 0xda
+#define ColuFlyWing 0x0e
+#define ColuFlyBody 0x02
 
 __attribute__((section(".noinit")))
 static uint8_t playfieldBuffer[192*5]; // 00001111 11112222 22220000 11111111 22222222
@@ -22,6 +24,7 @@ static uint8_t colup1Buffer[192];
 static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 12, 12, 10, 10, 12, 12, 12, 10, 6, 7, 8, 9 };
 #define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
 void setPF(int x, int y);
+void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
 
 int elf_main(uint32_t* args)
 {
@@ -133,6 +136,13 @@ int elf_main(uint32_t* args)
 			colup1Buffer[i + 19] = FanChasisColu[i];
 		}
 
+		// Banana
+		for (int i = 0; i < sizeof(BonusBananaGraphics)/sizeof(BonusBananaGraphics[0]); i++)
+		{
+			grp1Buffer[i + 50] = BonusBananaGraphics[i];
+			colup1Buffer[i + 50] = BonusBananaColu[i];
+		}
+
 		vcsEndOverblank();
 		vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC);
 		
@@ -195,7 +205,7 @@ int elf_main(uint32_t* args)
 		}
 
 		// Fan region
-		while (line < 64)
+		while (line < 48)
 		{
 			vcsSta3(HMOVE);
 			vcsJmp3();
@@ -214,6 +224,9 @@ int elf_main(uint32_t* args)
 			vcsSta3(WSYNC);
 			line++;
 		}
+		DrawFlyRegion(&line, 12, 20, 3, frame & 1);
+		DrawFlyRegion(&line, 12, 80, 3, frame & 1);
+
 		// Level 1 - Wide bed
 		while (line < 128)
 		{
@@ -300,3 +313,67 @@ __     HHH                           HHH
 
 
 */
+
+// x must be 0-159
+void PositionBall(int line, int x)
+{
+	vcsSta3(HMOVE);
+	if (x < 11) {
+		vcsSta3(RESBL);
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsWrite5(GRP1, grp1Buffer[line]);
+		vcsNop2n(15);
+		vcsSta3(HMCLR);
+		vcsWrite5(HMBL, ((x + 3) ^ 0x07) << 4);
+	}
+	else if (x < 146) {
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsWrite5(GRP1, grp1Buffer[line]);
+		vcsNop2n(4);
+		while (x > 26) {
+			vcsWrite5(GRP0, grp0Buffer[line]);
+			x -= 15;
+		}
+		vcsSta3(HMCLR);
+		vcsSta3(RESBL);
+		vcsWrite5(HMBL, ((x - 11) ^ 0x07) << 4);
+	}
+	else {
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsWrite5(GRP1, grp1Buffer[line]);
+		vcsNop2n(21);
+		vcsJmp3();
+		vcsJmp3();
+		vcsSta3(HMCLR);
+		vcsWrite5(HMBL, ((x - 146) ^ 0x07) << 4);
+		vcsSta3(RESBL);
+	}
+	vcsSta3(WSYNC);
+}
+
+void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame) {
+	PositionBall(*line, fly_x);
+	*line+=1;
+	for (int i = 1; i < height; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsWrite5(GRP0, grp0Buffer[*line]);
+		vcsWrite5(GRP1, grp1Buffer[*line]);
+		vcsWrite5(COLUP1, colup1Buffer[*line]);
+		if (i < fly_y) {
+			vcsWrite5(COLUPF, fly_frame ? ColuFlyBody : ColuFlyWing);
+		}
+		else if (i == fly_y) {
+			vcsWrite5(ENABL, 2);
+		}
+		else if (i == fly_y + 1) {
+			vcsWrite5(COLUPF, ColuFlyBody);
+		}
+		else {
+			vcsWrite5(ENABL, 0);
+		}
+		if (i == 1) vcsSta3(HMCLR); else vcsJmp3();
+		vcsSta3(WSYNC);
+		*line += 1;
+	}
+}

@@ -14,7 +14,6 @@ def parse_palette(png_name):
 	pixel_width = width // 8
 	pixel_height = height // 16
 	planes = info['planes']
-	print(width, height, pixel_width, pixel_height, planes)
 	pixel_y = 0
 	palette = []
 	for row in rows:
@@ -101,7 +100,6 @@ def parse_sprite_strip(f_header, f_source, png_name, item_name, item_width, item
 
 
 parse_palette('palette.png')
-print(len(palette))
 
 f_header = open('sprites.h', 'wt')
 f_header.write('#include <stdint.h>\r\n')
@@ -122,3 +120,4 @@ parse_sprite_strip(f_header, f_source, 'pf-fan-blade-animation.png', 'FanBlade',
 parse_sprite_strip(f_header, f_source, 'player-2-cycle-walk.png', 'MonkeyWalking', 8, 12, 2, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'player-bed-idle.png', 'MonkeyIdle', 8, 12, 1, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'fan-chasis.png', 'FanChasis', 8, 28, 1, 1, 1, 0, 0, (195,195,195))
+parse_sprite_strip(f_header, f_source, 'bonus-banana.png', 'BonusBanana', 8, 13, 1, 1, 1, 0, 0, (0,0,0))

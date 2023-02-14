@@ -26,13 +26,30 @@ static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 12, 12, 10, 10, 12, 12, 12, 10
 void setPF(int x, int y);
 void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
 
+//        x x x
+//       x     x
+//      x       x  
+//       x     x
+//        x   x
+//          x
+//        x   x
+//      x       x
+//   x             x  
+//x                   x  
+static const int8_t Fly_Loop_X[] = { 1,1,1, 1,1,1, 1,1, 1,1 ,1,1 ,1,0, 1,0, -1,0, -1,0, -1,0,-1,0,-1,0, -1,0, -1,0, 1,0, 1,0, 1,1, 1,1 ,1,1, 1,1,1, 1,1,1, 1,1,1,1,1 };
+static const int8_t Fly_Loop_Y[] = {-1,-1,0,-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, -1,-1, -1,-1,  0,0, 0,0, 0,0,  1,1,  1,1, 1,1, 1,1, 1,1, 1,1, 1,1, 1,1,0, 1,1,0, 0,0,0,0,0 };
+static const int8_t Fly_Wave_Y[] = { 0,0,1, 0,0,1, 0,1, 1, 1, 0,1, 0,0,1, 0,0,1, 0,0,0,0,0, 0,0,-1, 0,0,-1, 0,-1, -1, -1, 0,-1, 0,0,-1, 0,0,-1, 0,0,0,0,0 };
 int elf_main(uint32_t* args)
 {
 	int p0x = 0;
 	int fly_top_x = 20;
-	int fly_bot_x = 40;
+	int fly_top_y = 2;
+	int fly_top_index = 0;
+	int fly_bot_x = 8;
+	int fly_bot_y = 20;
 	int frame = 0;
 	int fanFrame = 0;
+	int fly_loop_index = 0;
 	// Always reset PC first, cause it's going to be close to the end of the 6507 address space
 	vcsJmp3();
 
@@ -101,11 +118,22 @@ int elf_main(uint32_t* args)
 		fly_top_x -= 1;
 		if (fly_top_x < 0)
 			fly_top_x = 159;
+		fly_top_y += Fly_Wave_Y[fly_top_index];
+		fly_top_index++;
+		if (fly_top_index > sizeof(Fly_Wave_Y))
+			fly_top_index = 0;
 
-		fly_bot_x++;
-		if (fly_bot_x > 159)
-			fly_bot_x = 0;
-
+		if ((frame & 0) == 0) {
+			fly_bot_x += Fly_Loop_X[fly_loop_index];
+			fly_bot_y+= Fly_Loop_Y[fly_loop_index];
+			fly_loop_index += 1;
+			if (fly_loop_index >= sizeof(Fly_Loop_X))
+				fly_loop_index = 0;
+			if (fly_bot_x > 159)
+				fly_bot_x -= 160;
+			if (fly_bot_x < 0)
+				fly_bot_x += 160;
+		}
 
 		// Fan blade test
 		if ((frame++ & 3) == 0) {
@@ -235,8 +263,8 @@ int elf_main(uint32_t* args)
 			vcsSta3(WSYNC);
 			line++;
 		}
-		DrawFlyRegion(&line, 12, fly_top_x, fanFrame+3, frame & 1);
-		DrawFlyRegion(&line, 12, fly_bot_x, 9- fanFrame, frame & 1);
+		DrawFlyRegion(&line, 14, fly_top_x, fly_top_y, frame & 1);
+		DrawFlyRegion(&line, 24, fly_bot_x, fly_bot_y, frame & 1);
 
 		// Level 1 - Wide bed
 		while (line < 128)

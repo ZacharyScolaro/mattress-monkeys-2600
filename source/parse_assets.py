@@ -121,3 +121,4 @@ parse_sprite_strip(f_header, f_source, 'player-2-cycle-walk.png', 'MonkeyWalking
 parse_sprite_strip(f_header, f_source, 'player-bed-idle.png', 'MonkeyIdle', 8, 12, 1, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'fan-chasis.png', 'FanChasis', 8, 28, 1, 1, 1, 0, 0, (195,195,195))
 parse_sprite_strip(f_header, f_source, 'bonus-banana.png', 'BonusBanana', 8, 13, 1, 1, 1, 0, 0, (0,0,0))
+parse_sprite_strip(f_header, f_source, 'headboard-wide.png', 'HeadBoardWide', 40, 24, 1, 1, 1, 0, 0, (0,0,0))

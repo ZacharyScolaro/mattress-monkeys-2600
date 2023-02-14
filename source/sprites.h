@@ -21,3 +21,7 @@ extern const uint8_t FanChasisColu[28];
 extern const uint8_t BonusBananaGraphics[13];
 
 extern const uint8_t BonusBananaColu[13];
+
+extern const uint8_t HeadBoardWideGraphics[120];
+
+extern const uint8_t HeadBoardWideColu[24];

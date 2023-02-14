@@ -4,11 +4,14 @@
 #include <stdbool.h>
 
 #define ColuBkScore 0x00
-#define ColuBkCeiling 0x0f
-#define ColuBkWall 0x64
-#define ColuBkSheet 0xda
+#define ColuCeiling 0x0f
+#define ColuWall 0x64
+#define ColuSheet 0xda
+#define ColuMattress 0xd4
 #define ColuFlyWing 0x0e
 #define ColuFlyBody 0x02
+#define ColuPillow 0x0f
+#define ColuBedPost 0xe2
 
 __attribute__((section(".noinit")))
 static uint8_t playfieldBuffer[192*5]; // 00001111 11112222 22220000 11111111 22222222
@@ -25,6 +28,7 @@ static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 12, 12, 10, 10, 12, 12, 12, 10
 #define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
 void setPF(int x, int y);
 void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
+void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
 
 //        x x x
 //       x     x
@@ -67,43 +71,19 @@ int elf_main(uint32_t* args)
 	{
 		playfieldBuffer[i] = 0;
 	}
-	//// Draw a diagnol line for testing
-	//uint8_t pf = 0x80;
-	//int k = 0;
-	//for (int i = 0; i < 40; i++)
-	//{
-	//	for (int j = 0; j < 4; j++)
-	//	{
-	//		playfieldBuffer[i * 20 + j * 5 + k] = pf;
-	//	}
-	//	pf >>= 1;
-	//	if (!pf) {
-	//		pf = 0x80;
-	//		k++;
-	//	}
-	//}
-	// Draw place holders for wobble
-	for (int i = 1; i < 3; i++)
-	{
-		int right = 36 - (i * 3);
-		int left = right - 32 + (i * 6);
-		for (int j = 0; j < 16; j++)
-		{
-			for (int k = 0; k <= j; k++)
-			{
-				setPF(right-k, j + 48 + (i * 64));
-				setPF(left+k, j + 48 + (i * 64));
-			}
-		}
-	}
 	// Init PF colors
 	for (int i = 0; i < 64; i++)
 	{
-		colupfBuffer[i] = 0x00;
+		colupfBuffer[i] = 0;
 	}
-	for (int i = 64; i < sizeof(colupfBuffer) / sizeof(colupfBuffer[0]); i++)
+	// Headboard
+	for (int i = 0; i < 24; i++)
 	{
-		colupfBuffer[i] = i;
+		for (int j = 0; j < 5; j++)
+		{
+			playfieldBuffer[((88 + i) * 5) + j] = HeadBoardWideGraphics[(i * 5) + j];
+		}
+		colupfBuffer[(88 + i)] = HeadBoardWideColu[i];
 	}
 
 	// Render loop
@@ -114,7 +94,7 @@ int elf_main(uint32_t* args)
 		p0x++;
 		if (p0x > 159)
 			p0x = 0;
-
+		p0x = 100;
 		fly_top_x -= 1;
 		if (fly_top_x < 0)
 			fly_top_x = 159;
@@ -151,17 +131,17 @@ int elf_main(uint32_t* args)
 		}
 
 		// Monkey Walking Test
-		for (int i = 0; i < 12; i++)
-		{
-			for (int j = 0; j < 12; j++)
-			{
-				grp0Buffer[i * 16 + j] = MonkeyWalkingGraphics[(frame >> 3) & 1][j];
-			}
-		}
+		//for (int i = 0; i < 16; i++)
+		//{
+		//	for (int j = 0; j < 12; j++)
+		//	{
+		//		grp0Buffer[i * 12 + j] = MonkeyWalkingGraphics[(frame >> 3) & 1][j];
+		//	}
+		//}
 		// Monkey Idle Test
 		for (int j = 0; j < 12; j++)
 		{
-			grp0Buffer[2 * 16 + j] = MonkeyIdleGraphics[j];
+			grp0Buffer[120 + j] = MonkeyIdleGraphics[j];
 		}
 
 		//Fan Chasis
@@ -190,11 +170,11 @@ int elf_main(uint32_t* args)
 		vcsSta3(WSYNC);
 		int line = 19;
 		vcsSta3(HMOVE);
-		vcsWrite5(COLUPF, ColuBkCeiling); // Disable PF for this line and next
-		vcsWrite5(COLUBK, ColuBkCeiling);
+		vcsWrite5(COLUPF, ColuCeiling); // Disable PF for this line and next
+		vcsWrite5(COLUBK, ColuCeiling);
 		vcsWrite5(COLUP0, 0xe8);
 		vcsWrite5(NUSIZ0, 0);
-		vcsWrite5(NUSIZ1, 0);
+		vcsWrite5(NUSIZ1, 0x30);
 		vcsSta3(HMCLR);
 		vcsNop2n(3);
 		vcsWrite5(HMP1, 0x20);
@@ -212,14 +192,14 @@ int elf_main(uint32_t* args)
 			if (x < 11) {
 				vcsSta3(RESP0);
 				vcsWrite5(GRP1, grp1Buffer[line]);
-				vcsWrite5(COLUBK, ColuBkWall);
+				vcsWrite5(COLUBK, ColuWall);
 				vcsNop2n(15);
 				vcsSta3(HMCLR);
 				vcsWrite5(HMP0, ((x + 3) ^ 0x07) << 4);
 			}
 			else if (x < 146) {
 				vcsWrite5(GRP1, grp1Buffer[line]);
-				vcsWrite5(COLUBK, ColuBkWall);
+				vcsWrite5(COLUBK, ColuWall);
 				vcsNop2n(4);
 				while (x > 26) {
 					vcsWrite5(GRP0, 0x00);
@@ -231,7 +211,7 @@ int elf_main(uint32_t* args)
 			}
 			else {
 				vcsWrite5(GRP0, 0x00);
-				vcsWrite5(COLUBK, ColuBkWall);
+				vcsWrite5(COLUBK, ColuWall);
 				vcsWrite5(GRP1, grp1Buffer[line]);
 				vcsNop2n(20);
 				vcsJmp3();
@@ -266,15 +246,117 @@ int elf_main(uint32_t* args)
 		DrawFlyRegion(&line, 14, fly_top_x, fly_top_y, frame & 1);
 		DrawFlyRegion(&line, 24, fly_bot_x, fly_bot_y, frame & 1);
 
+		PositionObject(line++, 132, RESPONE, HMP1);
+		PositionObject(line++, 25, RESM1, HMM1);
+
 		// Level 1 - Wide bed
-		while (line < 128)
+		// Headboard
+		for (int i = 0; i < 24; i++)
 		{
 			vcsSta3(HMOVE);
 			vcsWrite5(COLUPF, colupfBuffer[line]);
 			vcsWrite5(GRP0, grp0Buffer[line]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
 			vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
-			vcsWrite5(COLUBK, ColuBkSheet);
+			vcsWrite5(COLUBK, ColuWall);
+			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
+			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
+			vcsWrite6(PF1, playfieldBuffer[line * 5 + 3]);
+			vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
+			if (i < 23)
+			{
+				vcsJmp3();
+				vcsWrite5(COLUP1, ColuWall);
+				vcsSta3(HMCLR);
+				vcsWrite5(VDELP1, 0xff);
+			}
+			else
+			{
+				vcsWrite5(HMP1, 0xf0);
+				vcsWrite5(HMM1, 0x10);
+				vcsWrite5(GRP1, 0xff);
+				vcsWrite5(ENAM1, 0xff);
+			}
+			vcsSta3(WSYNC);
+			line++;
+		}
+
+		// 4 lines of pillow and wall
+		// 4 lines of sheet and wall
+		for (int i = 0; i < 8; i++)
+		{
+			vcsSta3(HMOVE);
+			vcsWrite5(COLUPF, i < 4 ? ColuPillow : ColuSheet);
+			vcsWrite5(GRP0, grp0Buffer[line]);
+			vcsWrite5(PF0, 0);
+			vcsWrite5(PF1, i < 4 ? 0x3f : 0x7f);
+			vcsWrite5(COLUBK, ColuWall);
+			vcsWrite5(PF2, 0xff);
+			vcsWrite5(CTRLPF, 1);
+			if (i == 7)
+			{
+				vcsNop2n(15);
+				vcsWrite5(CTRLPF, 0x05);
+			}
+			vcsSta3(WSYNC);
+			line++;
+		}
+		// 4 lines of post, wall, and sheet
+		for (int i = 0; i < 4; i++)
+		{
+			vcsSta3(HMOVE);
+			vcsWrite5(COLUPF, HeadBoardWideColu[0]);
+			vcsWrite5(GRP0, grp0Buffer[line]);
+			vcsWrite5(PF0, 0xff);
+			vcsWrite5(PF1, 0x80);
+			vcsWrite5(COLUBK, ColuSheet);
+			vcsWrite5(PF2, 0x00);
+			vcsJmp3();
+			vcsWrite5(PF1, 0x00);
+			if (i == 3)
+			{
+				vcsNop2n(12);
+				vcsWrite5(ENAM1, 0);
+				vcsSta3(GRP1);
+			}
+			vcsSta3(WSYNC);
+			line++;
+		}
+		// 4 lines of post and sheet
+		for (int i = 0; i < 4; i++)
+		{
+			vcsSta3(HMOVE);
+			vcsWrite5(COLUPF, ColuBedPost);
+			vcsWrite5(GRP0, grp0Buffer[line]);
+			vcsWrite5(PF0, 0xff);
+			vcsWrite5(PF1, 0x80);
+			vcsWrite5(COLUBK, ColuSheet);
+			vcsWrite5(PF2, 0x00);
+			vcsJmp3();
+			vcsWrite5(PF1, 0x00);
+			if (i < 3) {
+				vcsSta3(WSYNC);
+			}
+			else {
+				vcsNop2n(15);
+				vcsWrite5(COLUBK, ColuBedPost);
+			}
+			line++;
+		}
+		for (int i = 0; line < 192; i++)
+		{
+			vcsSta3(HMOVE);
+			if (i == 0)
+			{
+				vcsWrite5(COLUPF, ColuSheet);
+			}
+			else {
+				vcsWrite5(CTRLPF, 0);
+			}
+			vcsWrite5(GRP0, grp0Buffer[line]);
+			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
+			vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
+			vcsWrite5(COLUBK, i < 4 ? ColuSheet : ColuMattress);
 			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
 			vcsWrite6(PF1, playfieldBuffer[line * 5 + 3]);
@@ -282,20 +364,20 @@ int elf_main(uint32_t* args)
 			vcsJmp3();
 			vcsJmp3();
 			vcsNop2n(6);
-			vcsWrite5(COLUBK, 0xe2);
+			vcsWrite5(COLUBK, ColuBedPost);
 			vcsSta3(WSYNC);
 			line++;
 		}
 		// Level 2 Medium bed
-		while (line < 160)
+		while (line < 192)
 		{
 			vcsSta3(HMOVE);
 			vcsWrite5(COLUPF, colupfBuffer[line]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
 			vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
 			vcsJmp3();
-			vcsLdx2(ColuBkSheet);
-			vcsWrite5(COLUBK, 0xe2);
+			vcsLdx2(ColuSheet);
+			vcsWrite5(COLUBK, ColuBedPost);
 			vcsStx4(COLUBK);
 			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
@@ -303,8 +385,8 @@ int elf_main(uint32_t* args)
 			vcsJmp3();
 			vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
 			vcsNop2n(3);
-			vcsLdx2(ColuBkWall);
-			vcsWrite5(COLUBK, 0xe2);
+			vcsLdx2(ColuWall);
+			vcsWrite5(COLUBK, ColuBedPost);
 			vcsStx4(COLUBK);
 			vcsSta3(WSYNC);
 			line++;
@@ -317,16 +399,16 @@ int elf_main(uint32_t* args)
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
 			vcsWrite6(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
 			vcsWrite6(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
-			vcsLdx2(ColuBkSheet);
-			vcsWrite5(COLUBK, 0xe2);
+			vcsLdx2(ColuSheet);
+			vcsWrite5(COLUBK, ColuBedPost);
 			vcsStx4(COLUBK);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
 			vcsWrite5(PF1, playfieldBuffer[line * 5 + 3]);
 			vcsJmp3();
 			vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
 			vcsJmp3();
-			vcsLdx2(ColuBkWall);
-			vcsWrite5(COLUBK, 0xe2);
+			vcsLdx2(ColuWall);
+			vcsWrite5(COLUBK, ColuBedPost);
 			vcsStx4(COLUBK);
 			vcsSta3(WSYNC);
 			line++;
@@ -354,16 +436,16 @@ __     HHH                           HHH
 */
 
 // x must be 0-159
-void PositionBall(int line, int x)
+void PositionObject(int line, int x, uint8_t resp, uint8_t hm)
 {
 	vcsSta3(HMOVE);
 	if (x < 11) {
-		vcsSta3(RESBL);
+		vcsSta3(resp);
 		vcsWrite5(GRP0, grp0Buffer[line]);
 		vcsWrite5(GRP1, grp1Buffer[line]);
 		vcsNop2n(15);
 		vcsSta3(HMCLR);
-		vcsWrite5(HMBL, ((x + 3) ^ 0x07) << 4);
+		vcsWrite5(hm, ((x + 3) ^ 0x07) << 4);
 	}
 	else if (x < 146) {
 		vcsWrite5(GRP0, grp0Buffer[line]);
@@ -374,8 +456,8 @@ void PositionBall(int line, int x)
 			x -= 15;
 		}
 		vcsSta3(HMCLR);
-		vcsSta3(RESBL);
-		vcsWrite5(HMBL, ((x - 11) ^ 0x07) << 4);
+		vcsSta3(resp);
+		vcsWrite5(hm, ((x - 11) ^ 0x07) << 4);
 	}
 	else {
 		vcsWrite5(GRP0, grp0Buffer[line]);
@@ -384,14 +466,14 @@ void PositionBall(int line, int x)
 		vcsJmp3();
 		vcsJmp3();
 		vcsSta3(HMCLR);
-		vcsWrite5(HMBL, ((x - 146) ^ 0x07) << 4);
-		vcsSta3(RESBL);
+		vcsWrite5(hm, ((x - 146) ^ 0x07) << 4);
+		vcsSta3(resp);
 	}
 	vcsSta3(WSYNC);
 }
 
 void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame) {
-	PositionBall(*line, fly_x);
+	PositionObject(*line, fly_x, RESBL, HMBL);
 	*line+=1;
 	for (int i = 1; i < height; i++)
 	{

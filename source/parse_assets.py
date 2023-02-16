@@ -97,7 +97,25 @@ def parse_sprite_strip(f_header, f_source, png_name, item_name, item_width, item
 		f_source.write(', '.join(color_bytes))
 		f_source.write(' };\r\n')
 
+def generate_sine_tables(f_header, f_source):
+	item_count = 17
+	f_header.write('\r\nextern const uint8_t SineTables[17][80];\r\n')
+	f_source.write('\r\nconst uint8_t SineTables[17][80] = { ')
+	for x in range(0, item_count):
+		heights = generate_sine_wave(x)
+		if item_count > 1:
+			f_source.write('\r\n{ ')
+		f_source.write(', '.join(heights))
+		if item_count > 1:
+			f_source.write(' }' + ('' if x == item_count-1 else ',') +'\r\n')
+	f_source.write(' };\r\n')
 
+
+def generate_sine_wave(height):
+	heights = []
+	for x in range(0,80):
+	    heights.append(str(int(math.sin((x * math.pi)/10) * height) + 17))
+	return heights
 
 parse_palette('palette.png')
 
@@ -122,3 +140,5 @@ parse_sprite_strip(f_header, f_source, 'player-bed-idle.png', 'MonkeyIdle', 8, 1
 parse_sprite_strip(f_header, f_source, 'fan-chasis.png', 'FanChasis', 8, 28, 1, 1, 1, 0, 0, (195,195,195))
 parse_sprite_strip(f_header, f_source, 'bonus-banana.png', 'BonusBanana', 8, 13, 1, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'headboard-king.png', 'HeadBoardWide', 40, 40, 1, 1, 1, 0, 0, (0,0,0))
+
+generate_sine_tables(f_header, f_source)

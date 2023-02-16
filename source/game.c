@@ -44,6 +44,8 @@ void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
 static const int8_t Fly_Loop_X[] = { 1,1,1, 1,1,1, 1,1, 1,1 ,1,1 ,1,0, 1,0, -1,0, -1,0, -1,0,-1,0,-1,0, -1,0, -1,0, 1,0, 1,0, 1,1, 1,1 ,1,1, 1,1,1, 1,1,1, 1,1,1,1,1 };
 static const int8_t Fly_Loop_Y[] = {-1,-1,0,-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, -1,-1, -1,-1,  0,0, 0,0, 0,0,  1,1,  1,1, 1,1, 1,1, 1,1, 1,1, 1,1, 1,1,0, 1,1,0, 0,0,0,0,0 };
 static const int8_t Fly_Wave_Y[] = { 0,0,1, 0,0,1, 0,1, 1, 1, 0,1, 0,0,1, 0,0,1, 0,0,0,0,0, 0,0,-1, 0,0,-1, 0,-1, -1, -1, 0,-1, 0,0,-1, 0,0,-1, 0,0,0,0,0 };
+static const int8_t Sine_Indexes[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, };
+
 int elf_main(uint32_t* args)
 {
 	int p0x = 0;
@@ -86,6 +88,7 @@ int elf_main(uint32_t* args)
 			playfieldBuffer[((88 + i) * 5) + j] = HeadBoardWideGraphics[(i * 5) + j];
 		}
 	}
+
 
 	// Render loop
 	while (true) {
@@ -142,8 +145,8 @@ int elf_main(uint32_t* args)
 		// Monkey Idle Test
 		for (int j = 0; j < 12; j++)
 		{
-			grp0Buffer[150 + j] = MonkeyIdleGraphics[j];
-			grp1Buffer[150 + j] = MonkeyWalkingGraphics[fanFrame & 1][j];
+			grp0Buffer[147 + 16 + j] = MonkeyIdleGraphics[j];
+			grp1Buffer[147 + 16 + j] = MonkeyWalkingGraphics[0][j]; //147-180
 		}
 
 		//Fan Chasis
@@ -162,6 +165,19 @@ int elf_main(uint32_t* args)
 		{
 			grp1Buffer[i + 50] = BonusBananaGraphics[i];
 			colup1Buffer[i + 50] = BonusBananaColu[i];
+		}
+
+		for (int i = 159*5; i < sizeof(playfieldBuffer); i++)
+		{
+			playfieldBuffer[i] = 0;
+		}
+		// Mattress
+		for (int i = 4; i < 37; i++)
+		{
+			for (int j = 0; j <= SineTables[Sine_Indexes[frame & 0x1f]][i + (frame & 0x20 ? 10 : 0) + ((frame & 0x3c0) >> 6)]; j++)
+			{
+				setPF(i, 192 - j);
+			}
 		}
 
 		vcsEndOverblank();
@@ -389,7 +405,7 @@ int elf_main(uint32_t* args)
 			vcsSta3(HMOVE);
 			if (i == 0)
 			{
-				vcsWrite5(COLUPF, ColuSheet);
+				vcsWrite5(COLUPF, ColuMattress);
 			}
 			else {
 				vcsWrite5(CTRLPF, 0);
@@ -397,7 +413,7 @@ int elf_main(uint32_t* args)
 			vcsWrite5(GRP0, grp0Buffer[line]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
 			vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
-			vcsWrite5(COLUBK, i < 4 ? ColuSheet : ColuMattress);
+			vcsWrite5(COLUBK, ColuSheet);
 			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
 			vcsWrite6(PF1, playfieldBuffer[line * 5 + 3]);

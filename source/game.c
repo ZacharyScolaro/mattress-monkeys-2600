@@ -11,6 +11,7 @@
 #define ColuFlyWing 0x0e
 #define ColuFlyBody 0x02
 #define ColuPillow 0x0f
+#define ColuHeadboard 0xe6
 #define ColuBedPost 0xe2
 
 __attribute__((section(".noinit")))
@@ -78,13 +79,12 @@ int elf_main(uint32_t* args)
 		colupfBuffer[i] = 0;
 	}
 	// Headboard
-	for (int i = 0; i < 24; i++)
+	for (int i = 0; i < 40; i++)
 	{
 		for (int j = 0; j < 5; j++)
 		{
 			playfieldBuffer[((88 + i) * 5) + j] = HeadBoardWideGraphics[(i * 5) + j];
 		}
-		colupfBuffer[(88 + i)] = HeadBoardWideColu[i];
 	}
 
 	// Render loop
@@ -142,8 +142,8 @@ int elf_main(uint32_t* args)
 		// Monkey Idle Test
 		for (int j = 0; j < 12; j++)
 		{
-			grp0Buffer[140 + j] = MonkeyIdleGraphics[j];
-			grp1Buffer[140 + j] = MonkeyWalkingGraphics[fanFrame & 1][j];
+			grp0Buffer[150 + j] = MonkeyIdleGraphics[j];
+			grp1Buffer[150 + j] = MonkeyWalkingGraphics[fanFrame & 1][j];
 		}
 
 		//Fan Chasis
@@ -253,10 +253,10 @@ int elf_main(uint32_t* args)
 
 		// Level 1 - Wide bed
 		// Headboard
-		for (int i = 0; i < 24; i++)
+		for (int i = 0; i < 40; i++)
 		{
 			vcsSta3(HMOVE);
-			vcsWrite5(COLUPF, colupfBuffer[line]);
+			vcsWrite5(COLUPF, ColuHeadboard);
 			vcsWrite5(GRP0, grp0Buffer[line]);
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
 			vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
@@ -265,7 +265,7 @@ int elf_main(uint32_t* args)
 			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
 			vcsWrite6(PF1, playfieldBuffer[line * 5 + 3]);
 			vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
-			if (i < 23)
+			if (i < 39)
 			{
 				vcsJmp3();
 				vcsWrite5(COLUP1, ColuWall);
@@ -307,7 +307,7 @@ int elf_main(uint32_t* args)
 		for (int i = 0; i < 4; i++)
 		{
 			vcsSta3(HMOVE);
-			vcsWrite5(COLUPF, HeadBoardWideColu[0]);
+			vcsWrite5(COLUPF, ColuHeadboard);
 			vcsWrite5(GRP0, grp0Buffer[line]);
 			vcsWrite5(PF0, 0xff);
 			vcsWrite5(PF1, 0x80);

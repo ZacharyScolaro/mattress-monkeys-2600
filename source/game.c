@@ -46,6 +46,7 @@ static const int8_t Fly_Wave_Y[] = { 0,0,1, 0,0,1, 0,1, 1, 1, 0,1, 0,0,1, 0,0,1,
 int elf_main(uint32_t* args)
 {
 	int p0x = 0;
+	int p1x = 30;
 	int fly_top_x = 20;
 	int fly_top_y = 2;
 	int fly_top_index = 0;
@@ -94,7 +95,7 @@ int elf_main(uint32_t* args)
 		p0x++;
 		if (p0x > 159)
 			p0x = 0;
-		p0x = 100;
+		p0x = 139;
 		fly_top_x -= 1;
 		if (fly_top_x < 0)
 			fly_top_x = 159;
@@ -141,11 +142,12 @@ int elf_main(uint32_t* args)
 		// Monkey Idle Test
 		for (int j = 0; j < 12; j++)
 		{
-			grp0Buffer[120 + j] = MonkeyIdleGraphics[j];
+			grp0Buffer[140 + j] = MonkeyIdleGraphics[j];
+			grp1Buffer[140 + j] = MonkeyWalkingGraphics[fanFrame & 1][j];
 		}
 
 		//Fan Chasis
-		for (int i = 0; i < 192; i++)
+		for (int i = 0; i < 64; i++)
 		{
 			grp1Buffer[i] = 0;
 		}
@@ -334,15 +336,54 @@ int elf_main(uint32_t* args)
 			vcsWrite5(PF2, 0x00);
 			vcsJmp3();
 			vcsWrite5(PF1, 0x00);
-			if (i < 3) {
-				vcsSta3(WSYNC);
-			}
-			else {
-				vcsNop2n(15);
-				vcsWrite5(COLUBK, ColuBedPost);
-			}
+			vcsSta3(WSYNC);
 			line++;
 		}
+
+		// Position Second Monkey while drawing matress and bed posts with COLUBK
+		int x = p1x;
+		vcsSta3(HMOVE);
+		if (x < 80) {
+			vcsWrite5(GRP0, grp0Buffer[line]);
+			vcsWrite5(PF0, 0xff);
+			vcsNop2n(4);
+			while (x > 26) {
+				vcsWrite5(PF0, 0xff);
+				x -= 15;
+			}
+			vcsSta3(HMCLR);
+			vcsSta3(RESPONE);
+			vcsWrite5(HMP1, ((x - 11) ^ 0x07) << 4);
+			vcsWrite5(PF0, 0x70);
+		}
+		else {
+			vcsWrite5(GRP0, grp0Buffer[line]);
+			vcsWrite5(PF0, 0xff);
+			vcsNop2n(9);
+			x -= 30;
+			while (x > 26) {
+				vcsWrite5(PF0, 0x70);
+				x -= 15;
+			}
+			vcsSta3(HMCLR);
+			vcsSta3(RESPONE);
+			vcsWrite5(HMP1, ((x - 11) ^ 0x07) << 4);
+		}
+			
+		vcsSta3(WSYNC);
+		line++;
+
+		vcsSta3(HMOVE);
+		vcsWrite5(PF0, 0xff);
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsNop2n(22);
+		vcsWrite5(PF0, 0x70);
+		vcsSta3(HMCLR);
+		vcsJmp3();
+		vcsJmp3();
+		vcsWrite5(COLUBK, ColuBedPost);
+		line++;
+
 		for (int i = 0; line < 192; i++)
 		{
 			vcsSta3(HMOVE);
@@ -363,7 +404,9 @@ int elf_main(uint32_t* args)
 			vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
 			vcsJmp3();
 			vcsJmp3();
-			vcsNop2n(6);
+			vcsSta3(HMCLR);
+			vcsNop2n(2);
+			vcsWrite5(GRP1, grp1Buffer[line+1]);
 			vcsWrite5(COLUBK, ColuBedPost);
 			vcsSta3(WSYNC);
 			line++;

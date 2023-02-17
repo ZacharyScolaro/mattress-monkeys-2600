@@ -26,4 +26,4 @@ extern const uint8_t HeadBoardWideGraphics[200];
 
 extern const uint8_t HeadBoardWideColu[40];
 
-extern const uint8_t SineTables[17][80];
+extern const uint8_t SineTables[32][80];

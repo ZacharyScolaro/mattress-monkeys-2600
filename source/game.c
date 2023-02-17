@@ -45,7 +45,6 @@ void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
 static const int8_t Fly_Loop_X[] = { 1,1,1, 1,1,1, 1,1, 1,1 ,1,1 ,1,0, 1,0, -1,0, -1,0, -1,0,-1,0,-1,0, -1,0, -1,0, 1,0, 1,0, 1,1, 1,1 ,1,1, 1,1,1, 1,1,1, 1,1,1,1,1 };
 static const int8_t Fly_Loop_Y[] = {-1,-1,0,-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, -1,-1, -1,-1,  0,0, 0,0, 0,0,  1,1,  1,1, 1,1, 1,1, 1,1, 1,1, 1,1, 1,1,0, 1,1,0, 0,0,0,0,0 };
 static const int8_t Fly_Wave_Y[] = { 0,0,1, 0,0,1, 0,1, 1, 1, 0,1, 0,0,1, 0,0,1, 0,0,0,0,0, 0,0,-1, 0,0,-1, 0,-1, -1, -1, 0,-1, 0,0,-1, 0,0,-1, 0,0,0,0,0 };
-static const int8_t Sine_Indexes[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, };
 
 int elf_main(uint32_t* args)
 {
@@ -78,10 +77,12 @@ int elf_main(uint32_t* args)
 	{
 		playfieldBuffer[i] = 0;
 	}
-	// Init PF colors
-	for (int i = 0; i < 64; i++)
+	// Init arrays
+	for (int i = 0; i < 192; i++)
 	{
 		colupfBuffer[i] = 0;
+		grp0Buffer[i] = 0;
+		grp1Buffer[i] = 0;
 	}
 
 	// Render loop
@@ -158,18 +159,18 @@ int elf_main(uint32_t* args)
 		// Mattress
 		for (int i = 4; i < 37; i++)
 		{
-			int height = SineTables[Sine_Indexes[frame & 0x1f]][i + (frame & 0x20 ? 10 : 0) + ((frame & 0x3c0) >> 6)];
+			int height = SineTables[frame & 0x1f][i];
 			if (i == p0x/4)
 			{
-				p0y = 162 - height;
+				p0y = 163 - height;
 			}
 			if (i == p1x/4)
 			{
-				p1y = 162 - height;
+				p1y = 163 - height;
 			}
 			for (int j = 0; j <= height; j++)
 			{
-				setPF(i, 174 - j);
+				setPF(i, 175 - j);
 			}
 		}
 		// Monkey Idle Test
@@ -458,10 +459,11 @@ int elf_main(uint32_t* args)
 		}
 
 		DisplayText(ColuBedPost);
-
 		vcsWrite5(VBLANK, 2);
 		uint8_t joysticks = vcsRead4(SWCHA);
+		vcsNop2();
 		uint8_t but0 = vcsRead4(INPT4);
+		vcsNop2();
 		uint8_t but1 = vcsRead4(INPT5);
 		vcsStartOverblank();
 		uint8_t joy = joysticks >> 4;

@@ -30,25 +30,25 @@ void DisplayText(uint8_t colu_background)
 	int frameToggle = frameCount & 1;
 
 	vcsSta3(HMOVE);//	sta HMOVE
-	vcsLda2(0);//	lda #$0
-	vcsSta3(ENAM0);
-	vcsSta3(ENAM1);
-	vcsSta3(ENABL);
-	vcsSta3(VDELP0);
-	vcsSta3(VDELP1);
+	vcsLdx2(0);//	lda #$0
+	vcsStx3(ENAM0);
+	vcsStx3(ENAM1);
+	vcsStx3(ENABL);
+	vcsStx3(GRP0);
+	vcsStx3(GRP1);
 	vcsLda2(colu_background);
 	vcsSta3(COLUPF);
 	vcsSta3(COLUBK);
 	vcsJmp3();
 	if (frameToggle)
 	{
-		vcsNop2n(3);
+		vcsJmp3();
 		vcsWrite5(HMP1, 0xe0);
 	}
 	else
 	{
-		vcsNop2n(2);
-		vcsWrite5(HMP1, 0xf0);
+		vcsLda2(0xf0);
+		vcsSta4(HMP1);
 	}
 	vcsSta4(RESPONE);//	sta RESP1
 	vcsLda2(0x0e);
@@ -57,6 +57,8 @@ void DisplayText(uint8_t colu_background)
 	vcsLda2(3);
 	vcsSta3(NUSIZ0);
 	vcsSta3(NUSIZ1);
+	vcsStx3(VDELP0);
+	vcsStx3(VDELP1);
 	vcsSta3(WSYNC);//	sta WSYNC
 
 	vcsSta3(HMOVE);//	sta HMOVE

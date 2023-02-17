@@ -98,11 +98,11 @@ def parse_sprite_strip(f_header, f_source, png_name, item_name, item_width, item
 		f_source.write(' };\r\n')
 
 def generate_sine_tables(f_header, f_source):
-	item_count = 17
-	f_header.write('\r\nextern const uint8_t SineTables[17][80];\r\n')
-	f_source.write('\r\nconst uint8_t SineTables[17][80] = { ')
+	item_count = 32
+	f_header.write('\r\nextern const uint8_t SineTables[' + str(item_count) + '][80];\r\n')
+	f_source.write('\r\nconst uint8_t SineTables[' + str(item_count) + '][80] = { ')
 	for x in range(0, item_count):
-		heights = generate_sine_wave(x)
+		heights = generate_sine_wave(math.sin((x * 2 * math.pi)/item_count) * 17.5)
 		if item_count > 1:
 			f_source.write('\r\n{ ')
 		f_source.write(', '.join(heights))
@@ -114,7 +114,7 @@ def generate_sine_tables(f_header, f_source):
 def generate_sine_wave(height):
 	heights = []
 	for x in range(0,80):
-	    heights.append(str(int(math.sin((x * math.pi)/10) * height) + 17))
+		heights.append(str(int((math.sin((x * math.pi)/10.0) * height) + 17.5)))
 	return heights
 
 parse_palette('palette.png')

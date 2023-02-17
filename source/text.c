@@ -23,46 +23,48 @@ void PrintScore(const int8_t* ptext)
 	}
 }
 
-void DisplayText()
+void DisplayText(uint8_t colu_background)
 {
 	int RowCount = 1;
 	frameCount++;
 	int frameToggle = frameCount & 1;
 
+	vcsSta3(HMOVE);//	sta HMOVE
 	vcsLda2(0);//	lda #$0
-	vcsSta3(PF0);//	sta PF0
-	vcsSta3(PF1);//	sta PF1
-	vcsSta3(PF2);//	sta PF2
 	vcsSta3(ENAM0);
 	vcsSta3(ENAM1);
 	vcsSta3(ENABL);
 	vcsSta3(VDELP0);
 	vcsSta3(VDELP1);
-	vcsWrite5(COLUBK, 0x00);//	lda #$04//	sta COLUBK
-	vcsWrite5(COLUP0, 0x0e);//	lda #$88//	sta COLUP0
-	vcsWrite5(COLUP1, 0x0e);//	sta COLUP1
-	vcsWrite5(NUSIZ0, 3);
-	vcsWrite5(NUSIZ1, 3);
-
-	vcsSta3(WSYNC);//	sta WSYNC
+	vcsLda2(colu_background);
+	vcsSta3(COLUPF);
+	vcsSta3(COLUBK);
+	vcsJmp3();
 	if (frameToggle)
 	{
-		vcsNop2n(17);
+		vcsNop2n(3);
 		vcsWrite5(HMP1, 0xe0);
 	}
 	else
 	{
-		vcsNop2n(16);
+		vcsNop2n(2);
 		vcsWrite5(HMP1, 0xf0);
 	}
 	vcsSta4(RESPONE);//	sta RESP1
-	vcsSta3(WSYNC);//	sta WSYNC
-	vcsSta3(HMOVE);//	sta HMOVE
+	vcsLda2(0x0e);
+	vcsSta3(COLUP0);
+	vcsSta3(COLUP1);
+	vcsLda2(3);
+	vcsSta3(NUSIZ0);
+	vcsSta3(NUSIZ1);
 	vcsSta3(WSYNC);//	sta WSYNC
 
-	vcsSta3(HMCLR);//	sta HMCLR
+	vcsSta3(HMOVE);//	sta HMOVE
 	vcsJmp3();
-	vcsNop2n(32);
+	vcsJmp3();
+	vcsNop2n(20);
+	vcsSta3(HMCLR);//	sta HMCLR
+	vcsNop2n(9);
 	// Need to position P0 just right in blank lines to avoid it showing up on the next line in the left margin
 	if (frameToggle)
 	{

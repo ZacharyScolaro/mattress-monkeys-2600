@@ -16,6 +16,9 @@
 #define ColuFanBlade 0x02
 
 __attribute__((section(".noinit")))
+static uint8_t bitmap[192 * 80];
+
+__attribute__((section(".noinit")))
 static uint8_t playfieldBuffer[192*5]; // 00001111 11112222 22220000 11111111 22222222
 __attribute__((section(".noinit")))
 static uint8_t colupfBuffer[192];
@@ -27,10 +30,18 @@ __attribute__((section(".noinit")))
 static uint8_t colup1Buffer[192];
 
 static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 12, 12, 10, 10, 12, 12, 12, 10, 6, 7, 8, 9 };
-#define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
+//#define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
 void setPF(int x, int y);
 void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
 void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
+
+
+
+// 7800 mode
+void injectDmaDataWM0(int address, int count, const uint8_t* pBuffer);
+void injectDmaDataWM1(int address, int count, const uint8_t* pBuffer);
+
+static void init_7800();
 
 //        x x x
 //       x     x
@@ -60,6 +71,12 @@ int elf_main(uint32_t* args)
 	int frame = 0;
 	int fanFrame = 0;
 	int fly_loop_index = 0;
+
+	if (args[MP_SYSTEM_TYPE] == ST_NTSC_7800)
+	{
+		init_7800();
+	}
+
 	// Always reset PC first, cause it's going to be close to the end of the 6507 address space
 	vcsJmp3();
 
@@ -569,5 +586,130 @@ void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame) {
 		if (i == 1) vcsSta3(HMCLR); else vcsJmp3();
 		vcsSta3(WSYNC);
 		*line += 1;
+	}
+}
+
+__attribute__((long_call, section(".RamFunc")))
+static void init_7800()
+{
+	for (int i = 0; i < sizeof(kernel_7800); i++) {
+		vcsWrite6((uint16_t)(0x1800 + i), kernel_7800[i]);
+		vcsNop2n(2);
+		vcsJmp3();
+		vcsNop2n(2);
+	}
+
+
+	vcsSta3(0x24);
+
+	vcsWrite5(0x20, 0x1c);
+	vcsWrite5(0x21, 0x72);
+	vcsWrite5(0x22, 0x59);
+	vcsWrite5(0x23, 0xc4);
+	
+	vcsWrite5(0x31, 0xf3);
+	vcsWrite5(0x32, 0x48); //36 aa 73
+	vcsWrite5(0x33, 0x79);
+	
+	vcsWrite5(0x35, 0x36);
+	vcsWrite5(0x36, 0xce);
+	vcsWrite5(0x37, 0xf1);
+	
+	vcsWrite5(0x39, 0xaa);
+	vcsWrite5(0x3A, 0x8e);
+	vcsWrite5(0x3B, 0x31);
+	
+	vcsWrite5(0x3D, 0x73);
+	vcsWrite5(0x3E, 0x44);
+	vcsWrite5(0x3F, 0x55);
+
+
+	vcsJmpToRam3(0x1800);
+
+	//// Test pattern
+	//int color_count = 16;
+	//uint8_t colors[16] = {
+	//	0x00, 0x05, 0x0a, 0x0f,
+	//	0x50, 0x55, 0x5a, 0x5f,
+	//	0xa0, 0xa5, 0xaa, 0xaf,
+	//	0xf0, 0xf5, 0xfa, 0xff,
+	//};
+	//for (int y = 0; y < 192; y++)
+	//{
+	//	for (int x = 0; x < color_count; x+= 1)
+	//	{
+	//		for (int i = 0; i < (80/ color_count); i++)
+	//		{
+	//			bitmap[(y * 80) + (x * (80 / color_count)) + i] = colors[x];
+	//		}
+	//	}
+	//}
+	uint8_t dll[128];
+	uint16_t dma_addr[64];
+	while (1) {
+		// TODO each frame update scrolling, sampled audio, colubk 
+		// To do vertical scrolling we need to dynamically build the DLL
+		int d = 0;
+		int dma_addr_ix = 0;
+		int buffer_height = 192;
+		int vertical_scroll = 10;
+		// Top of buffer shifted to bottom portion of screen
+		for (int i = vertical_scroll; i < buffer_height; i+=7)
+		{
+			int zone_height = 7;
+			int region_remaining = buffer_height - i;
+			if (region_remaining < 7)
+			{
+				zone_height = region_remaining;
+			}
+			dma_addr[dma_addr_ix] = 0x10c0 | ((zone_height - 1) << 8);
+			dll[d++] = zone_height-1;
+			dll[d++] = 0x1a;
+			dll[d++] = 0x00;
+		}
+		// Remaining portion of buffer to top portion of screen
+		for (int i = 0; i < vertical_scroll; i += 7)
+		{
+			int zone_height = 7;
+			int region_remaining = vertical_scroll - i;
+			if (region_remaining < 7)
+			{
+				zone_height = region_remaining;
+			}
+			dma_addr[dma_addr_ix] = 0x10c0 | ((zone_height - 1) << 8);
+			dll[d++] = zone_height - 1;
+			dll[d++] = 0x1a;
+			dll[d++] = 0x00;
+		}
+		// Padd bottom of screen
+		for (int i = 0; i < 5; i++)
+		{
+			dll[d++] = 0x0f;
+			dll[d++] = 0x18;
+			dll[d++] = 0xfa;
+		}
+		// TODO trap control transfer back to ARM
+		vcsWaitForAddress(0x18ff);
+		vcsJmp3();
+		vcsNop2();
+		for (uint16_t i = 0; i < d; i++)
+		{
+			vcsWrite6(0x1906 + i, dll[i]);
+		}
+
+
+		for (int row = 0; row < 192; )
+		{
+			for (int i = dma_addr[dma_addr_ix++]; i > 0x1000; i -= 0x100)
+			{
+				const uint8_t* pRow = bitmap + (row * 80);
+				row++;
+				injectDmaDataWM0(i, 20, pRow);
+				injectDmaDataWM0(i, 20, &(pRow[40]));
+				injectDmaDataWM1(i, 32, pRow);
+				injectDmaDataWM1(i, 32, &(pRow[32]));
+				injectDmaDataWM1(i, 16, &(pRow[64]));
+			}
+		}
 	}
 }

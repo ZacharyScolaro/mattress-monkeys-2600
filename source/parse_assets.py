@@ -117,6 +117,27 @@ def generate_sine_wave(height):
 		heights.append(str(int((math.sin((x * math.pi)/10.0) * height) + 17.5)))
 	return heights
 
+def bin_to_c_array(f_header, f_source, bin_path, array_name):
+	line = []
+	lines = []
+	with open(bin_path, mode='rb') as f:
+		data = f.read()
+		for b in data:
+			line.append('0x{:02x}'.format(b))
+			if len(line) > 15:
+				lines.append(', '.join(line))
+				line = []
+		if len(line) > 0:
+			lines.append(', '.join(line))
+			line = []
+
+	f_header.write('\r\nextern const uint8_t ' + array_name +'['+ str(len(data)) +'];\r\n');
+	
+	f_source.write('\r\nconst uint8_t ' + array_name +'['+ str(len(data)) +'] = {\r\n');
+	f_source.write(',\r\n'.join(lines))
+	f_source.write('};');
+
+
 parse_palette('palette.png')
 
 f_header = open('sprites.h', 'wt')
@@ -142,3 +163,5 @@ parse_sprite_strip(f_header, f_source, 'bonus-banana.png', 'BonusBanana', 8, 13,
 parse_sprite_strip(f_header, f_source, 'headboard-king.png', 'HeadBoardWide', 40, 40, 1, 1, 1, 0, 0, (0,0,0))
 
 generate_sine_tables(f_header, f_source)
+
+bin_to_c_array(f_header, f_source, 'kernel_7800.bin', 'kernel_7800')

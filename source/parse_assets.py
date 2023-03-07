@@ -148,7 +148,7 @@ def init_ttt_typedefs(f_header):
 	f_header.write("""
 
 typedef struct {
-	const uint8_t goto_index;
+	const int8_t goto_index;
 	const uint8_t pattern_index;
 } sequence_t;
 typedef struct {

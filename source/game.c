@@ -1,3 +1,4 @@
+#include "sound.h"
 #include "sprites.h"
 #include "text.h"
 #include "vcsLib.h"
@@ -30,16 +31,16 @@ __attribute__((section(".noinit")))
 static uint8_t colup1Buffer[192];
 
 static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 12, 12, 10, 10, 12, 12, 12, 10, 6, 7, 8, 9 };
-//#define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
 void setPF(int x, int y);
 void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
 void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
 
 
 
-// 7800 mode
-void injectDmaDataWM0(int address, int count, const uint8_t* pBuffer);
-void injectDmaDataWM1(int address, int count, const uint8_t* pBuffer);
+#define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
+//// 7800 mode
+void injectDmaDataWM0(int address, int count, const uint8_t* pBuffer); // {}
+void injectDmaDataWM1(int address, int count, const uint8_t* pBuffer); // {}
 
 static void init_7800();
 
@@ -71,6 +72,11 @@ int elf_main(uint32_t* args)
 	int frame = 0;
 	int fanFrame = 0;
 	int fly_loop_index = 0;
+	track_player audio_player0;
+	track_player audio_player1;
+	track_player sfx_player;
+	track_player* chan1_player;
+	int sfx_frames_remaining = 0;
 
 	if (args[MP_SYSTEM_TYPE] == ST_NTSC_7800)
 	{
@@ -101,6 +107,10 @@ int elf_main(uint32_t* args)
 		grp0Buffer[i] = 0;
 		grp1Buffer[i] = 0;
 	}
+
+	init_audio_player(&audio_player0, 0, &SongMiniBlast);
+	init_audio_player(&audio_player1, 1, &SongMiniBlast);
+	
 
 	// Render loop
 	while (true) {
@@ -202,8 +212,28 @@ int elf_main(uint32_t* args)
 			grp1Buffer[p1y + j] = MonkeyWalkingGraphics[0][j]; //112-147
 		}
 
+		next_audio_frame(&audio_player0);
+		next_audio_frame(&audio_player1);
+		if (sfx_frames_remaining)
+		{
+			sfx_frames_remaining--;
+			next_audio_frame(&sfx_player);
+			chan1_player = &sfx_player;
+		}
+		else
+		{
+			chan1_player = &audio_player1;
+		}
+
 		vcsEndOverblank();
-		vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); 
+		vcsSta3(WSYNC); 
+		vcsWrite5(AUDC0, audio_player0.control);
+		vcsWrite5(AUDV0, audio_player0.volume);
+		vcsWrite5(AUDF0, audio_player0.frequency);
+		vcsWrite5(AUDC1, chan1_player->control);
+		vcsWrite5(AUDV1, chan1_player->volume);
+		vcsWrite5(AUDF1, chan1_player->frequency);
+		vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC);
 
 		PositionObject(0, p0x, RESP0, HMP0);
 
@@ -491,6 +521,11 @@ int elf_main(uint32_t* args)
 		if (((joy & 0x8) == 0) && p0x < 140) {
 			// right
 			p0x += 1;
+		}
+		if (sfx_frames_remaining == 0 && (but0 & 0x80) == 0)
+		{
+			sfx_frames_remaining = SfxBounce.percussions->length;
+			init_audio_player(&sfx_player, 0, &SfxBounce);
 		}
 	}
 }

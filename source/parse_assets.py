@@ -187,9 +187,9 @@ def parse_ttt(f_header, f_source, ttt_path, tack_name, parse_0, parse_1):
 		ttt_json = json.load(f)
 		sequence0 = '0' if not parse_0 else parse_ttt_sequence(ttt_json, 0)
 		sequence1 = '0' if not parse_1 else parse_ttt_sequence(ttt_json, 1)
-		instruments = parse_ttt_instruments(ttt_json)
+		instruments, iids = parse_ttt_instruments(ttt_json)
 		percussions = parse_ttt_percussions(ttt_json)
-		patterns = parse_ttt_patterns(ttt_json)
+		patterns = parse_ttt_patterns(ttt_json, iids)
 
 	f_header.write('\nextern const track_t {name};'.format(name=tack_name))
 	f_source.write("""
@@ -212,9 +212,11 @@ def parse_ttt_sequence(ttt_json, index):
 	return '(sequence_t[])' + '{' + ',\n'.join(sequences) + '}'
 
 def parse_ttt_instruments(ttt_json):
-	#Instruments
+	instruments_ids = []
 	instruments = []
+	iid = 0
 	for instrument in ttt_json['instruments']:
+		iid+=1
 		d = { \
 			'length': str(instrument['envelopeLength']), \
 			'waveform': str(instrument['waveform']), \
@@ -224,8 +226,18 @@ def parse_ttt_instruments(ttt_json):
 			'frequencies': str(', '.join(map(str, instrument['frequencies']))), \
 			'volumes': str(', '.join(map(str, instrument['volumes']))), \
 			}
+		instruments_ids.append(iid)
 		if d['name'] != '---':
-			   instruments.append('''   {{
+			if instrument['waveform'] == 16: # waveform 16 is actually 4 + 16, split it into two instruments and fix up patterns to match
+				d['waveform'] = 4
+				append_instrument(instruments, d)
+				d['waveform'] = 12
+				iid+=1
+			append_instrument(instruments, d)
+	return instruments, instruments_ids
+
+def append_instrument(instruments, d):
+	instruments.append('''   {{
    // {name}
    .frequencies = (int8_t[]) {{ {frequencies} }},
    .volumes = (uint8_t[]) {{ {volumes} }},
@@ -234,7 +246,6 @@ def parse_ttt_instruments(ttt_json):
    .waveform = {waveform},
    .length = {length}
 }}'''.format(**d))
-	return instruments
 
 def parse_ttt_percussions(ttt_json):
 	percussions = []
@@ -256,18 +267,24 @@ def parse_ttt_percussions(ttt_json):
 }}'''.format(**d))
 	return percussions
 
-def parse_ttt_note(note_json):
+def parse_ttt_note(note_json, instrument_ids):
 	if note_json['type'] == 0:
 		return 8 # hold
 	if note_json['type'] == 1:
-		return ((note_json['number']) << 4) | (note_json['value']) #instrument
+		iid = instrument_ids[note_json['number']]
+		frequency = note_json['value']
+		if(frequency > 31):
+			frequency -= 32
+			iid+=1
+		return (iid << 5) | frequency #instrument
 	if note_json['type'] == 2:
 		return 16 # pause
 	if note_json['type'] == 3:
 		return note_json['value'] + 17 # percussion
 	print(note_json)
+	raise 'Unknown note type'
 
-def parse_ttt_patterns(ttt_json):
+def parse_ttt_patterns(ttt_json, instrument_ids):
 	patterns = []
 	try:
 		global_speed = ttt_json['globalspeed']
@@ -282,7 +299,7 @@ def parse_ttt_patterns(ttt_json):
 			oddspeed = p['oddspeed']	
 		notes = []
 		for n in p['notes']:
-			notes.append('0x{:02x}'.format(parse_ttt_note(n)))
+			notes.append('0x{:02x}'.format(parse_ttt_note(n, instrument_ids)))
 		notes.append('0x00') # end of notes marker
 		#print(p['name'])		
 		#print(evenspeed)		
@@ -302,7 +319,10 @@ def parse_ttt_patterns(ttt_json):
 parse_palette('palette.png')
 
 f_header = open('sprites.h', 'wt', newline='\n')
-f_header.write('#include <stdint.h>\n')
+f_header.write('''#ifndef SPRITES_H
+#define SPRITES_H
+#include <stdint.h>
+''')
 
 f_source = open('sprites.c', 'wt', newline='\n')
 f_source.write('#include "sprites.h"\n')
@@ -328,3 +348,6 @@ generate_sine_tables(f_header, f_source)
 bin_to_c_array(f_header, f_source, 'kernel_7800.bin', 'kernel_7800')
 
 parse_ttt(f_header, f_source, 'glafouk - Miniblast.ttt', 'SongMiniBlast', True, True)
+parse_ttt(f_header, f_source, 'bounce.ttt', 'SfxBounce', True, False)
+
+f_header.write('\n\n#endif // SPRITES_H')

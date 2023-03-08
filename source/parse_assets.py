@@ -280,7 +280,7 @@ def parse_ttt_note(note_json, instrument_ids):
 	if note_json['type'] == 2:
 		return 16 # pause
 	if note_json['type'] == 3:
-		return note_json['value'] + 17 # percussion
+		return note_json['number'] + 17 # percussion
 	print(note_json)
 	raise 'Unknown note type'
 
@@ -348,6 +348,6 @@ generate_sine_tables(f_header, f_source)
 bin_to_c_array(f_header, f_source, 'kernel_7800.bin', 'kernel_7800')
 
 parse_ttt(f_header, f_source, 'glafouk - Miniblast.ttt', 'SongMiniBlast', True, True)
-parse_ttt(f_header, f_source, 'bounce.ttt', 'SfxBounce', True, False)
+parse_ttt(f_header, f_source, 'bounce.ttt', 'SfxBounce', True, True)
 
 f_header.write('\n\n#endif // SPRITES_H')

@@ -38,9 +38,9 @@ void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
 
 
 #define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
-//// 7800 mode
-void injectDmaDataWM0(int address, int count, const uint8_t* pBuffer); // {}
-void injectDmaDataWM1(int address, int count, const uint8_t* pBuffer); // {}
+// 7800 mode
+void injectDmaDataWM0(int address, int count, const uint8_t* pBuffer) {}
+void injectDmaDataWM1(int address, int count, const uint8_t* pBuffer) {}
 
 static void init_7800();
 
@@ -214,7 +214,7 @@ int elf_main(uint32_t* args)
 
 		next_audio_frame(&audio_player0);
 		next_audio_frame(&audio_player1);
-		if (sfx_frames_remaining)
+		if (sfx_frames_remaining > 0)
 		{
 			sfx_frames_remaining--;
 			next_audio_frame(&sfx_player);
@@ -525,7 +525,7 @@ int elf_main(uint32_t* args)
 		if (sfx_frames_remaining == 0 && (but0 & 0x80) == 0)
 		{
 			sfx_frames_remaining = SfxBounce.percussions->length;
-			init_audio_player(&sfx_player, 0, &SfxBounce);
+			init_audio_player(&sfx_player, 1, &SfxBounce);
 		}
 	}
 }

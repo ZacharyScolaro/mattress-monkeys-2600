@@ -11,10 +11,12 @@ typedef struct {
 	uint8_t instrument_index;
 	int8_t envelope_index;
 	uint8_t tick_count;
-	uint8_t note;
+	uint8_t note; // 10
 	uint8_t is_release;
-	int16_t note_index;
+	int16_t note_index; //12
 	const track_t* track;
+	const pattern_t* ppattern; // 20
+	uint32_t debug;
 } track_player;
 
 void init_audio_player(track_player* player, uint8_t channel_index, const track_t* track);

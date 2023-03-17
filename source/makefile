@@ -1,6 +1,6 @@
 bouncers: *.c assets
-	arm-none-eabi-gcc -r -mlong-calls -fno-exceptions -march=armv6-m *.c -obouncers.bin -O3 -Wall -lgcc
-	arm-none-eabi-strip bouncers.bin -d -R.comment -R.ARM.attributes
+	arm-none-eabi-gcc -r -mlong-calls -fno-exceptions -march=armv6-m -gdwarf-4 -gstrict-dwarf *.c -obouncers.bin -O3 -Wall -lgcc
+#	arm-none-eabi-strip bouncers.bin -d -R.comment -R.ARM.attributes
 	cp bouncers.bin ../../ChameleonCartFirmware/Core/Lib/libelfrom.a
 	touch ../../ChameleonCartFirmware/Core/Src/main.c
 	../../Gopher2600/gopher2600 bouncers.bin

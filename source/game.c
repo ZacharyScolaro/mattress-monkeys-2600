@@ -30,7 +30,7 @@ static uint8_t grp1Buffer[192];
 __attribute__((section(".noinit")))
 static uint8_t colup1Buffer[192];
 
-static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 12, 12, 10, 10, 12, 12, 12, 10, 6, 7, 8, 9 };
+static char scoreText[18] = { 0, 1, 2, 3, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16 };
 void setPF(int x, int y);
 void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
 void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
@@ -115,7 +115,6 @@ int elf_main(uint32_t* args)
 	// Render loop
 	while (true) {
 
-		PrintScore(scoreText);
 
 		fly_top_x -= 1;
 		if (fly_top_x < 0)
@@ -225,6 +224,19 @@ int elf_main(uint32_t* args)
 			chan1_player = &audio_player1;
 		}
 
+		for (int i = 0; i < 4; i++)
+		{
+			scoreText[i] = (char)((uint32_t)&chan1_player->ppattern->notes[0] >> ((3 - i) * 4)) & 0xf;
+		}
+		for (int i = 0; i < 4; i++)
+		{
+			scoreText[i+5] = (char)((uint32_t)(sfx_player.debug) >> ((3 - i) * 4)) & 0xf;
+		}
+		for (int i = 0; i < 4; i++)
+		{
+			scoreText[i+10] = (char)((uint32_t)chan1_player->note >> ((3 - i) * 4)) & 0xf;
+		}
+		PrintScore(scoreText);
 		vcsEndOverblank();
 		vcsSta3(WSYNC); 
 		vcsWrite5(AUDC0, audio_player0.control);
@@ -522,7 +534,7 @@ int elf_main(uint32_t* args)
 			// right
 			p0x += 1;
 		}
-		if (sfx_frames_remaining == 0 && (but0 & 0x80) == 0)
+		if (sfx_frames_remaining == 0)// && (but0 & 0x80) == 0)
 		{
 			sfx_frames_remaining = SfxBounce.percussions->length;
 			init_audio_player(&sfx_player, 1, &SfxBounce);

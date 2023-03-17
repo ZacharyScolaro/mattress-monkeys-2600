@@ -18,7 +18,7 @@ void PrintScore(const int8_t* ptext)
 	{
 		for (int x = 0; x < 18; x++)
 		{
-			textBuffer[index++] = ScoreSpritesGraphics[y * 13 + ptext[x]];
+			textBuffer[index++] = ScoreSpritesGraphics[y * (sizeof(ScoreSpritesGraphics)/GlyphHeight) + ptext[x]];
 		}
 	}
 }

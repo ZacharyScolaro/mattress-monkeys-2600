@@ -10,6 +10,13 @@ void init_audio_player(track_player* player, uint8_t channel_index, const track_
 	player->note_index = -1;
 }
 
+void get_note(track_player* player)
+{
+	player->debug = &player->ppattern->notes[player->note_index];
+	player->note = player->ppattern->notes[player->note_index];
+	//player->note = player->ppattern->notes[0]; // Uncomment this line fixes issue
+}
+
 void next_audio_frame(track_player* player) {
 	const sequence_t* sequence = &player->track->channels[player->channel_index].sequenced_patterns[player->sequence_index];
 	const pattern_t* pattern = &player->track->patterns[sequence->pattern_index];
@@ -36,7 +43,8 @@ void next_audio_frame(track_player* player) {
 			player->note_index = 0;
 		}
 
-		player->note = pattern->notes[player->note_index];
+		player->ppattern = pattern;
+		get_note(player);
 		player->is_release = 0;
 		if ((player->note & 0xe0))
 		{

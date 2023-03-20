@@ -77,6 +77,8 @@ int elf_main(uint32_t* args)
 	track_player sfx_player;
 	track_player* chan1_player;
 	int sfx_frames_remaining = 0;
+	int sine_frame = 0;
+	int sine_hpos = 20;
 
 	if (args[MP_SYSTEM_TYPE] == ST_NTSC_7800)
 	{
@@ -114,6 +116,12 @@ int elf_main(uint32_t* args)
 
 	// Render loop
 	while (true) {
+
+		for (int i = 0; i < 192; i++)
+		{
+			grp0Buffer[i] = 0;
+			grp1Buffer[i] = 0;
+		}
 
 		PrintScore(scoreText);
 
@@ -184,12 +192,14 @@ int elf_main(uint32_t* args)
 			playfieldBuffer[i] = 0;
 		}
 		// Mattress
+		if(sine_frame != 0)
+			sine_frame = (sine_frame + 1) & 0x1f;
 		for (int i = 4; i < 37; i++)
 		{
-			int height = SineTables[frame & 0x1f][i];
+			int height = SineTables[sine_frame][i + sine_hpos]; //frame & 0x1f
 			if (i == p0x/4)
 			{
-				p0y = 163 - height;
+				//p0y = 163 - height;
 			}
 			if (i == p1x/4)
 			{
@@ -201,11 +211,6 @@ int elf_main(uint32_t* args)
 			}
 		}
 		// Monkey Idle Test
-		for (int j = 100; j < 192; j++)
-		{
-			grp0Buffer[j] = 0;
-			grp1Buffer[j] = 0;
-		}
 		for (int j = 0; j < 12; j++)
 		{
 			grp0Buffer[p0y + j] = MonkeyIdleGraphics[j];
@@ -228,7 +233,7 @@ int elf_main(uint32_t* args)
 		vcsEndOverblank();
 		vcsSta3(WSYNC); 
 		vcsWrite5(AUDC0, audio_player0.control);
-		vcsWrite5(AUDV0, audio_player0.volume);
+		vcsWrite5(AUDV0, 0 & audio_player0.volume);
 		vcsWrite5(AUDF0, audio_player0.frequency);
 		vcsWrite5(AUDC1, chan1_player->control);
 		vcsWrite5(AUDV1, chan1_player->volume);
@@ -244,7 +249,7 @@ int elf_main(uint32_t* args)
 		vcsSta3(GRP0);
 		vcsSta3(GRP1);
 		vcsSta3(ENAM0);
-		vcsSta3(ENAM0);
+		vcsSta3(ENAM1);
 		vcsSta3(ENABL);
 		vcsSta3(NUSIZ0);
 		vcsLda2(ColuCeiling);
@@ -522,10 +527,21 @@ int elf_main(uint32_t* args)
 			// right
 			p0x += 1;
 		}
-		if (sfx_frames_remaining == 0 && (but0 & 0x80) == 0)
+		if (((joy & 0x1) == 0) && p0y > 4) {
+			// up
+			p0y -= 1;
+		}
+		if (((joy & 0x2) == 0) && p0y < 180) {
+			// down
+			p0y += 1;
+		}
+		if (sine_frame == 0 && (but0 & 0x80) == 0)
 		{
+			sine_frame = 1;
+			sine_hpos = 34 - (p0x - 2) / 4;
+
 			sfx_frames_remaining = SfxBounce.percussions->length;
-			init_audio_player(&sfx_player, 1, &SfxBounce);
+			init_audio_player(&sfx_player, sfx_player.channel_index == 0 ? 1 : 0, &SfxBounce);
 		}
 	}
 }

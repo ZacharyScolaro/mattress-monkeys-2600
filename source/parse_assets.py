@@ -105,7 +105,12 @@ def generate_sine_tables(f_header, f_source):
 	f_header.write('\nextern const uint8_t SineTables[' + str(item_count) + '][80];\n')
 	f_source.write('\nconst uint8_t SineTables[' + str(item_count) + '][80] = { ')
 	for x in range(0, item_count):
-		heights = generate_sine_wave(math.sin((x * 2 * math.pi)/item_count) * 17.5)
+		max_height = 17.5
+		if x > 22:
+			max_height *= .25
+		elif x > 11:
+			max_height *= .5
+		heights = generate_sine_wave(math.sin((x * 3 * math.pi)/item_count) * max_height)
 		if item_count > 1:
 			f_source.write('\n{ ')
 		f_source.write(', '.join(heights))

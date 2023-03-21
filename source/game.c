@@ -192,13 +192,13 @@ int elf_main(uint32_t* args)
 		// Mattress
 
 
-		if ((frame & 0x0) == 0)
+		p0y += 2;
+		if (p0y > 0xa3)
 		{
-			p0y += 3;
-			if (p0y > 0xa3)
-			{
-				p0y = 20;
-			}
+			p0y = 20;
+		}
+		if ((frame & 0x01) == 0)
+		{
 			sine_frame++;
 			if (p0y > 129 && p0y < 0xa4)
 			{

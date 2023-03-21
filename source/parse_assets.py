@@ -106,11 +106,11 @@ def generate_sine_tables(f_header, f_source):
 	f_source.write('\nconst uint8_t SineTables[' + str(item_count) + '][80] = { ')
 	for x in range(0, item_count):
 		max_height = 17.5
-		if x > 22:
-			max_height *= .25
-		elif x > 11:
-			max_height *= .5
-		heights = generate_sine_wave(math.sin((x * 3 * math.pi)/item_count) * max_height)
+		#if x > 22:
+		#	max_height *= .25
+		#elif x > 11:
+		#	max_height *= .5
+		heights = generate_sine_wave(math.sin((x * 2 * math.pi)/item_count) * max_height)
 		if item_count > 1:
 			f_source.write('\n{ ')
 		f_source.write(', '.join(heights))
@@ -334,9 +334,9 @@ f_source.write('#include "sprites.h"\n')
 
 png_name = 'score-sprites.png'
 item_name = 'ScoreSprites'
-graphic_bytes, color_bytes = parse_png(png_name, 8, 4, 0, 0, 13*8, 14, (0,0,0))
-f_header.write('\nextern const uint8_t ' + item_name + 'Graphics[14*13];\n')
-f_source.write('\nconst uint8_t ' + item_name + 'Graphics[14*13] = { ')
+graphic_bytes, color_bytes = parse_png(png_name, 8, 4, 0, 0, 19*8, 14, (0,0,0))
+f_header.write('\nextern const uint8_t ' + item_name + 'Graphics[14*19];\n')
+f_source.write('\nconst uint8_t ' + item_name + 'Graphics[14*19] = { ')
 f_source.write(', '.join(graphic_bytes))
 f_source.write(' };\n')
 

@@ -30,7 +30,7 @@ static uint8_t grp1Buffer[192];
 __attribute__((section(".noinit")))
 static uint8_t colup1Buffer[192];
 
-static char scoreText[18] = { 0, 1, 2, 3, 10, 12, 12, 12, 10, 10, 12, 12, 12, 10, 6, 7, 8, 9 };
+static char scoreText[18] = { 0, 1, 2, 3, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16 };
 void setPF(int x, int y);
 void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
 void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
@@ -123,8 +123,6 @@ int elf_main(uint32_t* args)
 			grp1Buffer[i] = 0;
 		}
 
-		PrintScore(scoreText);
-
 		fly_top_x -= 1;
 		if (fly_top_x < 0)
 			fly_top_x = 159;
@@ -192,8 +190,35 @@ int elf_main(uint32_t* args)
 			playfieldBuffer[i] = 0;
 		}
 		// Mattress
-		if(sine_frame != 0)
-			sine_frame = (sine_frame + 1) & 0x1f;
+
+
+		if ((frame & 0x0) == 0)
+		{
+			p0y += 3;
+			if (p0y > 0xa3)
+			{
+				p0y = 20;
+			}
+			sine_frame++;
+			if (p0y > 129 && p0y < 0xa4)
+			{
+				if (p0y > 0x92)
+				{
+					// Once below sine middle move wave to player
+					sine_hpos = 34 - (p0x - 2) / 4;
+				}
+				// Adjust height down to player if needed
+				while (SineTables[sine_frame & 0x1f][(p0x / 4) + sine_hpos] > (164 - p0y))
+				{
+					sine_frame++;
+				}
+			}
+			else
+			{
+			}
+			sine_frame &= 0x1f;
+		}
+
 		for (int i = 4; i < 37; i++)
 		{
 			int height = SineTables[sine_frame][i + sine_hpos]; //frame & 0x1f
@@ -230,6 +255,19 @@ int elf_main(uint32_t* args)
 			chan1_player = &audio_player1;
 		}
 
+		for (int i = 0; i < 4; i++)
+		{
+			scoreText[i] = (char)((uint32_t)p0y >> ((3 - i) * 4)) & 0xf;
+		}
+		for (int i = 0; i < 4; i++)
+		{
+			scoreText[i+5] = (char)((uint32_t)sine_frame >> ((3 - i) * 4)) & 0xf;
+		}
+		for (int i = 0; i < 4; i++)
+		{
+			scoreText[i+10] = (char)((uint32_t)sine_hpos >> ((3 - i) * 4)) & 0xf;
+		}
+		PrintScore(scoreText);
 		vcsEndOverblank();
 		vcsSta3(WSYNC); 
 		vcsWrite5(AUDC0, audio_player0.control);
@@ -531,15 +569,12 @@ int elf_main(uint32_t* args)
 			// up
 			p0y -= 1;
 		}
-		if (((joy & 0x2) == 0) && p0y < 180) {
+		if (((joy & 0x2) == 0) && p0y < 0xa3) {
 			// down
 			p0y += 1;
 		}
-		if (sine_frame == 0 && (but0 & 0x80) == 0)
+		if (sfx_frames_remaining == 0 && (but0 & 0x80) == 0)
 		{
-			sine_frame = 1;
-			sine_hpos = 34 - (p0x - 2) / 4;
-
 			sfx_frames_remaining = SfxBounce.percussions->length;
 			init_audio_player(&sfx_player, sfx_player.channel_index == 0 ? 1 : 0, &SfxBounce);
 		}

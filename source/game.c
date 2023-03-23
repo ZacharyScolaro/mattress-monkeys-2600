@@ -16,6 +16,7 @@
 #define ColuBedPost 0xe2
 #define ColuFanBlade 0x02
 
+
 typedef struct {
 	uint8_t color;
 	int x;
@@ -67,6 +68,8 @@ static void init_7800();
 static const int8_t Fly_Loop_X[] = { 1,1,1, 1,1,1, 1,1, 1,1 ,1,1 ,1,0, 1,0, -1,0, -1,0, -1,0,-1,0,-1,0, -1,0, -1,0, 1,0, 1,0, 1,1, 1,1 ,1,1, 1,1,1, 1,1,1, 1,1,1,1,1 };
 static const int8_t Fly_Loop_Y[] = {-1,-1,0,-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, -1,-1, -1,-1,  0,0, 0,0, 0,0,  1,1,  1,1, 1,1, 1,1, 1,1, 1,1, 1,1, 1,1,0, 1,1,0, 0,0,0,0,0 };
 static const int8_t Fly_Wave_Y[] = { 0,0,1, 0,0,1, 0,1, 1, 1, 0,1, 0,0,1, 0,0,1, 0,0,0,0,0, 0,0,-1, 0,0,-1, 0,-1, -1, -1, 0,-1, 0,0,-1, 0,0,-1, 0,0,0,0,0 };
+static const int8_t Initial_X_Velocity_Lookup[20] = { 0, 1, 2, 2, 3, 3, 3, 2, 2, 1, 0, -1, -2, -2, -3, -3, -3, -2, -2, -1 };
+static const int X_Velocity_Scale = 4;
 
 int elf_main(uint32_t* args)
 {
@@ -151,6 +154,16 @@ int elf_main(uint32_t* args)
 				jumping_monkey->frames_remaining = 500;
 			}
 		}
+		jumping_monkey->x += jumping_monkey->velocity_x / X_Velocity_Scale;
+		if (jumping_monkey->x < 16) {
+			jumping_monkey->x = 16;
+			jumping_monkey->velocity_x = 0;
+		}
+		if (jumping_monkey->x > 140) {
+			jumping_monkey->x = 140;
+			jumping_monkey->velocity_x = 0;
+		}
+
 		jumping_monkey->y += jumping_monkey->velocity_y;
 		if (jumping_monkey->y > 0xa3)
 		{
@@ -158,6 +171,7 @@ int elf_main(uint32_t* args)
 			Monkey* temp = jumping_monkey;
 			jumping_monkey = standing_monkey;
 			standing_monkey = temp;
+			jumping_monkey->velocity_x = X_Velocity_Scale * Initial_X_Velocity_Lookup[((sine_hpos + 105) - ((standing_monkey->x + 3) / 4)) % 20];
 			jumping_monkey->velocity_y = -4;
 			//uncomment this to test max jump height jumping_monkey->y = 0x80;
 			jumping_monkey->frames_remaining = jumping_monkey->launch_y = (193 - jumping_monkey->y) / 3;
@@ -262,7 +276,7 @@ int elf_main(uint32_t* args)
 		for (int i = 4; i < 37; i++)
 		{
 			int height = SineTables[sine_frame][i + sine_hpos]; //frame & 0x1f
-			if (i == standing_monkey->x /4)
+			if (i == (standing_monkey->x+3) /4)
 			{
 				standing_monkey->y = 163 - height;
 			}
@@ -301,15 +315,15 @@ int elf_main(uint32_t* args)
 
 		for (int i = 0; i < 4; i++)
 		{
-			scoreText[i] = (char)((uint32_t)jumping_monkey->y >> ((3 - i) * 4)) & 0xf;
+			scoreText[i] = (char)((uint32_t)((standing_monkey->x + 3) / 4) >> ((3 - i) * 4)) & 0xf;
 		}
 		for (int i = 0; i < 4; i++)
 		{
-			scoreText[i+5] = (char)((uint32_t)max >> ((3 - i) * 4)) & 0xf;
+			scoreText[i+5] = (char)((uint32_t)(jumping_monkey->velocity_x) >> ((3 - i) * 4)) & 0xf;
 		}
 		for (int i = 0; i < 4; i++)
 		{
-			scoreText[i+10] = (char)((uint32_t)min >> ((3 - i) * 4)) & 0xf;
+			scoreText[i+10] = (char)((uint32_t)(sine_hpos) >> ((3 - i) * 4)) & 0xf;
 		}
 		PrintScore(scoreText);
 		vcsEndOverblank();
@@ -604,10 +618,18 @@ int elf_main(uint32_t* args)
 		if (((joy & 0x4) == 0) && jumping_monkey->x > 16) {
 			// left
 			jumping_monkey->x -= 1;
+			if (jumping_monkey->velocity_x > 0)
+			{
+				jumping_monkey->velocity_x--;
+			}
 		}
 		if (((joy & 0x8) == 0) && jumping_monkey->x < 140) {
 			// right
 			jumping_monkey->x += 1;
+			if (jumping_monkey->velocity_x < 0)
+			{
+				jumping_monkey->velocity_x++;
+			}
 		}
 		if (((joy & 0x1) == 0) && jumping_monkey->y > 4) {
 			// up

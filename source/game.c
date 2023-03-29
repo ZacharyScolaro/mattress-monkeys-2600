@@ -15,6 +15,8 @@
 #define ColuHeadboard 0xe6
 #define ColuBedPost 0xe2
 #define ColuFanBlade 0x02
+#define ColuP0Monkey 0x5a
+#define ColuP1Monkey 0x2a
 
 
 typedef struct {
@@ -45,13 +47,20 @@ static char scoreText[18] = { 0, 1, 2, 3, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16
 void setPF(int x, int y);
 void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
 void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
+void move_monkey(uint8_t joy, Monkey* monkey);
 
-
-
+#if 1
+// Gopher
 #define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
 // 7800 mode
-void injectDmaDataWM0(int address, int count, const uint8_t* pBuffer) {}
-void injectDmaDataWM1(int address, int count, const uint8_t* pBuffer) {}
+void injectDmaDataWM0(int address, int count, const uint8_t* pBuffer) {}//;//
+void injectDmaDataWM1(int address, int count, const uint8_t* pBuffer) {}//;//
+#else
+// Chameleon Cart
+// 7800 mode
+void injectDmaDataWM0(int address, int count, const uint8_t* pBuffer);
+void injectDmaDataWM1(int address, int count, const uint8_t* pBuffer);
+#endif
 
 static void init_7800();
 
@@ -68,7 +77,7 @@ static void init_7800();
 static const int8_t Fly_Loop_X[] = { 1,1,1, 1,1,1, 1,1, 1,1 ,1,1 ,1,0, 1,0, -1,0, -1,0, -1,0,-1,0,-1,0, -1,0, -1,0, 1,0, 1,0, 1,1, 1,1 ,1,1, 1,1,1, 1,1,1, 1,1,1,1,1 };
 static const int8_t Fly_Loop_Y[] = {-1,-1,0,-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, -1,-1, -1,-1,  0,0, 0,0, 0,0,  1,1,  1,1, 1,1, 1,1, 1,1, 1,1, 1,1, 1,1,0, 1,1,0, 0,0,0,0,0 };
 static const int8_t Fly_Wave_Y[] = { 0,0,1, 0,0,1, 0,1, 1, 1, 0,1, 0,0,1, 0,0,1, 0,0,0,0,0, 0,0,-1, 0,0,-1, 0,-1, -1, -1, 0,-1, 0,0,-1, 0,0,-1, 0,0,0,0,0 };
-static const int8_t Initial_X_Velocity_Lookup[20] = { 0, 1, 2, 2, 3, 3, 3, 2, 2, 1, 0, -1, -2, -2, -3, -3, -3, -2, -2, -1 };
+static const int8_t Initial_X_Velocity_Lookup[20] = { 1, 1, 2, 2, 3, 4, 3, 2, 2, 1, -1, -1, -2, -2, -3, -4, -3, -2, -2, -1 };
 static const int X_Velocity_Scale = 4;
 
 int elf_main(uint32_t* args)
@@ -90,10 +99,12 @@ int elf_main(uint32_t* args)
 	int sfx_frames_remaining = 0;
 	int sine_frame = 0;
 	int sine_hpos = 20;
-	Monkey monkey_0 = { .x = 40, .y = 50, .color = 0x5a };
-	Monkey monkey_1 = { .x = 120, .y = 129, .color = 0x2a };
+	Monkey monkey_0 = { .x = 40 * X_Velocity_Scale, .y = 50, .color = ColuP0Monkey };
+	Monkey monkey_1 = { .x = 120 * X_Velocity_Scale, .y = 129, .color = ColuP1Monkey };
 	Monkey* jumping_monkey = &monkey_0;
 	Monkey* standing_monkey = &monkey_1;
+	Monkey* p0_monkey = &monkey_0;
+	Monkey* p1_monkey = &monkey_1;
 
 
 	if (args[MP_SYSTEM_TYPE] == ST_NTSC_7800)
@@ -154,13 +165,13 @@ int elf_main(uint32_t* args)
 				jumping_monkey->frames_remaining = 500;
 			}
 		}
-		jumping_monkey->x += jumping_monkey->velocity_x / X_Velocity_Scale;
-		if (jumping_monkey->x < 16) {
-			jumping_monkey->x = 16;
+		jumping_monkey->x += jumping_monkey->velocity_x;
+		if (jumping_monkey->x < 16 * X_Velocity_Scale) {
+			jumping_monkey->x = 16 * X_Velocity_Scale;
 			jumping_monkey->velocity_x = 0;
 		}
-		if (jumping_monkey->x > 140) {
-			jumping_monkey->x = 140;
+		if (jumping_monkey->x > 140 * X_Velocity_Scale) {
+			jumping_monkey->x = 140 * X_Velocity_Scale;
 			jumping_monkey->velocity_x = 0;
 		}
 
@@ -171,7 +182,7 @@ int elf_main(uint32_t* args)
 			Monkey* temp = jumping_monkey;
 			jumping_monkey = standing_monkey;
 			standing_monkey = temp;
-			jumping_monkey->velocity_x = X_Velocity_Scale * Initial_X_Velocity_Lookup[((sine_hpos + 105) - ((standing_monkey->x + 3) / 4)) % 20];
+			jumping_monkey->velocity_x = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x/ X_Velocity_Scale) + 3) / 4)) % 20];
 			jumping_monkey->velocity_y = -4;
 			//uncomment this to test max jump height jumping_monkey->y = 0x80;
 			jumping_monkey->frames_remaining = jumping_monkey->launch_y = (193 - jumping_monkey->y) / 3;
@@ -259,10 +270,10 @@ int elf_main(uint32_t* args)
 				if (jumping_monkey->y > 0x92)
 				{
 					// Once below sine middle move wave to player
-					sine_hpos = 34 - (jumping_monkey->x - 2) / 4;
+					sine_hpos = 34 - ((jumping_monkey->x/ X_Velocity_Scale) - 2) / 4;
 				}
 				// Adjust height down to player if needed
-				while (SineTables[sine_frame & 0x1f][(jumping_monkey->x / 4) + sine_hpos] > (164 - jumping_monkey->y))
+				while (SineTables[sine_frame & 0x1f][((jumping_monkey->x/ X_Velocity_Scale) / 4) + sine_hpos] > (164 - jumping_monkey->y))
 				{
 					sine_frame++;
 				}
@@ -276,7 +287,7 @@ int elf_main(uint32_t* args)
 		for (int i = 4; i < 37; i++)
 		{
 			int height = SineTables[sine_frame][i + sine_hpos]; //frame & 0x1f
-			if (i == (standing_monkey->x+3) /4)
+			if (i == ((standing_monkey->x/ X_Velocity_Scale )+3) /4)
 			{
 				standing_monkey->y = 163 - height;
 			}
@@ -315,7 +326,7 @@ int elf_main(uint32_t* args)
 
 		for (int i = 0; i < 4; i++)
 		{
-			scoreText[i] = (char)((uint32_t)((standing_monkey->x + 3) / 4) >> ((3 - i) * 4)) & 0xf;
+			scoreText[i] = (char)((uint32_t)(((standing_monkey->x/ X_Velocity_Scale) + 3) / 4) >> ((3 - i) * 4)) & 0xf;
 		}
 		for (int i = 0; i < 4; i++)
 		{
@@ -329,14 +340,14 @@ int elf_main(uint32_t* args)
 		vcsEndOverblank();
 		vcsSta3(WSYNC); 
 		vcsWrite5(AUDC0, audio_player0.control);
-		vcsWrite5(AUDV0, 0 & audio_player0.volume);
+		vcsWrite5(AUDV0, audio_player0.volume);
 		vcsWrite5(AUDF0, audio_player0.frequency);
 		vcsWrite5(AUDC1, chan1_player->control);
 		vcsWrite5(AUDV1, chan1_player->volume);
 		vcsWrite5(AUDF1, chan1_player->frequency);
 		vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC);
 
-		PositionObject(0, jumping_monkey->x, RESP0, HMP0);
+		PositionObject(0, jumping_monkey->x/ X_Velocity_Scale, RESP0, HMP0);
 
 		vcsLda2(0);
 		vcsSta3(PF0);
@@ -490,7 +501,7 @@ int elf_main(uint32_t* args)
 		}
 
 		// Position Second Monkey while drawing matress and bed posts with COLUBK
-		int x = standing_monkey->x;
+		int x = standing_monkey->x/ X_Velocity_Scale;
 		vcsSta3(HMOVE);
 		if (x < 80) {
 			vcsWrite5(GRP0, grp0Buffer[line]);
@@ -614,37 +625,48 @@ int elf_main(uint32_t* args)
 		vcsNop2();
 		uint8_t but1 = vcsRead4(INPT5);
 		vcsStartOverblank();
-		uint8_t joy = joysticks >> 4;
-		if (((joy & 0x4) == 0) && jumping_monkey->x > 16) {
-			// left
-			jumping_monkey->x -= 1;
-			if (jumping_monkey->velocity_x > 0)
-			{
-				jumping_monkey->velocity_x--;
-			}
-		}
-		if (((joy & 0x8) == 0) && jumping_monkey->x < 140) {
-			// right
-			jumping_monkey->x += 1;
-			if (jumping_monkey->velocity_x < 0)
-			{
-				jumping_monkey->velocity_x++;
-			}
-		}
-		if (((joy & 0x1) == 0) && jumping_monkey->y > 4) {
-			// up
-			jumping_monkey->y -= 1;
-		}
-		if (((joy & 0x2) == 0) && jumping_monkey->y < 0xa3) {
-			// down
-			jumping_monkey->y += 1;
-		}
+		move_monkey(joysticks >> 4, p0_monkey);
+		move_monkey(joysticks & 0xf, p1_monkey);
 		if (sfx_frames_remaining == 0 && (but0 & 0x80) == 0)
 		{
+			Monkey* temp = p0_monkey;
+			p0_monkey = p1_monkey;
+			p1_monkey = temp;
+			p0_monkey->color = ColuP0Monkey;
+			p1_monkey->color = ColuP1Monkey;
 			sfx_frames_remaining = SfxBounce.percussions->length;
 			init_audio_player(&sfx_player, sfx_player.channel_index == 0 ? 1 : 0, &SfxBounce);
 		}
 	}
+}
+
+void move_monkey(uint8_t joy, Monkey* monkey)
+{
+	if (((joy & 0x4) == 0) && monkey->x > 16 * X_Velocity_Scale) {
+		// left
+		monkey->x -= X_Velocity_Scale;
+		if (monkey->velocity_x > 0)
+		{
+			monkey->velocity_x--;
+		}
+	}
+	if (((joy & 0x8) == 0) && monkey->x < 140 * X_Velocity_Scale) {
+		// right
+		monkey->x += X_Velocity_Scale;
+		if (monkey->velocity_x < 0)
+		{
+			monkey->velocity_x++;
+		}
+	}
+	if (((joy & 0x1) == 0) && monkey->y > 4) {
+		// up
+		monkey->y -= 1;
+	}
+	if (((joy & 0x2) == 0) && monkey->y < 0xa3) {
+		// down
+		monkey->y += 1;
+	}
+
 }
 
 void setPF(int x, int y)

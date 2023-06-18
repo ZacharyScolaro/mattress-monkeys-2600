@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MP_SYSTEM_TYPE 		0
 #define MP_CLOCK_HZ			1
 #define MP_FEATURE_FLAGS 	2
@@ -154,5 +158,9 @@ void vcsPla4Ex(uint8_t data); // SP must point to TIA, only D5:D0 are driven bec
 void vcsWaitForAddress(uint16_t address);
 void vcsJmpToRam3(uint16_t addr);
 void injectDmaData(int address, int count, const uint8_t* pBuffer);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // VCSLIB_H

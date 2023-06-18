@@ -329,7 +329,7 @@ f_header.write('''#ifndef SPRITES_H
 #include <stdint.h>
 ''')
 
-f_source = open('sprites.c', 'wt', newline='\n')
+f_source = open('sprites.cpp', 'wt', newline='\n')
 f_source.write('#include "sprites.h"\n')
 
 png_name = 'score-sprites.png'

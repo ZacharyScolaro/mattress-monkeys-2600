@@ -2,7 +2,7 @@
 #include "sprites.h"
 #include "text.h"
 #include "vcsLib.h"
-#include <stdbool.h>
+#include <cstddef>
 
 #define ColuBkScore 0x00
 #define ColuCeiling 0x0f
@@ -18,8 +18,7 @@
 #define ColuP0Monkey 0x5a
 #define ColuP1Monkey 0x2a
 
-
-typedef struct {
+struct Monkey {
 	uint8_t color;
 	int x;
 	int y;
@@ -27,7 +26,7 @@ typedef struct {
 	int velocity_y;
 	int frames_remaining;
 	int launch_y; // determines overall height
-} Monkey;
+};
 
 __attribute__((section(".noinit")))
 static uint8_t bitmap[192 * 80];
@@ -53,8 +52,8 @@ void move_monkey(uint8_t joy, Monkey* monkey);
 // Gopher
 #define vcsWrite6(a,d) vcsLda2(d); vcsSta4(a);
 // 7800 mode
-void injectDmaDataWM0(int address, int count, const uint8_t* pBuffer) {}//;//
-void injectDmaDataWM1(int address, int count, const uint8_t* pBuffer) {}//;//
+void injectDmaDataWM0(int address, int count, const uint8_t* pBuffer) {}
+void injectDmaDataWM1(int address, int count, const uint8_t* pBuffer) {}
 #else
 // Chameleon Cart
 // 7800 mode
@@ -80,18 +79,18 @@ static const int8_t Fly_Wave_Y[] = { 0,0,1, 0,0,1, 0,1, 1, 1, 0,1, 0,0,1, 0,0,1,
 static const int8_t Initial_X_Velocity_Lookup[20] = { 1, 1, 2, 2, 3, 4, 3, 2, 2, 1, -1, -1, -2, -2, -3, -4, -3, -2, -2, -1 };
 static const int X_Velocity_Scale = 4;
 
-int elf_main(uint32_t* args)
+extern "C" int elf_main(uint32_t * args)
 {
 	int min = 500;
 	int max = 0;
 	int fly_top_x = 20;
 	int fly_top_y = 2;
-	int fly_top_index = 0;
+	size_t fly_top_index = 0;
 	int fly_bot_x = 8;
 	int fly_bot_y = 20;
 	int frame = 0;
 	int fanFrame = 0;
-	int fly_loop_index = 0;
+	size_t fly_loop_index = 0;
 	track_player audio_player0;
 	track_player audio_player1;
 	track_player sfx_player;
@@ -99,8 +98,8 @@ int elf_main(uint32_t* args)
 	int sfx_frames_remaining = 0;
 	int sine_frame = 0;
 	int sine_hpos = 20;
-	Monkey monkey_0 = { .x = 40 * X_Velocity_Scale, .y = 50, .color = ColuP0Monkey };
-	Monkey monkey_1 = { .x = 120 * X_Velocity_Scale, .y = 129, .color = ColuP1Monkey };
+	Monkey monkey_0 = { .color = ColuP0Monkey, .x = 40 * X_Velocity_Scale, .y = 50  };
+	Monkey monkey_1 = { .color = ColuP1Monkey, .x = 120 * X_Velocity_Scale, .y = 129 };
 	Monkey* jumping_monkey = &monkey_0;
 	Monkey* standing_monkey = &monkey_1;
 	Monkey* p0_monkey = &monkey_0;
@@ -125,7 +124,7 @@ int elf_main(uint32_t* args)
 	vcsStartOverblank();
 
 	// Init stuff here while RIOT RAM keeps 6502 busy
-	for (int i = 0; i < sizeof(playfieldBuffer)/ sizeof(playfieldBuffer[0]); i++)
+	for (size_t i = 0; i < sizeof(playfieldBuffer)/ sizeof(playfieldBuffer[0]); i++)
 	{
 		playfieldBuffer[i] = 0;
 	}
@@ -244,20 +243,20 @@ int elf_main(uint32_t* args)
 		{
 			grp1Buffer[i] = 0;
 		}
-		for (int i = 0; i < sizeof(FanChasisGraphics)/sizeof(FanChasisGraphics[0]); i++)
+		for (size_t i = 0; i < sizeof(FanChasisGraphics)/sizeof(FanChasisGraphics[0]); i++)
 		{
 			grp1Buffer[i+2] = FanChasisGraphics[i];
 			colup1Buffer[i+2] = FanChasisColu[i];
 		}
 
 		// Banana
-		for (int i = 0; i < sizeof(BonusBananaGraphics)/sizeof(BonusBananaGraphics[0]); i++)
+		for (size_t i = 0; i < sizeof(BonusBananaGraphics)/sizeof(BonusBananaGraphics[0]); i++)
 		{
 			grp1Buffer[i + 33] = BonusBananaGraphics[i];
 			colup1Buffer[i + 33] = BonusBananaColu[i];
 		}
 
-		for (int i = 140*5; i < sizeof(playfieldBuffer); i++)
+		for (size_t i = 140*5; i < sizeof(playfieldBuffer); i++)
 		{
 			playfieldBuffer[i] = 0;
 		}
@@ -766,7 +765,7 @@ void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame) {
 __attribute__((long_call, section(".RamFunc")))
 static void init_7800()
 {
-	for (int i = 0; i < sizeof(kernel_7800); i++) {
+	for (size_t i = 0; i < sizeof(kernel_7800); i++) {
 		vcsWrite6((uint16_t)(0x1800 + i), kernel_7800[i]);
 		vcsNop2n(2);
 		vcsJmp3();

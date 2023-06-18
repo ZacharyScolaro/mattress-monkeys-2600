@@ -11,7 +11,7 @@ static int frameCount = 0;
 __attribute__((section(".noinit")))
 static uint8_t textBuffer[18 * GlyphHeight];
 
-void PrintScore(const int8_t* ptext)
+void PrintScore(const char* ptext)
 {
 	int index = 0;
 	for (int y = 0; y < GlyphHeight; y++)

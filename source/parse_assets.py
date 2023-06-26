@@ -33,7 +33,7 @@ def rgb_to_colu(rgb):
 	closest = 0
 	min_dist = 256*256*256
 	for i in range(0,128):
-		dist = math.sqrt((rgb[0] - palette[i][0])**2 +(rgb[0] - palette[i][0])**2 + (rgb[0] - palette[i][0])**2)
+		dist = math.sqrt((rgb[0] - palette[i][0])**2 +(rgb[1] - palette[i][1])**2 + (rgb[2] - palette[i][2])**2)
 		if dist < min_dist:
 			min_dist = dist
 			closest = i
@@ -74,7 +74,7 @@ def parse_png(png_name, pixel_width, pixel_height, item_x, item_y, item_width, i
 					graphic_bytes.append('0x{:02x}'.format(b))
 				color_bytes.append('0x{:02x}'.format(colu))
 			pixel_y = pixel_y + 1
-			if pixel_y > item_y + item_height:
+			if pixel_y >= item_y + item_height:
 				break
 		y+=1
 	f.close()
@@ -352,7 +352,7 @@ generate_sine_tables(f_header, f_source)
 
 bin_to_c_array(f_header, f_source, 'kernel_7800.bin', 'kernel_7800')
 
-parse_ttt(f_header, f_source, 'glafouk - Miniblast.ttt', 'SongMiniBlast', True, True)
+parse_ttt(f_header, f_source, 'MONKEYS.ttt', 'SongMiniBlast', True, True)
 parse_ttt(f_header, f_source, 'bounce.ttt', 'SfxBounce', True, True)
 
 f_header.write('\n\n#endif // SPRITES_H')

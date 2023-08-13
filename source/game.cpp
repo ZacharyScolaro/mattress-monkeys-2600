@@ -25,11 +25,10 @@ public:
 	BoundingBox<FP32> hit_box;
 	uint8_t color;
 	FP32 x;
-	int y;
+	FP32 y;
 	FP32 velocity_x;
-	int velocity_y;
-	int frames_remaining;
-	int launch_y; // determines overall height
+	FP32 velocity_y;
+	int score;
 };
 
 __attribute__((section(".noinit")))
@@ -46,7 +45,7 @@ static uint8_t grp1Buffer[192];
 __attribute__((section(".noinit")))
 static uint8_t colup1Buffer[192];
 
-static char scoreText[18] = { 0, 1, 2, 3, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16 };
+static char scoreText[18] = { 0, 0, 0, 0, 16, 18, 18, 18, 16, 16, 18, 18, 18, 16, 0, 0, 0, 0 };
 void setPF(int x, int y);
 void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
 void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
@@ -85,6 +84,8 @@ static const int8_t Initial_X_Velocity_Lookup[20] = { 1, 1, 2, 2, 3, 4, 3, 2, 2,
 
 extern "C" int elf_main(uint32_t * args)
 {
+	bool banana_shown = false;
+	int banana_cooldown = 5 * 60;
 	int min = 500;
 	int max = 0;
 	int fly_top_x = 20;
@@ -102,13 +103,17 @@ extern "C" int elf_main(uint32_t * args)
 	int sfx_frames_remaining = 0;
 	int sine_frame = 0;
 	int sine_hpos = 20;
-	Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0 };
-	Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0 };
+	Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0 };
+	Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0 };
 	Monkey* jumping_monkey = &monkey_0;
 	Monkey* standing_monkey = &monkey_1;
 	Monkey* p0_monkey = &monkey_0;
 	Monkey* p1_monkey = &monkey_1;
-
+	FP32 GravityAscend = fp32(0.25);
+	FP32 GravityFall = fp32(0.5);
+	BoundingBox<FP32> fly_top_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
+	BoundingBox<FP32> fly_bot_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
+	BoundingBox<FP32> banana_hit_box = BoundingBox<FP32>(77, 33, 0, 7, 0, 13);
 
 	if (args[MP_SYSTEM_TYPE] == ST_NTSC_7800)
 	{
@@ -147,27 +152,6 @@ extern "C" int elf_main(uint32_t * args)
 	// Render loop
 	while (true) {
 		// monkey physics
-		jumping_monkey->frames_remaining--;
-		if (jumping_monkey->frames_remaining <= 0)
-		{
-			jumping_monkey->velocity_y++;
-			if (jumping_monkey->velocity_y < 1)
-			{
-				jumping_monkey->frames_remaining = jumping_monkey->launch_y = jumping_monkey->launch_y / 2;
-			}
-			else if (jumping_monkey->velocity_y == 1)
-			{
-				jumping_monkey->frames_remaining = 10;
-			}
-			else if (jumping_monkey->velocity_y == 2)
-			{
-				jumping_monkey->frames_remaining = 8;
-			}
-			else
-			{
-				jumping_monkey->frames_remaining = 500;
-			}
-		}
 		jumping_monkey->x += jumping_monkey->velocity_x;
 		if (jumping_monkey->x < 16) {
 			jumping_monkey->x = 16;
@@ -177,7 +161,16 @@ extern "C" int elf_main(uint32_t * args)
 			jumping_monkey->x = 140;
 			jumping_monkey->velocity_x = 0;
 		}
-
+		// Apply gravity
+		if (jumping_monkey->velocity_y > 0)
+		{
+			// Fall faster than ascent
+			jumping_monkey->velocity_y += GravityFall;
+		}
+		else
+		{
+			jumping_monkey->velocity_y += GravityAscend;
+		}
 		jumping_monkey->y += jumping_monkey->velocity_y;
 		if (jumping_monkey->y > 0xa3)
 		{
@@ -186,9 +179,8 @@ extern "C" int elf_main(uint32_t * args)
 			jumping_monkey = standing_monkey;
 			standing_monkey = temp;
 			jumping_monkey->velocity_x = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x.Round()) + 3) / 4)) % 20];
-			jumping_monkey->velocity_y = -4;
 			//uncomment this to test max jump height jumping_monkey->y = 0x80;
-			jumping_monkey->frames_remaining = jumping_monkey->launch_y = (193 - jumping_monkey->y) / 3;
+			jumping_monkey->velocity_y = fp32(-7.75);// velocity_adjust * -100;// (jumping_monkey->y.Round() - 500);
 		}
 
 		// preclear buffers
@@ -254,10 +246,21 @@ extern "C" int elf_main(uint32_t * args)
 		}
 
 		// Banana
-		for (size_t i = 0; i < sizeof(BonusBananaGraphics)/sizeof(BonusBananaGraphics[0]); i++)
+		if (banana_shown)
 		{
-			grp1Buffer[i + 33] = BonusBananaGraphics[i];
-			colup1Buffer[i + 33] = BonusBananaColu[i];
+			for (size_t i = 0; i < sizeof(BonusBananaGraphics) / sizeof(BonusBananaGraphics[0]); i++)
+			{
+				grp1Buffer[i + 33] = BonusBananaGraphics[i];
+				colup1Buffer[i + 33] = BonusBananaColu[i];
+			}
+		}
+		else {
+			banana_cooldown--;
+			if (banana_cooldown <= 0)
+			{
+				banana_shown = true;
+				banana_cooldown = 5 * 60;
+			}
 		}
 
 		for (size_t i = 140*5; i < sizeof(playfieldBuffer); i++)
@@ -276,7 +279,7 @@ extern "C" int elf_main(uint32_t * args)
 					sine_hpos = 34 - ((jumping_monkey->x.Round()) - 2) / 4;
 				}
 				// Adjust height down to player if needed
-				while (SineTables[sine_frame & 0x1f][((jumping_monkey->x.Round()) / 4) + sine_hpos] > (164 - jumping_monkey->y))
+				while (SineTables[sine_frame & 0x1f][((jumping_monkey->x.Round()) / 4) + sine_hpos] > (164 - jumping_monkey->y.Round()))
 				{
 					sine_frame++;
 				}
@@ -302,8 +305,8 @@ extern "C" int elf_main(uint32_t * args)
 		// Monkey Idle Test
 		for (int j = 0; j < 12; j++)
 		{
-			grp0Buffer[jumping_monkey->y + j] = MonkeyIdleGraphics[j];
-			grp1Buffer[standing_monkey->y + j] = MonkeyWalkingGraphics[0][j]; //112-147
+			grp0Buffer[jumping_monkey->y.Round() + j] = MonkeyIdleGraphics[j];
+			grp1Buffer[standing_monkey->y.Round() + j] = MonkeyWalkingGraphics[0][j]; //112-147
 		}
 
 		next_audio_frame(&audio_player0);
@@ -320,24 +323,59 @@ extern "C" int elf_main(uint32_t * args)
 		}
 		if (standing_monkey->y < min)
 		{
-			min = standing_monkey->y;
+			min = standing_monkey->y.Round();
 		}
 		if (standing_monkey->y > max)
 		{
-			max = standing_monkey->y;
+			max = standing_monkey->y.Round();
 		}
 
-		for (int i = 0; i < 4; i++)
+		////int8_t iv = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((monkey_0.x.Round()) + 3) / 4)) % 20];
+		//for (int i = 0; i < 8; i++)
+		//{
+		//	scoreText[i] = (char)((uint32_t)(jumping_monkey->x.Value) >> ((7 - i) * 4)) & 0xf;
+		//}
+		//for (int i = 0; i < 8; i++)
+		//{
+		//	scoreText[i+9] = (char)((uint32_t)(jumping_monkey->y.Value) >> ((7 - i) * 4)) & 0xf;
+		//}
+		jumping_monkey->hit_box.X = jumping_monkey->x;
+		jumping_monkey->hit_box.Y = jumping_monkey->y;
+
+		fly_top_hit_box.X = fly_top_x;
+		if (jumping_monkey->hit_box.Intersects(fly_top_hit_box))
 		{
-			scoreText[i] = (char)((uint32_t)(((standing_monkey->x.Round()) + 3) / 4) >> ((3 - i) * 4)) & 0xf;
+			fly_top_x = 0;
+			jumping_monkey->score += 1;
 		}
-		for (int i = 0; i < 4; i++)
+
+		fly_bot_hit_box.X = fly_bot_x;
+		if (jumping_monkey->hit_box.Intersects(fly_bot_hit_box))
 		{
-			scoreText[i+5] = (char)((uint32_t)(jumping_monkey->velocity_x.Round()) >> ((3 - i) * 4)) & 0xf;
+			fly_bot_x = 0;
+			jumping_monkey->score += 1;
 		}
+		
+		////for (int i = 0; i < 2; i++)
+		////{
+		////	scoreText[i] = (char)(iv >> ((1 - i) * 4)) & 0xf;
+		////}
+		if (banana_shown && jumping_monkey->hit_box.Intersects(banana_hit_box))
+		{
+			banana_shown = false;
+			jumping_monkey->score += 5;
+		}
+		int left_score = monkey_0.score;
 		for (int i = 0; i < 4; i++)
 		{
-			scoreText[i+10] = (char)((uint32_t)(sine_hpos) >> ((3 - i) * 4)) & 0xf;
+			scoreText[3 - i] = (left_score % 10) & 0xf;
+			left_score /= 10;
+		}
+		int right_score = monkey_1.score;
+		for (int i = 0; i < 4; i++)
+		{
+			scoreText[17 - i] = (right_score % 10) & 0xf;
+			right_score /= 10;
 		}
 		PrintScore(scoreText);
 		vcsEndOverblank();
@@ -408,7 +446,9 @@ extern "C" int elf_main(uint32_t * args)
 			vcsSta3(WSYNC);
 			line++;
 		}
+		fly_top_hit_box.Y = fly_top_y + line;
 		DrawFlyRegion(&line, 14, fly_top_x, fly_top_y, frame & 1);
+		fly_bot_hit_box.Y = fly_bot_y + line;
 		DrawFlyRegion(&line, 24, fly_bot_x, fly_bot_y, frame & 1);
 
 		PositionObject(line++, 132, RESPONE, HMP1);

@@ -352,7 +352,7 @@ generate_sine_tables(f_header, f_source)
 
 bin_to_c_array(f_header, f_source, 'kernel_7800.bin', 'kernel_7800')
 
-parse_ttt(f_header, f_source, 'MONKEYS.ttt', 'SongMiniBlast', True, True)
+parse_ttt(f_header, f_source, 'MONKEYS.ttt', 'SongMonkeys', True, True)
 parse_ttt(f_header, f_source, 'bounce.ttt', 'SfxBounce', True, True)
 
 f_header.write('\n\n#endif // SPRITES_H')

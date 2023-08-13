@@ -66,7 +66,7 @@ typedef struct {
 	const pattern_t* patterns;
 } track_t;
 
-extern const track_t SongMiniBlast;
+extern const track_t SongMonkeys;
 extern const track_t SfxBounce;
 
 #endif // SPRITES_H

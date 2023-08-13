@@ -2,6 +2,8 @@
 #include "sprites.h"
 #include "text.h"
 #include "vcsLib.h"
+#include "fp32.hpp"
+#include "boundingBox.hpp"
 #include <cstddef>
 
 #define ColuBkScore 0x00
@@ -18,11 +20,13 @@
 #define ColuP0Monkey 0x5a
 #define ColuP1Monkey 0x2a
 
-struct Monkey {
+class Monkey {
+public:
+	BoundingBox<FP32> hit_box;
 	uint8_t color;
-	int x;
+	FP32 x;
 	int y;
-	int velocity_x;
+	FP32 velocity_x;
 	int velocity_y;
 	int frames_remaining;
 	int launch_y; // determines overall height
@@ -47,6 +51,7 @@ void setPF(int x, int y);
 void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
 void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
 void move_monkey(uint8_t joy, Monkey* monkey);
+void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
 
 #if 1
 // Gopher
@@ -77,7 +82,6 @@ static const int8_t Fly_Loop_X[] = { 1,1,1, 1,1,1, 1,1, 1,1 ,1,1 ,1,0, 1,0, -1,0
 static const int8_t Fly_Loop_Y[] = {-1,-1,0,-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, -1,-1, -1,-1,  0,0, 0,0, 0,0,  1,1,  1,1, 1,1, 1,1, 1,1, 1,1, 1,1, 1,1,0, 1,1,0, 0,0,0,0,0 };
 static const int8_t Fly_Wave_Y[] = { 0,0,1, 0,0,1, 0,1, 1, 1, 0,1, 0,0,1, 0,0,1, 0,0,0,0,0, 0,0,-1, 0,0,-1, 0,-1, -1, -1, 0,-1, 0,0,-1, 0,0,-1, 0,0,0,0,0 };
 static const int8_t Initial_X_Velocity_Lookup[20] = { 1, 1, 2, 2, 3, 4, 3, 2, 2, 1, -1, -1, -2, -2, -3, -4, -3, -2, -2, -1 };
-static const int X_Velocity_Scale = 4;
 
 extern "C" int elf_main(uint32_t * args)
 {
@@ -98,8 +102,8 @@ extern "C" int elf_main(uint32_t * args)
 	int sfx_frames_remaining = 0;
 	int sine_frame = 0;
 	int sine_hpos = 20;
-	Monkey monkey_0 = { .color = ColuP0Monkey, .x = 40 * X_Velocity_Scale, .y = 50  };
-	Monkey monkey_1 = { .color = ColuP1Monkey, .x = 120 * X_Velocity_Scale, .y = 129 };
+	Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0 };
+	Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0 };
 	Monkey* jumping_monkey = &monkey_0;
 	Monkey* standing_monkey = &monkey_1;
 	Monkey* p0_monkey = &monkey_0;
@@ -136,8 +140,8 @@ extern "C" int elf_main(uint32_t * args)
 		grp1Buffer[i] = 0;
 	}
 
-	init_audio_player(&audio_player0, 0, &SongMiniBlast);
-	init_audio_player(&audio_player1, 1, &SongMiniBlast);
+	init_audio_player(&audio_player0, 0, &SongMonkeys);
+	init_audio_player(&audio_player1, 1, &SongMonkeys);
 	
 
 	// Render loop
@@ -165,12 +169,12 @@ extern "C" int elf_main(uint32_t * args)
 			}
 		}
 		jumping_monkey->x += jumping_monkey->velocity_x;
-		if (jumping_monkey->x < 16 * X_Velocity_Scale) {
-			jumping_monkey->x = 16 * X_Velocity_Scale;
+		if (jumping_monkey->x < 16) {
+			jumping_monkey->x = 16;
 			jumping_monkey->velocity_x = 0;
 		}
-		if (jumping_monkey->x > 140 * X_Velocity_Scale) {
-			jumping_monkey->x = 140 * X_Velocity_Scale;
+		if (jumping_monkey->x > 140) {
+			jumping_monkey->x = 140;
 			jumping_monkey->velocity_x = 0;
 		}
 
@@ -181,7 +185,7 @@ extern "C" int elf_main(uint32_t * args)
 			Monkey* temp = jumping_monkey;
 			jumping_monkey = standing_monkey;
 			standing_monkey = temp;
-			jumping_monkey->velocity_x = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x/ X_Velocity_Scale) + 3) / 4)) % 20];
+			jumping_monkey->velocity_x = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x.Round()) + 3) / 4)) % 20];
 			jumping_monkey->velocity_y = -4;
 			//uncomment this to test max jump height jumping_monkey->y = 0x80;
 			jumping_monkey->frames_remaining = jumping_monkey->launch_y = (193 - jumping_monkey->y) / 3;
@@ -269,10 +273,10 @@ extern "C" int elf_main(uint32_t * args)
 				if (jumping_monkey->y > 0x92)
 				{
 					// Once below sine middle move wave to player
-					sine_hpos = 34 - ((jumping_monkey->x/ X_Velocity_Scale) - 2) / 4;
+					sine_hpos = 34 - ((jumping_monkey->x.Round()) - 2) / 4;
 				}
 				// Adjust height down to player if needed
-				while (SineTables[sine_frame & 0x1f][((jumping_monkey->x/ X_Velocity_Scale) / 4) + sine_hpos] > (164 - jumping_monkey->y))
+				while (SineTables[sine_frame & 0x1f][((jumping_monkey->x.Round()) / 4) + sine_hpos] > (164 - jumping_monkey->y))
 				{
 					sine_frame++;
 				}
@@ -286,7 +290,7 @@ extern "C" int elf_main(uint32_t * args)
 		for (int i = 4; i < 37; i++)
 		{
 			int height = SineTables[sine_frame][i + sine_hpos]; //frame & 0x1f
-			if (i == ((standing_monkey->x/ X_Velocity_Scale )+3) /4)
+			if (i == ((standing_monkey->x.Round() )+3) /4)
 			{
 				standing_monkey->y = 163 - height;
 			}
@@ -325,11 +329,11 @@ extern "C" int elf_main(uint32_t * args)
 
 		for (int i = 0; i < 4; i++)
 		{
-			scoreText[i] = (char)((uint32_t)(((standing_monkey->x/ X_Velocity_Scale) + 3) / 4) >> ((3 - i) * 4)) & 0xf;
+			scoreText[i] = (char)((uint32_t)(((standing_monkey->x.Round()) + 3) / 4) >> ((3 - i) * 4)) & 0xf;
 		}
 		for (int i = 0; i < 4; i++)
 		{
-			scoreText[i+5] = (char)((uint32_t)(jumping_monkey->velocity_x) >> ((3 - i) * 4)) & 0xf;
+			scoreText[i+5] = (char)((uint32_t)(jumping_monkey->velocity_x.Round()) >> ((3 - i) * 4)) & 0xf;
 		}
 		for (int i = 0; i < 4; i++)
 		{
@@ -346,7 +350,7 @@ extern "C" int elf_main(uint32_t * args)
 		vcsWrite5(AUDF1, chan1_player->frequency);
 		vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC); vcsSta3(WSYNC);
 
-		PositionObject(0, jumping_monkey->x/ X_Velocity_Scale, RESP0, HMP0);
+		PositionObject(0, jumping_monkey->x.Round(), RESP0, HMP0);
 
 		vcsLda2(0);
 		vcsSta3(PF0);
@@ -410,166 +414,7 @@ extern "C" int elf_main(uint32_t * args)
 		PositionObject(line++, 132, RESPONE, HMP1);
 		PositionObject(line++, 25, RESM1, HMM1);
 
-		// Level 1 - Wide bed
-		// Headboard
-		for (int i = 0; i < 40; i++)
-		{
-			vcsSta3(HMOVE);
-			vcsWrite5(COLUPF, ColuHeadboard);
-			vcsWrite5(GRP0, grp0Buffer[line]);
-			vcsWrite5(PF0, ReverseByte[HeadBoardWideGraphics[i * 5] >> 4]);
-			vcsWrite5(PF1, (HeadBoardWideGraphics[i * 5] << 4) | (HeadBoardWideGraphics[i * 5 + 1] >> 4));
-			vcsWrite5(COLUBK, ColuWall);
-			vcsWrite5(PF2, ReverseByte[(uint8_t)((HeadBoardWideGraphics[i * 5 + 1] << 4) | (HeadBoardWideGraphics[i * 5 + 2] >> 4))]);
-			vcsWrite5(PF0, ReverseByte[HeadBoardWideGraphics[i * 5 + 2]]);
-			vcsWrite6(PF1, HeadBoardWideGraphics[i * 5 + 3]);
-			vcsWrite5(PF2, ReverseByte[HeadBoardWideGraphics[i * 5 + 4]]);
-			if (i < 39)
-			{
-				vcsJmp3();
-				vcsWrite5(COLUP1, ColuWall);
-				vcsSta3(HMCLR);
-				vcsWrite5(VDELP1, 0xff);
-			}
-			else
-			{
-				vcsWrite5(HMP1, 0xf0);
-				vcsWrite5(HMM1, 0x10);
-				vcsWrite5(GRP1, 0xff);
-				vcsWrite5(ENAM1, 0xff);
-			}
-			vcsSta3(WSYNC);
-			line++;
-		}
-
-		// 4 lines of pillow and wall
-		// 4 lines of sheet and wall
-		for (int i = 0; i < 8; i++)
-		{
-			vcsSta3(HMOVE);
-			vcsWrite5(COLUPF, i < 4 ? ColuPillow : ColuSheet);
-			vcsWrite5(GRP0, grp0Buffer[line]);
-			vcsWrite5(PF0, 0);
-			vcsWrite5(PF1, i < 4 ? 0x3f : 0x7f);
-			vcsWrite5(COLUBK, ColuWall);
-			vcsWrite5(PF2, 0xff);
-			vcsWrite5(CTRLPF, 1);
-			if (i == 7)
-			{
-				vcsNop2n(15);
-				vcsWrite5(CTRLPF, 0x05);
-			}
-			vcsSta3(WSYNC);
-			line++;
-		}
-		// 4 lines of post, wall, and sheet
-		for (int i = 0; i < 4; i++)
-		{
-			vcsSta3(HMOVE);
-			vcsWrite5(COLUPF, ColuHeadboard);
-			vcsWrite5(GRP0, grp0Buffer[line]);
-			vcsWrite5(PF0, 0xff);
-			vcsWrite5(PF1, 0x80);
-			vcsWrite5(COLUBK, ColuSheet);
-			vcsWrite5(PF2, 0x00);
-			vcsJmp3();
-			vcsWrite5(PF1, 0x00);
-			if (i == 3)
-			{
-				vcsNop2n(12);
-				vcsWrite5(ENAM1, 0);
-				vcsSta3(GRP1);
-			}
-			vcsSta3(WSYNC);
-			line++;
-		}
-		// 4 lines of post and sheet
-		for (int i = 0; i < 4; i++)
-		{
-			vcsSta3(HMOVE);
-			vcsWrite5(COLUPF, ColuBedPost);
-			vcsWrite5(GRP0, grp0Buffer[line]);
-			vcsWrite5(PF0, 0xff);
-			vcsWrite5(PF1, 0x80);
-			vcsWrite5(COLUBK, ColuSheet);
-			vcsWrite5(PF2, 0x00);
-			vcsJmp3();
-			vcsWrite5(PF1, 0x00);
-			vcsSta3(WSYNC);
-			line++;
-		}
-
-		// Position Second Monkey while drawing matress and bed posts with COLUBK
-		int x = standing_monkey->x/ X_Velocity_Scale;
-		vcsSta3(HMOVE);
-		if (x < 80) {
-			vcsWrite5(GRP0, grp0Buffer[line]);
-			vcsWrite5(PF0, 0xff);
-			vcsNop2n(4);
-			while (x > 26) {
-				vcsWrite5(PF0, 0xff);
-				x -= 15;
-			}
-			vcsSta3(HMCLR);
-			vcsSta3(RESPONE);
-			vcsWrite5(HMP1, ((x - 11) ^ 0x07) << 4);
-			vcsWrite5(PF0, 0x70);
-		}
-		else {
-			vcsWrite5(GRP0, grp0Buffer[line]);
-			vcsWrite5(PF0, 0xff);
-			vcsNop2n(9);
-			x -= 30;
-			while (x > 26) {
-				vcsWrite5(PF0, 0x70);
-				x -= 15;
-			}
-			vcsSta3(HMCLR);
-			vcsSta3(RESPONE);
-			vcsWrite5(HMP1, ((x - 11) ^ 0x07) << 4);
-		}
-			
-		vcsSta3(WSYNC);
-		line++;
-
-		vcsSta3(HMOVE);
-		vcsWrite5(PF0, 0xff);
-		vcsWrite5(GRP0, grp0Buffer[line]);
-		vcsNop2n(22);
-		vcsWrite5(PF0, 0x70);
-		vcsSta3(HMCLR);
-		vcsJmp3();
-		vcsJmp3();
-		vcsWrite5(COLUBK, ColuBedPost);
-		line++;
-
-		for (int i = 0; line < 175; i++)
-		{
-			vcsSta3(HMOVE);
-			if (i == 0)
-			{
-				vcsWrite5(COLUPF, ColuMattress);
-			}
-			else {
-				vcsWrite5(CTRLPF, 0);
-			}
-			vcsWrite5(GRP0, grp0Buffer[line]);
-			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
-			vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
-			vcsWrite5(COLUBK, ColuSheet);
-			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
-			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
-			vcsWrite6(PF1, playfieldBuffer[line * 5 + 3]);
-			vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
-			vcsJmp3();
-			vcsWrite5(COLUP1, standing_monkey->color);
-			vcsSta3(HMCLR);
-			vcsNop2();
-			vcsWrite5(GRP1, grp1Buffer[line+1]);
-			vcsWrite5(COLUBK, ColuBedPost);
-			vcsSta3(WSYNC);
-			line++;
-		}
+		RenderWideBed(line, jumping_monkey, standing_monkey);
 		// Level 2 Medium bed
 		while (line < 0)
 		{
@@ -641,17 +486,17 @@ extern "C" int elf_main(uint32_t * args)
 
 void move_monkey(uint8_t joy, Monkey* monkey)
 {
-	if (((joy & 0x4) == 0) && monkey->x > 16 * X_Velocity_Scale) {
+	if (((joy & 0x4) == 0) && monkey->x > 16) {
 		// left
-		monkey->x -= X_Velocity_Scale;
+		monkey->x -= 1;
 		if (monkey->velocity_x > 0)
 		{
 			monkey->velocity_x--;
 		}
 	}
-	if (((joy & 0x8) == 0) && monkey->x < 140 * X_Velocity_Scale) {
+	if (((joy & 0x8) == 0) && monkey->x < 140) {
 		// right
-		monkey->x += X_Velocity_Scale;
+		monkey->x += 1;
 		if (monkey->velocity_x < 0)
 		{
 			monkey->velocity_x++;
@@ -884,5 +729,168 @@ static void init_7800()
 				injectDmaDataWM1(i, 16, &(pRow[64]));
 			}
 		}
+	}
+}
+
+void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey) {
+	// Level 1 - Wide bed
+// Headboard
+	for (int i = 0; i < 40; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsWrite5(COLUPF, ColuHeadboard);
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsWrite5(PF0, ReverseByte[HeadBoardWideGraphics[i * 5] >> 4]);
+		vcsWrite5(PF1, (HeadBoardWideGraphics[i * 5] << 4) | (HeadBoardWideGraphics[i * 5 + 1] >> 4));
+		vcsWrite5(COLUBK, ColuWall);
+		vcsWrite5(PF2, ReverseByte[(uint8_t)((HeadBoardWideGraphics[i * 5 + 1] << 4) | (HeadBoardWideGraphics[i * 5 + 2] >> 4))]);
+		vcsWrite5(PF0, ReverseByte[HeadBoardWideGraphics[i * 5 + 2]]);
+		vcsWrite6(PF1, HeadBoardWideGraphics[i * 5 + 3]);
+		vcsWrite5(PF2, ReverseByte[HeadBoardWideGraphics[i * 5 + 4]]);
+		if (i < 39)
+		{
+			vcsJmp3();
+			vcsWrite5(COLUP1, ColuWall);
+			vcsSta3(HMCLR);
+			vcsWrite5(VDELP1, 0xff);
+		}
+		else
+		{
+			vcsWrite5(HMP1, 0xf0);
+			vcsWrite5(HMM1, 0x10);
+			vcsWrite5(GRP1, 0xff);
+			vcsWrite5(ENAM1, 0xff);
+		}
+		vcsSta3(WSYNC);
+		line++;
+	}
+
+	// 4 lines of pillow and wall
+	// 4 lines of sheet and wall
+	for (int i = 0; i < 8; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsWrite5(COLUPF, i < 4 ? ColuPillow : ColuSheet);
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsWrite5(PF0, 0);
+		vcsWrite5(PF1, i < 4 ? 0x3f : 0x7f);
+		vcsWrite5(COLUBK, ColuWall);
+		vcsWrite5(PF2, 0xff);
+		vcsWrite5(CTRLPF, 1);
+		if (i == 7)
+		{
+			vcsNop2n(15);
+			vcsWrite5(CTRLPF, 0x05);
+		}
+		vcsSta3(WSYNC);
+		line++;
+	}
+	// 4 lines of post, wall, and sheet
+	for (int i = 0; i < 4; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsWrite5(COLUPF, ColuHeadboard);
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsWrite5(PF0, 0xff);
+		vcsWrite5(PF1, 0x80);
+		vcsWrite5(COLUBK, ColuSheet);
+		vcsWrite5(PF2, 0x00);
+		vcsJmp3();
+		vcsWrite5(PF1, 0x00);
+		if (i == 3)
+		{
+			vcsNop2n(12);
+			vcsWrite5(ENAM1, 0);
+			vcsSta3(GRP1);
+		}
+		vcsSta3(WSYNC);
+		line++;
+	}
+	// 4 lines of post and sheet
+	for (int i = 0; i < 4; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsWrite5(COLUPF, ColuBedPost);
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsWrite5(PF0, 0xff);
+		vcsWrite5(PF1, 0x80);
+		vcsWrite5(COLUBK, ColuSheet);
+		vcsWrite5(PF2, 0x00);
+		vcsJmp3();
+		vcsWrite5(PF1, 0x00);
+		vcsSta3(WSYNC);
+		line++;
+	}
+
+	// Position Second Monkey while drawing matress and bed posts with COLUBK
+	int x = standing_monkey->x.Round();
+	vcsSta3(HMOVE);
+	if (x < 80) {
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsWrite5(PF0, 0xff);
+		vcsNop2n(4);
+		while (x > 26) {
+			vcsWrite5(PF0, 0xff);
+			x -= 15;
+		}
+		vcsSta3(HMCLR);
+		vcsSta3(RESPONE);
+		vcsWrite5(HMP1, ((x - 11) ^ 0x07) << 4);
+		vcsWrite5(PF0, 0x70);
+	}
+	else {
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsWrite5(PF0, 0xff);
+		vcsNop2n(9);
+		x -= 30;
+		while (x > 26) {
+			vcsWrite5(PF0, 0x70);
+			x -= 15;
+		}
+		vcsSta3(HMCLR);
+		vcsSta3(RESPONE);
+		vcsWrite5(HMP1, ((x - 11) ^ 0x07) << 4);
+	}
+
+	vcsSta3(WSYNC);
+	line++;
+
+	vcsSta3(HMOVE);
+	vcsWrite5(PF0, 0xff);
+	vcsWrite5(GRP0, grp0Buffer[line]);
+	vcsNop2n(22);
+	vcsWrite5(PF0, 0x70);
+	vcsSta3(HMCLR);
+	vcsJmp3();
+	vcsJmp3();
+	vcsWrite5(COLUBK, ColuBedPost);
+	line++;
+
+	for (int i = 0; line < 175; i++)
+	{
+		vcsSta3(HMOVE);
+		if (i == 0)
+		{
+			vcsWrite5(COLUPF, ColuMattress);
+		}
+		else {
+			vcsWrite5(CTRLPF, 0);
+		}
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
+		vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
+		vcsWrite5(COLUBK, ColuSheet);
+		vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
+		vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
+		vcsWrite6(PF1, playfieldBuffer[line * 5 + 3]);
+		vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
+		vcsJmp3();
+		vcsWrite5(COLUP1, standing_monkey->color);
+		vcsSta3(HMCLR);
+		vcsNop2();
+		vcsWrite5(GRP1, grp1Buffer[line + 1]);
+		vcsWrite5(COLUBK, ColuBedPost);
+		vcsSta3(WSYNC);
+		line++;
 	}
 }

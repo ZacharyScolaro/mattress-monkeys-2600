@@ -147,7 +147,7 @@ const uint8_t kernel_7800[549] = {
 0xc0, 0xf0, 0x80, 0x00, 0xc0, 0xc0, 0xf0, 0x80, 0x40, 0xc0, 0xc0, 0xf0, 0x90, 0x80, 0xc0, 0xc0,
 0xf0, 0x90, 0x80, 0x00, 0x00};
 
-const track_t SongMiniBlast =
+const track_t SongMonkeys =
 {
 	.channels = { {(sequence_t[]){{ .goto_index=-1, .pattern_index=1 },
 { .goto_index=-1, .pattern_index=1 },
@@ -234,23 +234,23 @@ const track_t SongMiniBlast =
 { .goto_index=-1, .pattern_index=20 },
 { .goto_index=-1, .pattern_index=20 },
 { .goto_index=-1, .pattern_index=20 },
-{ .goto_index=-1, .pattern_index=22 },
+{ .goto_index=-1, .pattern_index=33 },
+{ .goto_index=-1, .pattern_index=25 },
+{ .goto_index=-1, .pattern_index=25 },
+{ .goto_index=-1, .pattern_index=25 },
+{ .goto_index=-1, .pattern_index=33 },
+{ .goto_index=-1, .pattern_index=25 },
+{ .goto_index=-1, .pattern_index=25 },
+{ .goto_index=-1, .pattern_index=25 },
+{ .goto_index=-1, .pattern_index=33 },
+{ .goto_index=-1, .pattern_index=25 },
+{ .goto_index=-1, .pattern_index=25 },
+{ .goto_index=-1, .pattern_index=25 },
+{ .goto_index=-1, .pattern_index=33 },
 { .goto_index=-1, .pattern_index=25 },
 { .goto_index=-1, .pattern_index=25 },
 { .goto_index=-1, .pattern_index=25 },
 { .goto_index=-1, .pattern_index=29 },
-{ .goto_index=-1, .pattern_index=25 },
-{ .goto_index=-1, .pattern_index=25 },
-{ .goto_index=-1, .pattern_index=25 },
-{ .goto_index=-1, .pattern_index=29 },
-{ .goto_index=-1, .pattern_index=25 },
-{ .goto_index=-1, .pattern_index=25 },
-{ .goto_index=-1, .pattern_index=25 },
-{ .goto_index=-1, .pattern_index=29 },
-{ .goto_index=-1, .pattern_index=25 },
-{ .goto_index=-1, .pattern_index=25 },
-{ .goto_index=-1, .pattern_index=25 },
-{ .goto_index=-1, .pattern_index=30 },
 { .goto_index=-1, .pattern_index=1 },
 { .goto_index=-1, .pattern_index=1 },
 { .goto_index=-1, .pattern_index=1 },
@@ -259,10 +259,10 @@ const track_t SongMiniBlast =
 { .goto_index=-1, .pattern_index=25 },
 { .goto_index=-1, .pattern_index=25 },
 { .goto_index=-1, .pattern_index=25 },
-{ .goto_index=-1, .pattern_index=32 },
-{ .goto_index=-1, .pattern_index=32 },
-{ .goto_index=-1, .pattern_index=32 },
-{ .goto_index=-1, .pattern_index=32 },
+{ .goto_index=-1, .pattern_index=31 },
+{ .goto_index=-1, .pattern_index=31 },
+{ .goto_index=-1, .pattern_index=31 },
+{ .goto_index=-1, .pattern_index=31 },
 { .goto_index=0, .pattern_index=11 }}}, {(sequence_t[]){{ .goto_index=-1, .pattern_index=0 },
 { .goto_index=-1, .pattern_index=7 },
 { .goto_index=-1, .pattern_index=0 },
@@ -299,48 +299,48 @@ const track_t SongMiniBlast =
 { .goto_index=-1, .pattern_index=27 },
 { .goto_index=-1, .pattern_index=26 },
 { .goto_index=-1, .pattern_index=28 },
-{ .goto_index=-1, .pattern_index=31 },
-{ .goto_index=0, .pattern_index=33 }}} },
+{ .goto_index=-1, .pattern_index=30 },
+{ .goto_index=0, .pattern_index=32 }}} },
 	.instruments = (instrument_t[]){   {
    // Quick note
-   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-   .volumes = (uint8_t[]) { 0, 2, 4, 5, 5, 4, 3, 2, 1, 0, 0 },
-   .sustainStart = 9,
-   .releaseStart = 10,
+   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+   .volumes = (uint8_t[]) { 0, 2, 4, 8, 7, 6, 5, 3, 1, 1, 0, 0 },
+   .sustainStart = 10,
+   .releaseStart = 11,
    .waveform = 4,
-   .length = 11
+   .length = 12
 },
    {
    // Quick note
-   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-   .volumes = (uint8_t[]) { 0, 2, 4, 5, 5, 4, 3, 2, 1, 0, 0 },
-   .sustainStart = 9,
-   .releaseStart = 10,
+   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+   .volumes = (uint8_t[]) { 0, 2, 4, 8, 7, 6, 5, 3, 1, 1, 0, 0 },
+   .sustainStart = 10,
+   .releaseStart = 11,
    .waveform = 12,
-   .length = 11
+   .length = 12
 },
    {
    // Long rise note
-   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-   .volumes = (uint8_t[]) { 0, 1, 1, 5, 7, 7, 2, 0, 0, 0, 0, 0, 0, 0 },
-   .sustainStart = 12,
-   .releaseStart = 13,
+   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+   .volumes = (uint8_t[]) { 0, 2, 4, 7, 8, 8, 8, 0, 0, 0 },
+   .sustainStart = 8,
+   .releaseStart = 9,
    .waveform = 4,
-   .length = 14
+   .length = 10
 },
    {
    // Long rise note
-   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-   .volumes = (uint8_t[]) { 0, 1, 1, 5, 7, 7, 2, 0, 0, 0, 0, 0, 0, 0 },
-   .sustainStart = 12,
-   .releaseStart = 13,
+   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+   .volumes = (uint8_t[]) { 0, 2, 4, 7, 8, 8, 8, 0, 0, 0 },
+   .sustainStart = 8,
+   .releaseStart = 9,
    .waveform = 12,
-   .length = 14
+   .length = 10
 },
    {
    // Medium length note
    .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-   .volumes = (uint8_t[]) { 0, 2, 4, 5, 5, 5, 5, 5, 5, 4, 4, 3, 3, 3, 2, 2, 1, 0, 0 },
+   .volumes = (uint8_t[]) { 0, 4, 6, 8, 8, 8, 7, 6, 5, 5, 5, 4, 4, 3, 2, 2, 1, 0, 0 },
    .sustainStart = 16,
    .releaseStart = 17,
    .waveform = 4,
@@ -349,7 +349,7 @@ const track_t SongMiniBlast =
    {
    // Raspy bass
    .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-   .volumes = (uint8_t[]) { 0, 1, 2, 2, 2, 2, 4, 1, 1, 0, 0 },
+   .volumes = (uint8_t[]) { 0, 1, 2, 2, 2, 2, 4, 2, 1, 0, 0 },
    .sustainStart = 9,
    .releaseStart = 10,
    .waveform = 7,
@@ -357,12 +357,12 @@ const track_t SongMiniBlast =
 },
    {
    // Tuba Monkey
-   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-   .volumes = (uint8_t[]) { 0, 1, 3, 4, 5, 5, 5, 4, 3, 2, 2, 1, 1, 0, 0, 0 },
-   .sustainStart = 14,
-   .releaseStart = 15,
+   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+   .volumes = (uint8_t[]) { 0, 3, 5, 7, 8, 8, 7, 2, 0, 0, 0, 0, 0 },
+   .sustainStart = 11,
+   .releaseStart = 12,
    .waveform = 6,
-   .length = 16
+   .length = 13
 }},
 	.percussions = (percussion_t[]){},
 	.patterns = (pattern_t[]){   {
@@ -376,7 +376,7 @@ const track_t SongMiniBlast =
    // bass 1
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xee, 0x10, 0xcb, 0x10, 0xf4, 0x10, 0xcb, 0x10,
+   .notes = (uint8_t[]) { 0xee, 0x08, 0xcb, 0x10, 0xf4, 0x08, 0xcb, 0x10,
 0x00 }
 },
    {
@@ -399,7 +399,7 @@ const track_t SongMiniBlast =
    // bass 1 end
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xee, 0x10, 0xee, 0x10, 0xed, 0x10, 0xeb, 0x10,
+   .notes = (uint8_t[]) { 0xee, 0x08, 0xee, 0x08, 0xed, 0x08, 0xeb, 0x08,
 0x00 }
 },
    {
@@ -414,7 +414,7 @@ const track_t SongMiniBlast =
    // bass 2
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xf6, 0x10, 0xc8, 0x10, 0xee, 0x10, 0xc8, 0x10,
+   .notes = (uint8_t[]) { 0xf6, 0x08, 0xc8, 0x10, 0xee, 0x08, 0xc8, 0x10,
 0x00 }
 },
    {
@@ -450,14 +450,14 @@ const track_t SongMiniBlast =
    // bass 3
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xeb, 0x10, 0xc9, 0x10, 0xee, 0x10, 0xc9, 0x10,
+   .notes = (uint8_t[]) { 0xeb, 0x08, 0xc9, 0x10, 0xee, 0x08, 0xc9, 0x10,
 0x00 }
 },
    {
    // bass 4
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xed, 0x10, 0xca, 0x10, 0xf1, 0x10, 0xca, 0x10,
+   .notes = (uint8_t[]) { 0xed, 0x08, 0xca, 0x10, 0xf1, 0x08, 0xca, 0x10,
 0x00 }
 },
    {
@@ -481,8 +481,8 @@ const track_t SongMiniBlast =
    // bass 5
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xfc, 0x10, 0xcc, 0x10, 0xf2, 0x10, 0xcc, 0x10,
-0xfc, 0x10, 0xcc, 0x10, 0xf2, 0x10, 0xcc, 0x10,
+   .notes = (uint8_t[]) { 0xfc, 0x08, 0xcc, 0x10, 0xf2, 0x08, 0xcc, 0x10,
+0xfc, 0x08, 0xcc, 0x10, 0xf2, 0x08, 0xcc, 0x10,
 0x00 }
 },
    {
@@ -510,8 +510,8 @@ const track_t SongMiniBlast =
    // bass 6
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xf9, 0x10, 0xc9, 0x10, 0xf0, 0x10, 0xc9, 0x10,
-0xf9, 0x10, 0xc9, 0x10, 0xf0, 0x10, 0xcc, 0x10,
+   .notes = (uint8_t[]) { 0xf9, 0x08, 0xc9, 0x10, 0xf0, 0x08, 0xc9, 0x10,
+0xf9, 0x08, 0xc9, 0x10, 0xf0, 0x08, 0xc9, 0x10,
 0x00 }
 },
    {
@@ -544,7 +544,7 @@ const track_t SongMiniBlast =
    // bass1a
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xfe, 0x10, 0xce, 0x10, 0xf4, 0x10, 0xc9, 0x10,
+   .notes = (uint8_t[]) { 0xfe, 0x08, 0xce, 0x10, 0xf4, 0x08, 0xc9, 0x10,
 0x00 }
 },
    {
@@ -558,7 +558,7 @@ const track_t SongMiniBlast =
    // bass 1 B
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xf5, 0x10, 0xca, 0x10, 0xfc, 0x10, 0xce, 0x10,
+   .notes = (uint8_t[]) { 0xf5, 0x08, 0xca, 0x10, 0xfc, 0x08, 0xce, 0x10,
 0x00 }
 },
    {
@@ -573,14 +573,14 @@ const track_t SongMiniBlast =
    // Bass 1 B rise
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xfc, 0x10, 0xf8, 0x10, 0xf6, 0x10, 0xf5, 0x10,
+   .notes = (uint8_t[]) { 0xfc, 0x08, 0xfc, 0x08, 0xf9, 0x08, 0xf6, 0x08,
 0x00 }
 },
    {
    // Melody 2b
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0x08, 0x3b, 0x10, 0x30, 0x08, 0x08, 0x08, 0x35,
+   .notes = (uint8_t[]) { 0x08, 0x3b, 0x10, 0xb0, 0x08, 0x08, 0x08, 0x35,
 0x08, 0xb8, 0x08, 0x08, 0x10, 0x92, 0x08, 0x95,
 0x10, 0x98, 0x08, 0x00 }
 },
@@ -588,7 +588,7 @@ const track_t SongMiniBlast =
    // Melody 2ba
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0x08, 0x3b, 0x10, 0x30, 0x08, 0x08, 0x08, 0x35,
+   .notes = (uint8_t[]) { 0x08, 0x3b, 0x10, 0xb0, 0x08, 0x08, 0x08, 0x35,
 0x08, 0xb8, 0x08, 0x08, 0x10, 0x92, 0x08, 0x90,
 0x10, 0x8e, 0x08, 0x00 }
 },
@@ -596,7 +596,7 @@ const track_t SongMiniBlast =
    // Bass 1C
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xf4, 0x10, 0xc9, 0x08, 0xfb, 0x10, 0xcd, 0x10,
+   .notes = (uint8_t[]) { 0xf4, 0x08, 0xc9, 0x08, 0xfb, 0x08, 0xcd, 0x10,
 0x00 }
 },
    {
@@ -610,30 +610,23 @@ const track_t SongMiniBlast =
    // Melody 1C
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0x10, 0x3b, 0x10, 0x3a, 0x08, 0x08, 0x08, 0x4a,
-0x08, 0xbf, 0x08, 0x08, 0x10, 0x91, 0x10, 0x8f,
+   .notes = (uint8_t[]) { 0x10, 0x3b, 0x10, 0x3a, 0x08, 0x08, 0x08, 0x30,
+0x08, 0x2f, 0x08, 0x08, 0x10, 0x91, 0x10, 0x8f,
 0x08, 0x08, 0x08, 0x00 }
 },
    {
    // Melody 2Ca
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0x08, 0x3a, 0x10, 0x2f, 0x08, 0x08, 0x08, 0x35,
-0x08, 0xb8, 0x08, 0x08, 0x10, 0x7a, 0x08, 0x7f,
+   .notes = (uint8_t[]) { 0x08, 0x3a, 0x10, 0xaf, 0x08, 0x08, 0x08, 0x35,
+0x08, 0x38, 0x08, 0x08, 0x10, 0x7a, 0x08, 0x7f,
 0x10, 0x8b, 0x08, 0x00 }
-},
-   {
-   // Bass 1 C rise
-   .even_speed = 6,
-   .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xfc, 0x10, 0xf9, 0x10, 0xf6, 0x10, 0xf5, 0x10,
-0x00 }
 },
    {
    // Bass 1C Rise 2
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xf4, 0x10, 0xf4, 0x10, 0xf1, 0x10, 0xef, 0x08,
+   .notes = (uint8_t[]) { 0xf4, 0x08, 0xf4, 0x08, 0xf1, 0x08, 0xef, 0x08,
 0x00 }
 },
    {
@@ -641,11 +634,11 @@ const track_t SongMiniBlast =
    .even_speed = 6,
    .odd_speed = 6,
    .notes = (uint8_t[]) { 0x08, 0x08, 0x08, 0x08, 0x37, 0x08, 0x08, 0x08,
-0x37, 0x08, 0x08, 0x08, 0x37, 0x08, 0x08, 0x08,
+0x37, 0x08, 0x08, 0x08, 0xb7, 0x08, 0x10, 0x08,
 0x37, 0x08, 0x38, 0x08, 0x37, 0x08, 0x73, 0x10,
 0x73, 0x10, 0x74, 0x10, 0x77, 0x08, 0x7a, 0x08,
 0x08, 0x08, 0x08, 0x08, 0x3a, 0x08, 0x08, 0x08,
-0x3a, 0x08, 0x08, 0x08, 0x3a, 0x08, 0x08, 0x08,
+0xba, 0x08, 0x10, 0x08, 0x3a, 0x08, 0x08, 0x08,
 0x3a, 0x08, 0x3b, 0x08, 0x3a, 0x08, 0xb3, 0x08,
 0x73, 0x08, 0x74, 0x08, 0x77, 0x08, 0x7a, 0x08,
 0x08, 0x08, 0x08, 0x08, 0x37, 0x08, 0x08, 0x08,
@@ -658,7 +651,7 @@ const track_t SongMiniBlast =
    // Bass 7
    .even_speed = 6,
    .odd_speed = 6,
-   .notes = (uint8_t[]) { 0xf1, 0x10, 0xc8, 0x10, 0xf8, 0x10, 0xcb, 0x10,
+   .notes = (uint8_t[]) { 0xf1, 0x08, 0xc8, 0x10, 0xf8, 0x08, 0xcb, 0x10,
 0x00 }
 },
    {
@@ -669,6 +662,13 @@ const track_t SongMiniBlast =
 0x8f, 0x08, 0x8e, 0x08, 0x8c, 0x08, 0x7f, 0x08,
 0x7d, 0x08, 0x7f, 0x08, 0x8b, 0x08, 0x8c, 0x08,
 0x8e, 0x08, 0x8f, 0x08, 0x91, 0x08, 0x93, 0x08,
+0x00 }
+},
+   {
+   // Bass 1 Ba rise
+   .even_speed = 6,
+   .odd_speed = 6,
+   .notes = (uint8_t[]) { 0xfb, 0x08, 0xfb, 0x08, 0xf8, 0x08, 0xf5, 0x08,
 0x00 }
 }}
 };

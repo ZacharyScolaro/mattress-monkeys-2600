@@ -50,6 +50,7 @@ void setPF(int x, int y);
 void DrawFlyRegion(int* line, int height, int fly_x, int fly_y, int fly_frame);
 void PositionObject(int line, int x, uint8_t resp, uint8_t hm);
 void move_monkey(uint8_t joy, Monkey* monkey);
+void title_screen();
 void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
 
 #if 1
@@ -148,6 +149,7 @@ extern "C" int elf_main(uint32_t * args)
 	init_audio_player(&audio_player0, 0, &SongMonkeys);
 	init_audio_player(&audio_player1, 1, &SongMonkeys);
 	
+	title_screen();
 
 	// Render loop
 	while (true) {
@@ -521,6 +523,65 @@ extern "C" int elf_main(uint32_t * args)
 			sfx_frames_remaining = SfxBounce.percussions->length;
 			init_audio_player(&sfx_player, sfx_player.channel_index == 0 ? 1 : 0, &SfxBounce);
 		}
+	}
+}
+
+void title_screen() {
+	Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0 };
+	Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0 };
+
+	while (true)
+	{
+		int line = 0;
+		vcsEndOverblank();
+		vcsSta3(WSYNC);
+		vcsSta3(WSYNC);
+		vcsWrite5(NUSIZ0, 3);
+		vcsWrite5(NUSIZ1, 3);
+		vcsLda2(ColuCeiling);
+		vcsSta3(COLUBK);
+
+		vcsSta3(WSYNC);
+		PositionObject(0, 60, RESP0, HMP0);
+		PositionObject(0, 68, RESPONE, HMP1);
+		vcsSta3(WSYNC);
+		vcsSta3(HMOVE);
+		vcsWrite5(GRP0, 0xff);
+		vcsWrite5(GRP1, 0xff);
+		vcsWrite5(COLUP0, 0x8f);
+		vcsWrite5(COLUP1, 0xcf);
+		vcsJmp3();
+		vcsSta3(HMCLR);
+
+		for (int i = 0; i < 30; i++)
+		{
+			vcsSta3(WSYNC);
+			line++;
+			vcsSta3(HMOVE);
+			vcsWrite5(VBLANK, 0);
+			vcsWrite5(COLUBK, i);
+		}
+
+		vcsSta3(WSYNC);
+		line++;
+		vcsSta3(HMOVE);
+		vcsJmp3();
+
+		vcsLda2(0);
+		vcsSta3(GRP0);
+		vcsSta3(GRP1);
+		vcsSta3(NUSIZ0);
+		vcsWrite5(COLUP0, monkey_0.color);
+		vcsWrite5(NUSIZ1, 0x30);
+		vcsSta3(WSYNC);
+		line++;
+
+		PositionObject(line++, 132, RESPONE, HMP1);
+		PositionObject(line++, 25, RESM1, HMM1);
+		RenderWideBed(line, &monkey_0, &monkey_1);
+		vcsSta3(WSYNC);
+		vcsWrite5(VBLANK, 2);
+		vcsStartOverblank();
 	}
 }
 

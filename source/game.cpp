@@ -533,6 +533,19 @@ void title_screen() {
 	while (true)
 	{
 		int line = 0;
+		int ix = 6*5;
+		for (int i = 0; i < 6*48; i++)
+		{
+			bitmap[ix++] = TitleArtGraphics[i];
+		}
+
+		ix += 6 * 5;
+		for (int i = 0; i < 6*5; i++)
+		{
+			bitmap[ix++] = MenuOptionsGraphics[0][i];
+		}
+
+		ix = 0;
 		vcsEndOverblank();
 		vcsSta3(WSYNC);
 		vcsSta3(WSYNC);
@@ -542,28 +555,44 @@ void title_screen() {
 		vcsSta3(COLUBK);
 
 		vcsSta3(WSYNC);
-		PositionObject(0, 60, RESP0, HMP0);
-		PositionObject(0, 68, RESPONE, HMP1);
+		PositionObject(0, 58, RESP0, HMP0);
+		PositionObject(0, 66, RESPONE, HMP1);
 		vcsSta3(WSYNC);
 		vcsSta3(HMOVE);
 		vcsWrite5(GRP0, 0xff);
 		vcsWrite5(GRP1, 0xff);
-		vcsWrite5(COLUP0, 0x8f);
-		vcsWrite5(COLUP1, 0xcf);
+		vcsWrite5(COLUP0, 0);
+		vcsSta3(COLUP1);
+		vcsSta3(PF0);
+		vcsSta3(PF1);
+		vcsSta3(PF2);
+		vcsWrite5(VDELP0, 1);
+		vcsWrite5(VDELP1, 1);
 		vcsJmp3();
 		vcsSta3(HMCLR);
 
-		for (int i = 0; i < 30; i++)
+		for (int i = 0; i < 66; i++)
 		{
 			vcsSta3(WSYNC);
 			line++;
 			vcsSta3(HMOVE);
 			vcsWrite5(VBLANK, 0);
-			vcsWrite5(COLUBK, i);
+			vcsWrite5(COLUBK, i < 1 ? ColuCeiling : ColuWall);
+			vcsWrite5(GRP0, bitmap[ix++]);
+			vcsWrite5(GRP1, bitmap[ix++]);
+			vcsWrite5(GRP0, bitmap[ix++]);
+			vcsJmp3();
+			vcsNop2n(3);
+			vcsLda2(bitmap[ix++]);
+			vcsLdx2(bitmap[ix++]);
+			vcsLdy2(bitmap[ix++]);
+			vcsSta3(GRP1);
+			vcsStx3(GRP0);
+			vcsSty3(GRP1);
+			vcsSty3(GRP0);
 		}
 
 		vcsSta3(WSYNC);
-		line++;
 		vcsSta3(HMOVE);
 		vcsJmp3();
 
@@ -573,15 +602,23 @@ void title_screen() {
 		vcsSta3(NUSIZ0);
 		vcsWrite5(COLUP0, monkey_0.color);
 		vcsWrite5(NUSIZ1, 0x30);
+		vcsWrite5(VDELP0, 0);
+		vcsWrite5(VDELP1, 0);
 		vcsSta3(WSYNC);
 		line++;
 
 		PositionObject(line++, 132, RESPONE, HMP1);
 		PositionObject(line++, 25, RESM1, HMM1);
 		RenderWideBed(line, &monkey_0, &monkey_1);
-		vcsSta3(WSYNC);
+		PrintScore("Chimp Champ: 00000");
+		DisplayText(ColuBedPost);
 		vcsWrite5(VBLANK, 2);
+		uint8_t but0 = vcsRead4(INPT4);
 		vcsStartOverblank();
+		if ((but0 & 0x80) == 0)
+		{
+			break;
+		}
 	}
 }
 

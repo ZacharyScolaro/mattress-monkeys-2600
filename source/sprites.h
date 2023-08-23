@@ -2,7 +2,13 @@
 #define SPRITES_H
 #include <stdint.h>
 
-extern const uint8_t ScoreSpritesGraphics[14*19];
+extern const uint8_t ScoreSpritesGraphics[128*8];
+
+extern const uint8_t TitleArtGraphics[48*48];
+
+extern const uint8_t MenuOptionsGraphics[5][30];
+
+extern const uint8_t MenuOptionsColu[5];
 
 extern const uint8_t FanBladeGraphics[7][14];
 

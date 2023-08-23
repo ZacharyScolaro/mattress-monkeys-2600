@@ -332,16 +332,24 @@ f_header.write('''#ifndef SPRITES_H
 f_source = open('sprites.cpp', 'wt', newline='\n')
 f_source.write('#include "sprites.h"\n')
 
-png_name = 'score-sprites.png'
+png_name = 'ascii.png'
 item_name = 'ScoreSprites'
-graphic_bytes, color_bytes = parse_png(png_name, 8, 4, 0, 0, 19*8, 14, (0,0,0))
-f_header.write('\nextern const uint8_t ' + item_name + 'Graphics[14*19];\n')
-f_source.write('\nconst uint8_t ' + item_name + 'Graphics[14*19] = { ')
+graphic_bytes, color_bytes = parse_png(png_name, 1, 1, 0, 0, 1024, 8, (0,0,0))
+f_header.write('\nextern const uint8_t ' + item_name + 'Graphics[128*8];\n')
+f_source.write('\nconst uint8_t ' + item_name + 'Graphics[128*8] = { ')
 f_source.write(', '.join(graphic_bytes))
 f_source.write(' };\n')
 
-parse_sprite_strip(f_header, f_source, 'pf-fan-blade-animation.png', 'FanBlade', 10, 7, 7, 4, 1, 0, 0, (0,0,0))
+png_name = 'title-art.png'
+item_name = 'TitleArt'
+graphic_bytes, color_bytes = parse_png(png_name, 1, 1, 0, 0, 48, 48, (0,0,0))
+f_header.write('\nextern const uint8_t ' + item_name + 'Graphics[48*48];\n')
+f_source.write('\nconst uint8_t ' + item_name + 'Graphics[48*48] = { ')
+f_source.write(', '.join(graphic_bytes))
+f_source.write(' };\n')
 
+parse_sprite_strip(f_header, f_source, 'menu-options.png', 'MenuOptions', 48, 5, 5, 1, 1, 0, 0, (0,0,0))
+parse_sprite_strip(f_header, f_source, 'pf-fan-blade-animation.png', 'FanBlade', 10, 7, 7, 4, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'player-2-cycle-walk.png', 'MonkeyWalking', 8, 12, 2, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'player-bed-idle.png', 'MonkeyIdle', 8, 12, 1, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'fan-chasis.png', 'FanChasis', 8, 28, 1, 1, 1, 0, 0, (195,195,195))

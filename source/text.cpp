@@ -1,7 +1,7 @@
 #include "sprites.h"
 #include "vcsLib.h"
 
-#define GlyphHeight 14
+#define GlyphHeight 16
 
 static void kernelA(uint8_t textBuffer[18]);
 static void kernelB(uint8_t textBuffer[18]);
@@ -18,7 +18,7 @@ void PrintScore(const char* ptext)
 	{
 		for (int x = 0; x < 18; x++)
 		{
-			textBuffer[index++] = ScoreSpritesGraphics[y * (sizeof(ScoreSpritesGraphics)/GlyphHeight) + ptext[x]];
+			textBuffer[index++] = ScoreSpritesGraphics[(y/2) * (sizeof(ScoreSpritesGraphics)/(GlyphHeight/2)) + ptext[x]];
 		}
 	}
 }

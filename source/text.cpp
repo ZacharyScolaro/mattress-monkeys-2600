@@ -2,6 +2,7 @@
 #include "vcsLib.h"
 
 #define GlyphHeight 16
+#define MaxRows (192/GlyphHeight)
 
 static void kernelA(uint8_t textBuffer[18]);
 static void kernelB(uint8_t textBuffer[18]);
@@ -9,11 +10,11 @@ static void kernelB(uint8_t textBuffer[18]);
 static int frameCount = 0;
 
 __attribute__((section(".noinit")))
-static uint8_t textBuffer[18 * GlyphHeight];
+static uint8_t textBuffer[18 * GlyphHeight * MaxRows];
 
-void PrintScore(const char* ptext)
+void PrintText(const char* ptext, const int row)
 {
-	int index = 0;
+	int index = row * 18 * GlyphHeight;
 	for (int y = 0; y < GlyphHeight; y++)
 	{
 		for (int x = 0; x < 18; x++)
@@ -23,9 +24,8 @@ void PrintScore(const char* ptext)
 	}
 }
 
-void DisplayText(uint8_t colu_background)
+void DisplayText(uint8_t colu_background, int row_count)
 {
-	int RowCount = 1;
 	frameCount++;
 	int frameToggle = frameCount & 1;
 
@@ -96,7 +96,7 @@ void DisplayText(uint8_t colu_background)
 			vcsSta3(RESP0); // Simulates Kernel B
 			vcsJmp3();
 			i++;
-			if (i == RowCount) { break; }
+			if (i == row_count) { break; }
 
 			for (int j = 0; j < GlyphHeight;)
 			{
@@ -117,7 +117,7 @@ void DisplayText(uint8_t colu_background)
 			vcsWrite5(HMP1, 0x90);
 			vcsSta3(RESP0); // Simulates Kernel A
 			i++;
-			if (i == RowCount) { break; }
+			if (i == row_count) { break; }
 
 		}
 	}
@@ -147,7 +147,7 @@ void DisplayText(uint8_t colu_background)
 			vcsWrite5(HMP1, 0x90);
 			vcsSta3(RESP0); // Simulates Kernel A
 			i++;
-			if (i == RowCount) { break; }
+			if (i == row_count) { break; }
 
 			for (int j = 0; j < GlyphHeight;)
 			{
@@ -171,7 +171,7 @@ void DisplayText(uint8_t colu_background)
 			vcsJmp3();
 
 			i++;
-			if (i == RowCount) { break; }
+			if (i == row_count) { break; }
 		}
 	}
 }

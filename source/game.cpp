@@ -6,19 +6,18 @@
 #include "boundingBox.hpp"
 #include <cstddef>
 
-#define ColuBkScore 0x00
-#define ColuCeiling 0x0f
-#define ColuWall 0x64
-#define ColuSheet 0xda
-#define ColuMattress 0xd4
-#define ColuFlyWing 0x0e
-#define ColuFlyBody 0x02
-#define ColuPillow 0x0f
-#define ColuHeadboard 0xe6
-#define ColuBedPost 0xe2
-#define ColuFanBlade 0x02
-#define ColuP0Monkey 0x5a
-#define ColuP1Monkey 0x2a
+static uint8_t ColuCeiling = 0x0f					;
+static uint8_t ColuWall = 0x64						;
+static uint8_t ColuSheet = 0xda						;
+static uint8_t ColuMattress = 0xd4					;
+static uint8_t ColuFlyWing = 0x0e					;
+static uint8_t ColuFlyBody = 0x02					;
+static uint8_t ColuPillow = 0x0f					;
+static uint8_t ColuHeadboard = 0xe6				;
+static uint8_t ColuBedPost = 0xe2					;
+static uint8_t ColuFanBlade = 0x02					;
+static uint8_t ColuP0Monkey = 0x5a					;
+static uint8_t ColuP1Monkey = 0x2a					;
 
 const char OctopusherTitleScreen2600Graphics[192 * 9] = {
 0x0, 0x0, 0x0,0x0,0x0,0x0,0x0,0x0,0x0,
@@ -215,6 +214,99 @@ const char OctopusherTitleScreen2600Graphics[192 * 9] = {
 0x0, 0x0, 0x0,0x0,0x0,0x0,0x0,0x0,0x0
 };
 
+class ConfigEntry {
+public:
+	char * name;
+	const uint8_t initial;
+	uint8_t* current;
+	ConfigEntry(char* n, uint8_t i, uint8_t* c) : name(n), initial(i), current(c) {}
+};
+
+class LiveConfig {
+public:
+	int count;
+	ConfigEntry* entries;
+	uint8_t prev_joystick = 0;
+	int entry_index = 0;
+	int digit_index = 0;
+	char line[18] = { 0 };
+	int frame_count = 0;
+	void HandleInput(uint8_t joystick) {
+		if ((joystick & 0x8)==0 && (prev_joystick & 0x8)) {
+			// right
+			digit_index++;
+			if (digit_index > 1)
+			{
+				digit_index = 0;
+				entry_index++;
+				if (entry_index >= count)
+				{
+					entry_index = 0;
+				}
+			}
+		}
+		else if ((joystick & 0x4) == 0 && (prev_joystick & 0x4)) {
+			// left
+			digit_index--;
+			if (digit_index < 0)
+			{
+				digit_index = 1;
+				entry_index--;
+				if (entry_index < 0)
+				{
+					entry_index = count - 1;
+				}
+			}
+		}
+		else if ((joystick & 0x1) == 0 && (prev_joystick & 0x1)) {
+			// up
+			int shift = 4 * (1 - digit_index);
+			uint8_t mask = 0xf << shift;
+			uint8_t inc = 1 << shift;
+			uint8_t cur = *entries[entry_index].current;
+			*entries[entry_index].current = (cur & ~mask) | (((cur & mask) + inc) & mask);
+		}
+		else if ((joystick & 0x2) == 0 && (prev_joystick & 0x2)) {
+			int shift = 4 * (1 - digit_index);
+			// down
+			uint8_t mask = 0xf << shift;
+			uint8_t inc = 0xf << shift;
+			uint8_t cur = *entries[entry_index].current;
+			*entries[entry_index].current = (cur & ~mask) | (((cur & mask) + inc) & mask);
+		}
+		prev_joystick = joystick;
+
+		for (int i = 0; i < (int)(sizeof(line)/sizeof(line[0])); i++)
+		{
+			line[i] = ' ';
+		}
+
+		int ix = 0;
+		while (true) {
+			char c = entries[entry_index].name[ix];
+			line[ix++] = c;
+			if ((c == ' ') || (ix >= 14))
+			{
+				break;
+			}
+		}
+		for (int i = 0; i < 2; i++)
+		{
+			int shift = 4 * (1 - i);
+			line[ix++] = ((*entries[entry_index].current >> shift) & 0xf);
+		}
+
+		PrintText(line, 0);
+		if (frame_count < 30) {
+			InvertCharacter(0, ix - 2 + digit_index);
+		}
+		frame_count--;
+		if (frame_count < 0)
+		{
+			frame_count = 60;
+		}
+	}
+};
 
 class Monkey {
 public:
@@ -374,6 +466,23 @@ void play_game(int player_count){
 	BoundingBox<FP32> fly_bot_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
 	BoundingBox<FP32> banana_hit_box = BoundingBox<FP32>(77, 33, 0, 7, 0, 13);
 	uint8_t prev_but0 = 0;
+
+	// For tuning purposes only
+	ConfigEntry config_entries[] = {
+		ConfigEntry("ColuCeiling "                   , 0x0f	,&ColuCeiling			),
+		ConfigEntry("ColuWall "                  , 0x64			,&ColuWall 				),
+		ConfigEntry("ColuSheet "                  , 0xda		,&ColuSheet 			),
+		ConfigEntry("ColuMattress "                  , 0xd4	,&ColuMattress 		),
+		ConfigEntry("ColuFlyWing "                  , 0x0e		,&ColuFlyWing			),
+		ConfigEntry("ColuFlyBody "                  , 0x02		,&ColuFlyBody			),
+		ConfigEntry("ColuPillow "                  , 0x0f		,&ColuPillow  			),
+		ConfigEntry("ColuHeadboard "                  , 0xe6	,&ColuHeadboard		),
+		ConfigEntry("ColuBedPost "                  , 0xe2		,&ColuBedPost 			),
+		ConfigEntry("ColuFanBlade "                  , 0x02	,&ColuFanBlade 		),
+		ConfigEntry("ColuP0Monkey "                  , 0x5a	,&ColuP0Monkey 		),
+		ConfigEntry("ColuP1Monkey "                  , 0x2a	,&ColuP1Monkey			),
+	};
+	LiveConfig live_config = { .count = (int)(sizeof(config_entries) / sizeof(config_entries[0])), .entries = config_entries };
 
 	// Render loop
 	while (true) {
@@ -603,7 +712,7 @@ void play_game(int player_count){
 			scoreText[17 - i] = (right_score % 10) & 0xf;
 			right_score /= 10;
 		}
-		PrintText(scoreText, 0);
+//		PrintText(scoreText, 0);
 
 		// Update High Score
 		if (high_score < monkey_0.score)
@@ -755,12 +864,13 @@ void play_game(int player_count){
 			Monkey* temp = p0_monkey;
 			p0_monkey = p1_monkey;
 			p1_monkey = temp;
-			p0_monkey->color = ColuP0Monkey;
-			p1_monkey->color = ColuP1Monkey;
 			sfx_frames_remaining = SfxBounce.percussions->length;
 			init_audio_player(&sfx_player, sfx_player.channel_index == 0 ? 1 : 0, &SfxBounce);
 		}
 		prev_but0 = but0;
+		live_config.HandleInput(joysticks >> 4);
+		p0_monkey->color = ColuP0Monkey;
+		p1_monkey->color = ColuP1Monkey;
 	}
 }
 
@@ -770,7 +880,10 @@ int title_screen() {
 	int menu_selection = 1;
 	uint8_t prev_joy = 0;
 	uint8_t prev_but0 = 0;
-
+	for (uint32_t i = 0; i < sizeof(bitmap)/sizeof(bitmap[0]); i++)
+	{
+		bitmap[i] = 0;
+	}
 	while (true)
 	{
 		int line = 0;

@@ -343,8 +343,8 @@ f_source.write(' };\n')
 png_name = 'title-art.png'
 item_name = 'TitleArt'
 graphic_bytes, color_bytes = parse_png(png_name, 1, 1, 0, 0, 48, 48, (0,0,0))
-f_header.write('\nextern const uint8_t ' + item_name + 'Graphics[48*48];\n')
-f_source.write('\nconst uint8_t ' + item_name + 'Graphics[48*48] = { ')
+f_header.write('\nextern const uint8_t ' + item_name + 'Graphics[6*48];\n')
+f_source.write('\nconst uint8_t ' + item_name + 'Graphics[6*48] = { ')
 f_source.write(', '.join(graphic_bytes))
 f_source.write(' };\n')
 

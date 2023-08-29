@@ -12,6 +12,15 @@ static int frameCount = 0;
 __attribute__((section(".noinit")))
 static uint8_t textBuffer[18 * GlyphHeight * MaxRows];
 
+void InvertCharacter(int row, int col) {
+	int index = row * 18 * GlyphHeight + col;
+	for (int y = 0; y < GlyphHeight; y++)
+	{
+		textBuffer[index] = ~textBuffer[index] & 0x7f;
+		index += 18;
+	}
+}
+
 void PrintText(const char* ptext, const int row)
 {
 	int index = row * 18 * GlyphHeight;

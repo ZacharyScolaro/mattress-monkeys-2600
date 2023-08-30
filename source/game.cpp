@@ -7,17 +7,22 @@
 #include <cstddef>
 
 static uint8_t ColuCeiling = 0x0f					;
-static uint8_t ColuWall = 0x64						;
-static uint8_t ColuSheet = 0xda						;
-static uint8_t ColuMattress = 0xd4					;
-static uint8_t ColuFlyWing = 0x0e					;
-static uint8_t ColuFlyBody = 0x02					;
+static uint8_t ColuWall = 0x6a						;
+static uint8_t ColuSheet = 0xdb						;
+static uint8_t ColuMattress = 0xd7					;
+static uint8_t ColuFlyWing = 0xff					;
+static uint8_t ColuFlyBody = 0x00					;
 static uint8_t ColuPillow = 0x0f					;
-static uint8_t ColuHeadboard = 0xe6				;
-static uint8_t ColuBedPost = 0xe2					;
+static uint8_t ColuHeadboard = 0xf7				;
+static uint8_t ColuBedPost = 0xf5					;
 static uint8_t ColuFanBlade = 0x02					;
-static uint8_t ColuP0Monkey = 0x5a					;
-static uint8_t ColuP1Monkey = 0x2a					;
+static uint8_t ColuP0Monkey = 0xf3					;
+static uint8_t ColuP1Monkey = 0x2f					;
+
+//9C - Wall LVL 2
+//1D - Floor LVL 2
+//BB - Wall LVL 3
+//69 - Floor LVL 3
 
 const char OctopusherTitleScreen2600Graphics[192 * 9] = {
 0x0, 0x0, 0x0,0x0,0x0,0x0,0x0,0x0,0x0,
@@ -308,6 +313,24 @@ public:
 	}
 };
 
+// For tuning purposes only
+ConfigEntry config_entries[] = {
+	ConfigEntry("ColuCeiling "            ,ColuCeiling	,&ColuCeiling),
+	ConfigEntry("ColuWall "               ,ColuWall 		,&ColuWall),
+	ConfigEntry("ColuSheet "              ,ColuSheet 	,&ColuSheet),
+	ConfigEntry("ColuMattress "           ,ColuMattress ,&ColuMattress),
+	ConfigEntry("ColuFlyWing "            ,ColuFlyWing	,&ColuFlyWing),
+	ConfigEntry("ColuFlyBody "            ,ColuFlyBody	,&ColuFlyBody),
+	ConfigEntry("ColuPillow "             ,ColuPillow  	,&ColuPillow),
+	ConfigEntry("ColuHeadboard "          ,ColuHeadboard,&ColuHeadboard),
+	ConfigEntry("ColuBedPost "            ,ColuBedPost 	,&ColuBedPost),
+	ConfigEntry("ColuFanBlade "           ,ColuFanBlade ,&ColuFanBlade),
+	ConfigEntry("ColuP0Monkey "           ,ColuP0Monkey ,&ColuP0Monkey),
+	ConfigEntry("ColuP1Monkey "           ,ColuP1Monkey	,&ColuP1Monkey),
+};
+LiveConfig live_config = { .count = (int)(sizeof(config_entries) / sizeof(config_entries[0])), .entries = config_entries };
+
+
 class Monkey {
 public:
 	BoundingBox<FP32> hit_box;
@@ -466,23 +489,6 @@ void play_game(int player_count){
 	BoundingBox<FP32> fly_bot_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
 	BoundingBox<FP32> banana_hit_box = BoundingBox<FP32>(77, 33, 0, 7, 0, 13);
 	uint8_t prev_but0 = 0;
-
-	// For tuning purposes only
-	ConfigEntry config_entries[] = {
-		ConfigEntry("ColuCeiling "                   , 0x0f	,&ColuCeiling			),
-		ConfigEntry("ColuWall "                  , 0x64			,&ColuWall 				),
-		ConfigEntry("ColuSheet "                  , 0xda		,&ColuSheet 			),
-		ConfigEntry("ColuMattress "                  , 0xd4	,&ColuMattress 		),
-		ConfigEntry("ColuFlyWing "                  , 0x0e		,&ColuFlyWing			),
-		ConfigEntry("ColuFlyBody "                  , 0x02		,&ColuFlyBody			),
-		ConfigEntry("ColuPillow "                  , 0x0f		,&ColuPillow  			),
-		ConfigEntry("ColuHeadboard "                  , 0xe6	,&ColuHeadboard		),
-		ConfigEntry("ColuBedPost "                  , 0xe2		,&ColuBedPost 			),
-		ConfigEntry("ColuFanBlade "                  , 0x02	,&ColuFanBlade 		),
-		ConfigEntry("ColuP0Monkey "                  , 0x5a	,&ColuP0Monkey 		),
-		ConfigEntry("ColuP1Monkey "                  , 0x2a	,&ColuP1Monkey			),
-	};
-	LiveConfig live_config = { .count = (int)(sizeof(config_entries) / sizeof(config_entries[0])), .entries = config_entries };
 
 	// Render loop
 	while (true) {
@@ -712,7 +718,7 @@ void play_game(int player_count){
 			scoreText[17 - i] = (right_score % 10) & 0xf;
 			right_score /= 10;
 		}
-//		PrintText(scoreText, 0);
+		PrintText(scoreText, 0);
 
 		// Update High Score
 		if (high_score < monkey_0.score)
@@ -868,7 +874,7 @@ void play_game(int player_count){
 			init_audio_player(&sfx_player, sfx_player.channel_index == 0 ? 1 : 0, &SfxBounce);
 		}
 		prev_but0 = but0;
-		live_config.HandleInput(joysticks >> 4);
+		//live_config.HandleInput(joysticks >> 4);
 		p0_monkey->color = ColuP0Monkey;
 		p1_monkey->color = ColuP1Monkey;
 	}

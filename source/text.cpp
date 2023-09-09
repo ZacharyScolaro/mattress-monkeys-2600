@@ -46,8 +46,8 @@ void DisplayText(uint8_t colu_background, int row_count)
 	vcsStx3(GRP0);
 	vcsStx3(GRP1);
 	vcsLda2(colu_background);
-	vcsSta3(COLUPF);
 	vcsSta3(COLUBK);
+	vcsSta3(COLUPF);
 	vcsJmp3();
 	if (frameToggle)
 	{

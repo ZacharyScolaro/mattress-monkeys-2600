@@ -8,23 +8,19 @@ extern const uint8_t TitleArtGraphics[6*48];
 
 extern const uint8_t MenuOptionsGraphics[5][30];
 
-extern const uint8_t MenuOptionsColu[5];
+extern const uint8_t MenuOptionsColu[5][30];
 
 extern const uint8_t FanBladeGraphics[7][14];
 
-extern const uint8_t FanBladeColu[7];
+extern const uint8_t FanBladeColu[7][14];
 
-extern const uint8_t MonkeyWalkingGraphics[2][12];
+extern const uint8_t FanChasisGraphics[20];
 
-extern const uint8_t MonkeyWalkingColu[12];
+extern const uint8_t FanChasisColu[20];
 
-extern const uint8_t MonkeyIdleGraphics[12];
+extern const uint8_t MonkeyGraphics[4][12];
 
-extern const uint8_t MonkeyIdleColu[12];
-
-extern const uint8_t FanChasisGraphics[28];
-
-extern const uint8_t FanChasisColu[28];
+extern const uint8_t MonkeyColu[4][12];
 
 extern const uint8_t BonusBananaGraphics[13];
 
@@ -32,7 +28,27 @@ extern const uint8_t BonusBananaColu[13];
 
 extern const uint8_t HeadBoardWideGraphics[200];
 
-extern const uint8_t HeadBoardWideColu[40];
+extern const uint8_t HeadBoardWideColu[200];
+
+extern const uint8_t HeadBoardMediumGraphics[200];
+
+extern const uint8_t HeadBoardMediumColu[200];
+
+extern const uint8_t HeadBoardNarrowGraphics[200];
+
+extern const uint8_t HeadBoardNarrowColu[200];
+
+extern const uint8_t MonkeyHandOpenGraphics[136];
+
+extern const uint8_t MonkeyHandOpenColu[136];
+
+extern const uint8_t BubbleGraphics[7][15];
+
+extern const uint8_t BubbleColu[7][15];
+
+extern const uint8_t FlyGraphics[2][11];
+
+extern const uint8_t FlyColu[2][11];
 
 extern const uint8_t SineTables[32][80];
 

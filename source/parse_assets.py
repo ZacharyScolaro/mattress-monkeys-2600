@@ -360,7 +360,7 @@ f_source.write(', '.join(graphic_bytes))
 f_source.write(' };\n')
 
 parse_sprite_strip(f_header, f_source, 'menu-options.png', 'MenuOptions', 48, 5, 5, 1, 1, 0, 0, (0,0,0))
-parse_sprite_strip(f_header, f_source, 'pf-fan-blade-animation.png', 'FanBlade', 10, 7, 7, 4, 1, 0, 0, (0,0,0))
+parse_sprite_strip(f_header, f_source, 'pf-fan-blade-animation.png', 'FanBlade', 11, 7, 7, 4, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'fan-chasis.png', 'FanChasis', 8, 20, 1, 1, 1, 0, 0, (195,195,195))
 parse_sprite_strip(f_header, f_source, 'monkey-player-sprites.png', 'Monkey', 8, 12, 4, 1, 1, 0, 0, None, 1)
 parse_sprite_strip(f_header, f_source, 'bonus-banana.png', 'BonusBanana', 8, 13, 1, 1, 1, 0, 0, (0,0,0))

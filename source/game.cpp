@@ -9,6 +9,8 @@
 int min_monkey_x = 16;
 int max_monkey_x = 140;
 
+int monkey_y_hwm = 0;
+
 static uint8_t InitialColuWall = 0x6a						;
 static uint8_t InitialColuFloor = 0x1d						;
 static const uint8_t InitialColuCeiling = 0x0f					;
@@ -544,13 +546,26 @@ Narrow,
 Challenge
 };
 
+enum PlaySubState {
+	Playing,
+	FlyExit,
+	MonkeyLanding,
+	FadingOut,
+	ZoomingIn,
+	ZoomingOut,
+	FadingIn,
+};
+
 void play_game(int player_count){
 	PlayState play_state = Wide;
+	PlaySubState play_substate = Playing;
 	bool button_down_event = false;
 	bool banana_shown = false;
 	int banana_cooldown = 5 * 60;
 	int min = 500;
 	int max = 0;
+	bool fly_top_spawned = true;
+	bool fly_bot_spawned = true;
 	int fly_top_x = 20;
 	int fly_top_y = 2;
 	size_t fly_top_index = 0;
@@ -580,6 +595,20 @@ void play_game(int player_count){
 
 	// Render loop
 	while (true) {
+		if (button_down_event)
+		{
+			play_substate = FlyExit;
+			//play_state = (PlayState)(((int)play_state) + 1);
+			//if (play_state == Challenge)
+			//{
+			//	play_state = Wide;
+			//}
+		}
+		//live_config.HandleInput(joysticks >> 4);
+		p0_monkey->color = ColuP0Monkey;
+		p1_monkey->color = ColuP1Monkey;
+
+
 		auto render_bed = RenderWideBed;
 		int bed_left = 10; 
 		int bed_right = 31;
@@ -602,7 +631,7 @@ void play_game(int player_count){
 			bed_right = 34;
 			break;
 		case(Narrow):
-			InitialColuWall = 0xbb;
+			InitialColuWall = 0xb9;
 			InitialColuFloor = 0x69;
 			render_bed = RenderNarrowBed;
 			min_monkey_x = 40;
@@ -613,6 +642,26 @@ void play_game(int player_count){
 		case(Challenge):
 			break;
 		}
+
+		switch (play_substate) {
+		case FlyExit:
+			if (!fly_top_spawned && !fly_bot_spawned)
+			{
+				play_substate = MonkeyLanding;
+			}
+			break;
+		case FadingOut:
+			if (fade_level == 0)
+			{
+				play_substate = ZoomingIn;
+			}
+			else
+			{
+				fade_level--;
+			}
+			break;
+		}
+
 		fade_palette(fade_level);
 
 		// monkey physics
@@ -639,12 +688,18 @@ void play_game(int player_count){
 		if (jumping_monkey->y > 0xa3)
 		{
 			jumping_monkey->y = 0xa3;
-			Monkey* temp = jumping_monkey;
-			jumping_monkey = standing_monkey;
-			standing_monkey = temp;
-			jumping_monkey->velocity_x = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x.Round()) + 3) / 4)) % 20];
-			//uncomment this to test max jump height jumping_monkey->y = 0x80;
-			jumping_monkey->velocity_y = fp32(-7.75);// velocity_adjust * -100;// (jumping_monkey->y.Round() - 500);
+			if (play_substate < MonkeyLanding)
+			{
+				Monkey* temp = jumping_monkey;
+				jumping_monkey = standing_monkey;
+				standing_monkey = temp;
+				jumping_monkey->velocity_x = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x.Round()) + 3) / 4)) % 20];
+				//uncomment this to test max jump height jumping_monkey->y = 0x80;
+				jumping_monkey->velocity_y = fp32(-7.75);// velocity_adjust * -100;// (jumping_monkey->y.Round() - 500);
+			}
+			else if (play_substate == MonkeyLanding) {
+				play_substate = FadingOut;
+			}
 		}
 
 		// preclear buffers
@@ -654,7 +709,10 @@ void play_game(int player_count){
 			grp1Buffer[i] = 0;
 		}
 
-		fly_top_x -= 1;
+		if (fly_top_spawned)
+		{
+			fly_top_x -= 1;
+		}
 		if (fly_top_x < 0)
 			fly_top_x = 159;
 		fly_top_y += Fly_Wave_Y[fly_top_index];
@@ -663,8 +721,11 @@ void play_game(int player_count){
 			fly_top_index = 0;
 
 		if ((frame & 0) == 0) {
-			fly_bot_x += Fly_Loop_X[fly_loop_index];
-			fly_bot_y+= Fly_Loop_Y[fly_loop_index];
+			if (fly_bot_spawned)
+			{
+				fly_bot_x += Fly_Loop_X[fly_loop_index];
+			}
+			fly_bot_y += Fly_Loop_Y[fly_loop_index];
 			fly_loop_index += 1;
 			if (fly_loop_index >= sizeof(Fly_Loop_X))
 				fly_loop_index = 0;
@@ -684,10 +745,17 @@ void play_game(int player_count){
 		}
 		for (int y = 0; y < 7; y++)
 		{
-			playfieldBuffer[(11 + y) * 5 + 1] = FanBladeGraphics[fanFrame][y * 2] >> 7;
-			playfieldBuffer[(11 + y) * 5 + 2] = FanBladeGraphics[fanFrame][y * 2] << 1 | FanBladeGraphics[fanFrame][y * 2 + 1] >> 7;
-			playfieldBuffer[(11 + y) * 5 + 3] = FanBladeGraphics[fanFrame][y * 2 + 1] << 1;
-			colupfBuffer[11 + y] = ColuFanBlade;
+			playfieldBuffer[(12 + y) * 5 + 1] = FanBladeGraphics[fanFrame][y * 2] >> 7;
+			playfieldBuffer[(12 + y) * 5 + 2] = FanBladeGraphics[fanFrame][y * 2] << 1 | FanBladeGraphics[fanFrame][y * 2 + 1] >> 7;
+			playfieldBuffer[(12 + y) * 5 + 3] = FanBladeGraphics[fanFrame][y * 2 + 1] << 1;
+			colupfBuffer[12 + y] = ColuFanBlade;
+		}
+
+		// Wall around light that will be zoomed to for challenge
+		for (int i = 0; i < 22; i++)
+		{
+			playfieldBuffer[(19 + i) * 5 + 2] = (play_substate < FadingOut) ? 0x00 : 0x3e;
+			colupfBuffer[19 + i] = InitialColuWall;
 		}
 
 		// Monkey Walking Test
@@ -706,8 +774,8 @@ void play_game(int player_count){
 		}
 		for (size_t i = 0; i < sizeof(FanChasisGraphics)/sizeof(FanChasisGraphics[0]); i++)
 		{
-			grp1Buffer[i+2] = FanChasisGraphics[i];
-			colup1Buffer[i+2] = FanChasisColu[i];
+			grp1Buffer[i+3] = FanChasisGraphics[i];
+			colup1Buffer[i+3] = FanChasisColu[i];
 		}
 
 		////// Area to zoom in on (don't fade this)
@@ -718,6 +786,7 @@ void play_game(int player_count){
 		////}
 
 		// Banana
+		banana_shown = banana_shown && play_substate < MonkeyLanding;
 		if (banana_shown)
 		{
 			for (size_t i = 0; i < sizeof(BonusBananaGraphics) / sizeof(BonusBananaGraphics[0]); i++)
@@ -726,13 +795,11 @@ void play_game(int player_count){
 				colup1Buffer[i + 33] = BonusBananaColu[i];
 			}
 		}
-		else {
-			banana_cooldown--;
-			if (banana_cooldown <= 0)
-			{
-				banana_shown = true;
-				banana_cooldown = 5 * 60;
-			}
+		banana_cooldown--;
+		if (banana_cooldown <= 0)
+		{
+			banana_shown = !banana_shown;
+			banana_cooldown = banana_shown ? 4 * 60 : 7 * 60;
 		}
 
 		for (size_t i = 130*5; i < sizeof(playfieldBuffer); i++)
@@ -743,7 +810,7 @@ void play_game(int player_count){
 		if ((frame & 0x01) == 0)
 		{
 			sine_frame++;
-			if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4)
+			if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && (play_substate < MonkeyLanding))
 			{
 				if (jumping_monkey->y > 0x92)
 				{
@@ -767,13 +834,23 @@ void play_game(int player_count){
 			int height = SineTables[sine_frame][i + sine_hpos]; //frame & 0x1f
 			if (i == ((standing_monkey->x.Round() )+3) /4)
 			{
-				standing_monkey->y = 163 - height;
+				standing_monkey->y = 160 - height;
+			}
+			if ((play_substate >= FadingOut) && (i == ((jumping_monkey->x.Round() )+3) /4))
+			{
+				jumping_monkey->y = 160 - height;
 			}
 			for (int j = 0; j <= height; j++)
 			{
 				setPF(i, 169 - j);
 			}
 		}
+
+		if (jumping_monkey->y > monkey_y_hwm)
+		{
+			monkey_y_hwm = jumping_monkey->y.Round();
+		}
+
 		// Monkey Idle Test
 		for (int j = 0; j < 12; j++)
 		{
@@ -803,10 +880,10 @@ void play_game(int player_count){
 		}
 
 		////int8_t iv = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((monkey_0.x.Round()) + 3) / 4)) % 20];
-		//for (int i = 0; i < 8; i++)
-		//{
-		//	scoreText[i] = (char)((uint32_t)(jumping_monkey->x.Value) >> ((7 - i) * 4)) & 0xf;
-		//}
+		for (int i = 0; i < 8; i++)
+		{
+			scoreText[i] = (char)((uint32_t)(play_substate) >> ((7 - i) * 4)) & 0xf;
+		}
 		//for (int i = 0; i < 8; i++)
 		//{
 		//	scoreText[i+9] = (char)((uint32_t)(jumping_monkey->y.Value) >> ((7 - i) * 4)) & 0xf;
@@ -817,14 +894,16 @@ void play_game(int player_count){
 		fly_top_hit_box.X = fly_top_x;
 		if (jumping_monkey->hit_box.Intersects(fly_top_hit_box))
 		{
-			fly_top_x = 0;
+			fly_top_spawned = play_substate == Playing;
+			fly_top_x = 4;
 			jumping_monkey->score += 1;
 		}
 
 		fly_bot_hit_box.X = fly_bot_x;
 		if (jumping_monkey->hit_box.Intersects(fly_bot_hit_box))
 		{
-			fly_bot_x = 0;
+			fly_bot_spawned = play_substate == Playing;
+			fly_bot_x = 4;
 			jumping_monkey->score += 1;
 		}
 		
@@ -840,13 +919,13 @@ void play_game(int player_count){
 		int left_score = monkey_0.score;
 		for (int i = 0; i < 4; i++)
 		{
-			scoreText[3 - i] = (left_score % 10) & 0xf;
+//			scoreText[3 - i] = (left_score % 10) & 0xf;
 			left_score /= 10;
 		}
 		int right_score = monkey_1.score;
 		for (int i = 0; i < 4; i++)
 		{
-			scoreText[17 - i] = (right_score % 10) & 0xf;
+//			scoreText[17 - i] = (right_score % 10) & 0xf;
 			right_score /= 10;
 		}
 		PrintText(scoreText, 0);
@@ -931,7 +1010,7 @@ void play_game(int player_count){
 		PositionObject(line, jumping_monkey->x.Round(), RESP0, HMP0);
 
 		// Fan region
-		while (line < 29 )
+		while (line < (play_substate < FadingOut ?  29 :29+38) )
 		{
 			vcsSta3(HMOVE);
 			vcsSty3(COLUBK); 
@@ -950,10 +1029,14 @@ void play_game(int player_count){
 			vcsSta3(WSYNC);
 			line++;
 		}
-		fly_top_hit_box.Y = fly_top_y + line;
-		DrawFlyRegion(line, 14, fly_top_x, fly_top_y, frame & 1);
-		fly_bot_hit_box.Y = fly_bot_y + line;
-		DrawFlyRegion(line, 24, fly_bot_x, fly_bot_y, frame & 1);
+
+		// Draw flies during normal play and when they're exiting, otherwise section above will fill this space
+		if (play_substate < FadingOut) {
+			fly_top_hit_box.Y = fly_top_y + line;
+			DrawFlyRegion(line, 14, fly_top_x, fly_top_y, frame & 1);
+			fly_bot_hit_box.Y = fly_bot_y + line;
+			DrawFlyRegion(line, 24, fly_bot_x, fly_bot_y, frame & 1);
+		}
 
 		render_bed(line, jumping_monkey, standing_monkey);
 
@@ -968,17 +1051,6 @@ void play_game(int player_count){
 		move_monkey(joysticks & 0xf, p1_monkey);
 		button_down_event = (((but0 & 0x80) == 0) && (prev_but0 & 0x80));
 		prev_but0 = but0;
-		if (button_down_event)
-		{
-			play_state = (PlayState)(((int)play_state) + 1);
-			if (play_state == Challenge)
-			{
-				play_state = Wide;
-			}
-		}
-		//live_config.HandleInput(joysticks >> 4);
-		p0_monkey->color = ColuP0Monkey;
-		p1_monkey->color = ColuP1Monkey;
 	}
 }
 
@@ -1933,10 +2005,14 @@ void RenderMediumBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey)
 		vcsWrite5(CTRLPF, 1);
 		if (i == 7)
 		{
-			vcsNop2n(15);
+			vcsNop2n(14);
 			vcsWrite5(CTRLPF, 0x05);
+			vcsWrite5(PF2, 0);
 		}
-		vcsSta3(WSYNC);
+		else
+		{
+			vcsSta3(WSYNC);
+		}
 		line++;
 	}
 	// 8 lines of post, wall, and sheet
@@ -2129,10 +2205,14 @@ void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey)
 		vcsWrite5(CTRLPF, 1);
 		if (i == 7)
 		{
-			vcsNop2n(15);
+			vcsNop2n(14);
 			vcsWrite5(CTRLPF, 0x05);
+			vcsWrite5(PF2, 0);
 		}
-		vcsSta3(WSYNC);
+		else
+		{
+			vcsSta3(WSYNC);
+		}
 		line++;
 	}
 	// 8 lines of post, wall, and sheet

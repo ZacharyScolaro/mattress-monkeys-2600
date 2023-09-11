@@ -11,6 +11,8 @@ int max_monkey_x = 140;
 
 int monkey_y_hwm = 0;
 
+uint8_t zoom_level = 0;
+
 static uint8_t InitialColuWall = 0x6a						;
 static uint8_t InitialColuFloor = 0x1d						;
 static const uint8_t InitialColuCeiling = 0x0f					;
@@ -352,6 +354,7 @@ public:
 
 // For tuning purposes only
 ConfigEntry config_entries[] = {
+	ConfigEntry("Zoom Level "               ,0 		,&zoom_level),
 	//ConfigEntry("ColuWall "               ,ColuWall 		,&ColuWall),
 	//ConfigEntry("ColuSheet "              ,ColuSheet 	,&ColuSheet),
 	//ConfigEntry("ColuMattress "           ,ColuMattress ,&ColuMattress),
@@ -408,6 +411,9 @@ void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
 void RenderMediumBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
 void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
 void fade_palette(uint8_t fade_level);
+void RenderZoomScreen(int& line, int line_limit);
+void DrawBouncingScene();
+void DrawZoomScene();
 
 #if 1
 // Gopher
@@ -556,48 +562,52 @@ enum PlaySubState {
 	FadingIn,
 };
 
+bool show_zoom_screen = false;
+bool jump_in_progress = true;
+bool show_challenge_wall = false;
+bool bonus_enabled = true;
+bool jumping_enabled = true;
+bool fly_spawn_enabled = true;
+bool button_down_event = false;
+bool banana_shown = false;
+int banana_cooldown = 5 * 60;
+int min = 500;
+int max = 0;
+bool fly_top_spawned = true;
+bool fly_bot_spawned = true;
+int fly_top_x = 20;
+int fly_top_y = 2;
+size_t fly_top_index = 0;
+int fly_bot_x = 8;
+int fly_bot_y = 20;
+int frame = 0;
+int fanFrame = 0;
+size_t fly_loop_index = 0;
+track_player sfx_player;
+track_player* chan1_player;
+int sfx_frames_remaining = 0;
+int sine_frame = 0;
+int sine_hpos = 20;
+Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0 };
+Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0 };
+Monkey* jumping_monkey = &monkey_0;
+Monkey* standing_monkey = &monkey_1;
+Monkey* p0_monkey = &monkey_0;
+Monkey* p1_monkey = &monkey_1;
+FP32 GravityAscend = fp32(0.25);
+FP32 GravityFall = fp32(0.5);
+BoundingBox<FP32> fly_top_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
+BoundingBox<FP32> fly_bot_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
+BoundingBox<FP32> banana_hit_box = BoundingBox<FP32>(77, 33, 0, 7, 0, 13);
+uint8_t prev_but0 = 0;
+uint8_t fade_level = 16;
+int bed_left = 10; 
+int bed_right = 31;
+
 void play_game(int player_count){
 	PlayState play_state = Wide;
 	PlaySubState play_substate = Playing;
-	bool jump_in_progress = true;
-	bool show_challenge_wall = false;
-	bool bonus_enabled = true;
-	bool jumping_enabled = true;
-	bool fly_spawn_enabled = true;
-	bool button_down_event = false;
-	bool banana_shown = false;
-	int banana_cooldown = 5 * 60;
-	int min = 500;
-	int max = 0;
-	bool fly_top_spawned = true;
-	bool fly_bot_spawned = true;
-	int fly_top_x = 20;
-	int fly_top_y = 2;
-	size_t fly_top_index = 0;
-	int fly_bot_x = 8;
-	int fly_bot_y = 20;
-	int frame = 0;
-	int fanFrame = 0;
-	size_t fly_loop_index = 0;
-	track_player sfx_player;
-	track_player* chan1_player;
-	int sfx_frames_remaining = 0;
-	int sine_frame = 0;
-	int sine_hpos = 20;
-	Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0 };
-	Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0 };
-	Monkey* jumping_monkey = &monkey_0;
-	Monkey* standing_monkey = &monkey_1;
-	Monkey* p0_monkey = &monkey_0;
-	Monkey* p1_monkey = &monkey_1;
-	FP32 GravityAscend = fp32(0.25);
-	FP32 GravityFall = fp32(0.5);
-	BoundingBox<FP32> fly_top_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
-	BoundingBox<FP32> fly_bot_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
-	BoundingBox<FP32> banana_hit_box = BoundingBox<FP32>(77, 33, 0, 7, 0, 13);
-	uint8_t prev_but0 = 0;
-	uint8_t fade_level = 16;
-
+	uint8_t joysticks = 0;
 	// Render loop
 	while (true) {
 
@@ -621,8 +631,24 @@ void play_game(int player_count){
 			if (fade_level == 0)
 			{
 				play_substate = ZoomingIn;
+				zoom_level = 0;
 			}
 			break;
+		case ZoomingIn:
+			if (zoom_level == 17)
+				play_substate = ZoomingOut;
+			break;
+		case ZoomingOut:
+			if (zoom_level == 0)
+			{
+				play_substate = FadingIn;
+				fade_level = 0;
+			}
+		case FadingIn:
+			if (fade_level == 16)
+			{
+				play_substate = Playing;
+			}
 		}
 
 
@@ -632,8 +658,6 @@ void play_game(int player_count){
 
 
 		auto render_bed = RenderWideBed;
-		int bed_left = 10; 
-		int bed_right = 31;
 		// Apply current state
 		switch (play_state) {
 		case(Wide):
@@ -672,18 +696,21 @@ void play_game(int player_count){
 			bonus_enabled = true;
 			jumping_enabled = true;
 			fly_spawn_enabled = true;
+			show_zoom_screen = false;
 			break;
 		case FlyExit:
 			show_challenge_wall = false;
 			bonus_enabled = true;
 			jumping_enabled = true;
 			fly_spawn_enabled = false;
+			show_zoom_screen = false;
 			break;
 		case MonkeyLanding:
 			show_challenge_wall = false;
 			bonus_enabled = false;
 			jumping_enabled = false;
 			fly_spawn_enabled = false;
+			show_zoom_screen = false;
 			break;
 		case FadingOut:
 			if(frame & 1)
@@ -692,18 +719,23 @@ void play_game(int player_count){
 			bonus_enabled = false;
 			jumping_enabled = false;
 			fly_spawn_enabled = false;
+			show_zoom_screen = false;
 			break;
 		case ZoomingIn:
+			zoom_level++;
 			show_challenge_wall = true;
 			bonus_enabled = false;
 			jumping_enabled = false;
 			fly_spawn_enabled = false;
+			show_zoom_screen = true;
 			break;
 		case ZoomingOut:
+			zoom_level--;
 			show_challenge_wall = true;
 			bonus_enabled = false;
 			jumping_enabled = false;
 			fly_spawn_enabled = false;
+			show_zoom_screen = true;
 			break;
 		case FadingIn:
 			if(frame & 1)
@@ -712,271 +744,37 @@ void play_game(int player_count){
 			bonus_enabled = false;
 			jumping_enabled = false;
 			fly_spawn_enabled = false;
+			show_zoom_screen = false;
 			break;
 		}
 
 		fade_palette(fade_level);
 
-		// monkey physics
-		jumping_monkey->x += jumping_monkey->velocity_x;
-		if (jumping_monkey->x < min_monkey_x) {
-			jumping_monkey->x = min_monkey_x;
-			jumping_monkey->velocity_x = 0;
+		if (show_zoom_screen) {
+			DrawZoomScene();
 		}
-		if (jumping_monkey->x > max_monkey_x) {
-			jumping_monkey->x = max_monkey_x;
-			jumping_monkey->velocity_x = 0;
-		}
-		// Apply gravity
-		if (jumping_monkey->velocity_y > 0)
-		{
-			// Fall faster than ascent
-			jumping_monkey->velocity_y += GravityFall;
-		}
-		else
-		{
-			jumping_monkey->velocity_y += GravityAscend;
-		}
-		jumping_monkey->y += jumping_monkey->velocity_y;
-		if (jumping_monkey->y > 0xa3)
-		{
-			jump_in_progress = jumping_enabled;
-			jumping_monkey->y = 0xa3;
-			if (jumping_enabled)
-			{
-				Monkey* temp = jumping_monkey;
-				jumping_monkey = standing_monkey;
-				standing_monkey = temp;
-				jumping_monkey->velocity_x = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x.Round()) + 3) / 4)) % 20];
-				//uncomment this to test max jump height jumping_monkey->y = 0x80;
-				jumping_monkey->velocity_y = fp32(-7.75);// velocity_adjust * -100;// (jumping_monkey->y.Round() - 500);
-			}
+		else {
+			DrawBouncingScene();
 		}
 
-		// preclear buffers
-		for (int i = 0; i < 192; i++)
-		{
-			grp0Buffer[i] = 0;
-			grp1Buffer[i] = 0;
-		}
+		// Scoring
 
-		if (fly_top_spawned)
-		{
-			fly_top_x -= 1;
-		}
-		if (fly_top_x < 0)
-			fly_top_x = 159;
-		fly_top_y += Fly_Wave_Y[fly_top_index];
-		fly_top_index++;
-		if (fly_top_index > sizeof(Fly_Wave_Y))
-			fly_top_index = 0;
+		// Used when debugging
+//		for (int i = 0; i < 8; i++)
+//		{
+//			scoreText[i] = (char)((uint32_t)(play_substate) >> ((7 - i) * 4)) & 0xf;
+//		}
 
-		if ((frame & 0) == 0) {
-			if (fly_bot_spawned)
-			{
-				fly_bot_x += Fly_Loop_X[fly_loop_index];
-			}
-			fly_bot_y += Fly_Loop_Y[fly_loop_index];
-			fly_loop_index += 1;
-			if (fly_loop_index >= sizeof(Fly_Loop_X))
-				fly_loop_index = 0;
-			if (fly_bot_x > 159)
-				fly_bot_x -= 160;
-			if (fly_bot_x < 0)
-				fly_bot_x += 160;
-		}
-
-		// Fan blade test
-		if ((frame++ & 3) == 0) {
-			fanFrame++;
-		}
-		if (fanFrame > 6)
-		{
-			fanFrame = 0;
-		}
-		for (int y = 0; y < 7; y++)
-		{
-			playfieldBuffer[(12 + y) * 5 + 1] = FanBladeGraphics[fanFrame][y * 2] >> 7;
-			playfieldBuffer[(12 + y) * 5 + 2] = FanBladeGraphics[fanFrame][y * 2] << 1 | FanBladeGraphics[fanFrame][y * 2 + 1] >> 7;
-			playfieldBuffer[(12 + y) * 5 + 3] = FanBladeGraphics[fanFrame][y * 2 + 1] << 1;
-			colupfBuffer[12 + y] = ColuFanBlade;
-		}
-
-		// Wall around light that will be zoomed to for challenge
-		for (int i = 0; i < 22; i++)
-		{
-			playfieldBuffer[(19 + i) * 5 + 2] = show_challenge_wall ? 0x3e : 0;
-			colupfBuffer[19 + i] = InitialColuWall;
-		}
-
-		// Monkey Walking Test
-		//for (int i = 0; i < 16; i++)
-		//{
-		//	for (int j = 0; j < 12; j++)
-		//	{
-		//		grp0Buffer[i * 12 + j] = MonkeyWalkingGraphics[(frame >> 3) & 1][j];
-		//	}
-		//}
-
-		//Fan Chasis
-		for (int i = 0; i < 64; i++)
-		{
-			grp1Buffer[i] = 0;
-		}
-		for (size_t i = 0; i < sizeof(FanChasisGraphics)/sizeof(FanChasisGraphics[0]); i++)
-		{
-			grp1Buffer[i+3] = FanChasisGraphics[i];
-			colup1Buffer[i+3] = FanChasisColu[i];
-		}
-
-		////// Area to zoom in on (don't fade this)
-		////for (int i = 0; i < 24; i++)
-		////{
-		////	colupfBuffer[i + 26] = 0x8f;
-		////	playfieldBuffer[(i + 26)*5 + 2] = 0x7e;
-		////}
-
-		// Banana
-		banana_shown = banana_shown && bonus_enabled;
-		if (banana_shown)
-		{
-			for (size_t i = 0; i < sizeof(BonusBananaGraphics) / sizeof(BonusBananaGraphics[0]); i++)
-			{
-				grp1Buffer[i + 33] = BonusBananaGraphics[i];
-				colup1Buffer[i + 33] = BonusBananaColu[i];
-			}
-		}
-		banana_cooldown--;
-		if (banana_cooldown <= 0)
-		{
-			banana_shown = !banana_shown;
-			banana_cooldown = banana_shown ? 4 * 60 : 7 * 60;
-		}
-
-		for (size_t i = 130*5; i < sizeof(playfieldBuffer); i++)
-		{
-			playfieldBuffer[i] = 0;
-		}
-		// Mattress
-		if ((frame & 0x01) == 0)
-		{
-			sine_frame++;
-			if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && jumping_enabled)
-			{
-				if (jumping_monkey->y > 0x92)
-				{
-					// Once below sine middle move wave to player
-					sine_hpos = 34 - ((jumping_monkey->x.Round()) - 2) / 4;
-				}
-				// Adjust height down to player if needed
-				while (SineTables[sine_frame & 0x1f][((jumping_monkey->x.Round()) / 4) + sine_hpos] > (164 - jumping_monkey->y.Round()))
-				{
-					sine_frame++;
-				}
-			}
-			else
-			{
-			}
-			sine_frame &= 0x1f;
-		}
-
-		for (int i = bed_left; i < bed_right; i++)
-		{
-			int height = SineTables[sine_frame][i + sine_hpos]; //frame & 0x1f
-			if (i == ((standing_monkey->x.Round() )+3) /4)
-			{
-				standing_monkey->y = 160 - height;
-			}
-			if (!jump_in_progress && (i == ((jumping_monkey->x.Round() )+3) /4))
-			{
-				jumping_monkey->y = 160 - height;
-			}
-			for (int j = 0; j <= height; j++)
-			{
-				setPF(i, 169 - j);
-			}
-		}
-
-		if (jumping_monkey->y > monkey_y_hwm)
-		{
-			monkey_y_hwm = jumping_monkey->y.Round();
-		}
-
-		// Monkey Idle Test
-		for (int j = 0; j < 12; j++)
-		{
-			grp0Buffer[jumping_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j];
-			grp1Buffer[standing_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j]; //112-147
-		}
-
-		next_audio_frame(&audio_player0);
-		next_audio_frame(&audio_player1);
-		if (sfx_frames_remaining > 0)
-		{
-			sfx_frames_remaining--;
-			next_audio_frame(&sfx_player);
-			chan1_player = &sfx_player;
-		}
-		else
-		{
-			chan1_player = &audio_player1;
-		}
-		if (standing_monkey->y < min)
-		{
-			min = standing_monkey->y.Round();
-		}
-		if (standing_monkey->y > max)
-		{
-			max = standing_monkey->y.Round();
-		}
-
-		////int8_t iv = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((monkey_0.x.Round()) + 3) / 4)) % 20];
-		for (int i = 0; i < 8; i++)
-		{
-			scoreText[i] = (char)((uint32_t)(play_substate) >> ((7 - i) * 4)) & 0xf;
-		}
-		//for (int i = 0; i < 8; i++)
-		//{
-		//	scoreText[i+9] = (char)((uint32_t)(jumping_monkey->y.Value) >> ((7 - i) * 4)) & 0xf;
-		//}
-		jumping_monkey->hit_box.X = jumping_monkey->x;
-		jumping_monkey->hit_box.Y = jumping_monkey->y;
-
-		fly_top_hit_box.X = fly_top_x;
-		if (jumping_monkey->hit_box.Intersects(fly_top_hit_box))
-		{
-			fly_top_spawned = fly_spawn_enabled;
-			fly_top_x = 4;
-			jumping_monkey->score += 1;
-		}
-
-		fly_bot_hit_box.X = fly_bot_x;
-		if (jumping_monkey->hit_box.Intersects(fly_bot_hit_box))
-		{
-			fly_bot_spawned = fly_spawn_enabled;
-			fly_bot_x = 4;
-			jumping_monkey->score += 1;
-		}
-		
-		////for (int i = 0; i < 2; i++)
-		////{
-		////	scoreText[i] = (char)(iv >> ((1 - i) * 4)) & 0xf;
-		////}
-		if (banana_shown && jumping_monkey->hit_box.Intersects(banana_hit_box))
-		{
-			banana_shown = false;
-			jumping_monkey->score += 5;
-		}
 		int left_score = monkey_0.score;
 		for (int i = 0; i < 4; i++)
 		{
-//			scoreText[3 - i] = (left_score % 10) & 0xf;
+			scoreText[3 - i] = (left_score % 10) & 0xf;
 			left_score /= 10;
 		}
 		int right_score = monkey_1.score;
 		for (int i = 0; i < 4; i++)
 		{
-//			scoreText[17 - i] = (right_score % 10) & 0xf;
+			scoreText[17 - i] = (right_score % 10) & 0xf;
 			right_score /= 10;
 		}
 		PrintText(scoreText, 0);
@@ -1027,72 +825,79 @@ void play_game(int player_count){
 		DisplayText(ColuScoreBackground, 1);
 
 		int line = 0;
-		// Ceiling
-		vcsSta3(HMOVE);
-		vcsLda2(ColuCeiling);
-		vcsSta3(COLUBK);
-		vcsLda2(0);
-		vcsSta3(GRP0);
-		vcsSta3(GRP1);
-		vcsSta3(PF0);
-		vcsSta3(PF1);
-		vcsSta3(PF2);
-		vcsSta3(ENAM0);
-		vcsSta3(ENAM1);
-		vcsSta3(ENABL);
-		vcsSta3(NUSIZ0);
-		vcsLdy2(ColuFanBlade);
-		vcsWrite5(COLUP0, jumping_monkey->color);
-		vcsSta3(RESPONE); // 42 cycles before this
-		vcsSty3(COLUPF);
-		vcsNop2n(7);
-		vcsWrite5(NUSIZ1, 0x30);
-		vcsWrite5(HMP1, 0x00);
-		vcsNop2();
-		line++;
-		//
-		vcsSta3(HMOVE);
-		vcsWrite5(NUSIZ0, 0);
-		vcsNop2n(21);
-		vcsLdy2(ColuWall);
-		vcsSta4(HMCLR);
-		vcsSta3(WSYNC);
-		line++;		
-		PositionObject(line, jumping_monkey->x.Round(), RESP0, HMP0);
 
-		// Fan region
-		while (line < (show_challenge_wall ?  29+38 :29) )
+		if (show_zoom_screen) {
+			RenderZoomScreen(line, 175);
+		}
+		else
 		{
+			// Ceiling
 			vcsSta3(HMOVE);
-			vcsSty3(COLUBK); 
-			vcsWrite5(GRP1, grp1Buffer[line]);
-			vcsWrite5(GRP0, grp0Buffer[line]);
-			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
-			vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
-			vcsWrite5(COLUP1, colup1Buffer[line]);
-			vcsWrite5(COLUPF, colupfBuffer[line]);
-			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
-			vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
-			vcsWrite5(PF1, playfieldBuffer[line * 5 + 3]);
-			vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
-			vcsSta3(HMCLR);
-			vcsJmp3();
+			vcsLda2(ColuCeiling);
+			vcsSta3(COLUBK);
+			vcsLda2(0);
+			vcsSta3(GRP0);
+			vcsSta3(GRP1);
+			vcsSta3(PF0);
+			vcsSta3(PF1);
+			vcsSta3(PF2);
+			vcsSta3(ENAM0);
+			vcsSta3(ENAM1);
+			vcsSta3(ENABL);
+			vcsSta3(NUSIZ0);
+			vcsLdy2(ColuFanBlade);
+			vcsWrite5(COLUP0, jumping_monkey->color);
+			vcsSta3(RESPONE); // 42 cycles before this
+			vcsSty3(COLUPF);
+			vcsNop2n(7);
+			vcsWrite5(NUSIZ1, 0x30);
+			vcsWrite5(HMP1, 0x00);
+			vcsNop2();
+			line++;
+			//
+			vcsSta3(HMOVE);
+			vcsWrite5(NUSIZ0, 0);
+			vcsNop2n(21);
+			vcsLdy2(ColuWall);
+			vcsSta4(HMCLR);
 			vcsSta3(WSYNC);
 			line++;
-		}
+			PositionObject(line, jumping_monkey->x.Round(), RESP0, HMP0);
 
-		// Draw flies during normal play and when they're exiting, otherwise section above will fill this space
-		if (!show_challenge_wall) {
-			fly_top_hit_box.Y = fly_top_y + line;
-			DrawFlyRegion(line, 14, fly_top_x, fly_top_y, frame & 1);
-			fly_bot_hit_box.Y = fly_bot_y + line;
-			DrawFlyRegion(line, 24, fly_bot_x, fly_bot_y, frame & 1);
-		}
+			// Fan region
+			while (line < (show_challenge_wall ? 29 + 38 : 29))
+			{
+				vcsSta3(HMOVE);
+				vcsSty3(COLUBK);
+				vcsWrite5(GRP1, grp1Buffer[line]);
+				vcsWrite5(GRP0, grp0Buffer[line]);
+				vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
+				vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
+				vcsWrite5(COLUP1, colup1Buffer[line]);
+				vcsWrite5(COLUPF, colupfBuffer[line]);
+				vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
+				vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
+				vcsWrite5(PF1, playfieldBuffer[line * 5 + 3]);
+				vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
+				vcsSta3(HMCLR);
+				vcsJmp3();
+				vcsSta3(WSYNC);
+				line++;
+			}
 
-		render_bed(line, jumping_monkey, standing_monkey);
+			// Draw flies during normal play and when they're exiting, otherwise section above will fill this space
+			if (!show_challenge_wall) {
+				fly_top_hit_box.Y = fly_top_y + line;
+				DrawFlyRegion(line, 14, fly_top_x, fly_top_y, frame & 1);
+				fly_bot_hit_box.Y = fly_bot_y + line;
+				DrawFlyRegion(line, 24, fly_bot_x, fly_bot_y, frame & 1);
+			}
+
+			render_bed(line, jumping_monkey, standing_monkey);
+		}
 
 		vcsWrite5(VBLANK, 2);
-		uint8_t joysticks = vcsRead4(SWCHA);
+		joysticks = vcsRead4(SWCHA);
 		vcsNop2();
 		uint8_t but0 = vcsRead4(INPT4);
 		vcsNop2();
@@ -1734,10 +1539,6 @@ void challenge_screen() {
 		vcsWrite5(AUDC1, audio_player1.control);
 		vcsWrite5(AUDV1, audio_player1.volume);
 		vcsWrite5(AUDF1, audio_player1.frequency);
-		vcsWrite5(NUSIZ0, 0);
-		vcsWrite5(NUSIZ1, 0);
-		vcsWrite5(COLUBK, ColuWall);
-		vcsWrite5(COLUPF, FanChasisColu[18]);
 
 		vcsSta3(WSYNC);
 		PositionObject(line, 30, RESP0, HMP0);
@@ -1756,7 +1557,9 @@ void challenge_screen() {
 		vcsNop2n(12);
 		vcsWrite5(VBLANK, 0);
 
-		for (int i = 0; i < 192; i++)
+		DisplayText(ColuScoreBackground, 1);
+
+		for (int i = 0; i < 175; i++)
 		{
 				vcsSta3(HMOVE);							// 3
 				vcsJmp3();									// 6
@@ -2393,5 +2196,333 @@ void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey)
 		line++;
 		vcsLdy2(grp0Buffer[line]);
 		vcsLdx2(line < 170 ? ColuSheet : ColuBedPost);
+	}
+}
+
+void RenderZoomScreen(int& line, int line_limit) {
+	int by = line * 6;
+	vcsWrite5(GRP0, 0);
+	vcsSta3(GRP1);
+	vcsSta3(PF0);
+	vcsSta3(PF1);
+	vcsSta3(PF2);
+	vcsWrite5(COLUP0, FanChasisColu[19]);
+	vcsSta3(COLUP1);
+	vcsWrite5(NUSIZ0, 0x03); 
+	vcsSta3(NUSIZ1);
+	vcsSta3(VDELP1);
+	vcsSta3(RESP0); // 36 cycles before here
+	vcsSta3(RESPONE);
+	vcsWrite5(HMP0, 0xe0);
+	vcsWrite5(HMP1, 0xf0);
+	vcsWrite5(VDELP0, 0x01);
+	vcsWrite5(COLUPF, InitialColuWall);
+	vcsLdx2(bitmap[by + 4]);
+	vcsLdy2(bitmap[by + 5]);
+	vcsWrite5(GRP0, bitmap[by + 0]);
+	vcsWrite5(GRP1, bitmap[by + 1]);
+
+	for (bool fl = true; line < line_limit; line++)
+	{
+		if (fl) {
+			vcsSta3(HMOVE);
+			fl = false;
+		}
+		else {
+			vcsJmp3();
+		}
+		vcsWrite5(COLUBK, 0);
+		vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
+		vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
+		vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
+		vcsWrite5(GRP0, bitmap[by + 2]);
+		vcsWrite6(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
+		vcsWrite5(PF1, playfieldBuffer[line * 5 + 3]);
+		vcsWrite5(GRP1, bitmap[by + 3]);
+		vcsStx3(GRP0);
+		vcsSty3(GRP1);
+		vcsStx3(GRP0);
+		vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
+		vcsSta4(HMCLR);
+
+		by += 6;
+		vcsLdx2(bitmap[by + 4]);
+		vcsLdy2(bitmap[by + 5]);
+		vcsWrite5(GRP0, bitmap[by + 0]);
+		vcsWrite5(GRP1, bitmap[by + 1]);
+	}
+}
+
+void DrawBouncingScene() {
+	// monkey physics
+	jumping_monkey->x += jumping_monkey->velocity_x;
+	if (jumping_monkey->x < min_monkey_x) {
+		jumping_monkey->x = min_monkey_x;
+		jumping_monkey->velocity_x = 0;
+	}
+	if (jumping_monkey->x > max_monkey_x) {
+		jumping_monkey->x = max_monkey_x;
+		jumping_monkey->velocity_x = 0;
+	}
+	// Apply gravity
+	if (jumping_monkey->velocity_y > 0)
+	{
+		// Fall faster than ascent
+		jumping_monkey->velocity_y += GravityFall;
+	}
+	else
+	{
+		jumping_monkey->velocity_y += GravityAscend;
+	}
+	jumping_monkey->y += jumping_monkey->velocity_y;
+	if (jumping_monkey->y > 0xa3)
+	{
+		jump_in_progress = jumping_enabled;
+		jumping_monkey->y = 0xa3;
+		if (jumping_enabled)
+		{
+			Monkey* temp = jumping_monkey;
+			jumping_monkey = standing_monkey;
+			standing_monkey = temp;
+			jumping_monkey->velocity_x = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x.Round()) + 3) / 4)) % 20];
+			//uncomment this to test max jump height jumping_monkey->y = 0x80;
+			jumping_monkey->velocity_y = fp32(-7.75);// velocity_adjust * -100;// (jumping_monkey->y.Round() - 500);
+		}
+	}
+
+	// preclear buffers
+	for (int i = 0; i < 192; i++)
+	{
+		grp0Buffer[i] = 0;
+		grp1Buffer[i] = 0;
+	}
+
+	if (fly_top_spawned || fly_spawn_enabled)
+	{
+		fly_top_x -= 1;
+	}
+	if (fly_top_x < 0)
+		fly_top_x = 159;
+	fly_top_y += Fly_Wave_Y[fly_top_index];
+	fly_top_index++;
+	if (fly_top_index > sizeof(Fly_Wave_Y))
+		fly_top_index = 0;
+
+	if ((frame & 0) == 0) {
+		if (fly_bot_spawned || fly_spawn_enabled)
+		{
+			fly_bot_x += Fly_Loop_X[fly_loop_index];
+		}
+		fly_bot_y += Fly_Loop_Y[fly_loop_index];
+		fly_loop_index += 1;
+		if (fly_loop_index >= sizeof(Fly_Loop_X))
+			fly_loop_index = 0;
+		if (fly_bot_x > 159)
+			fly_bot_x -= 160;
+		if (fly_bot_x < 0)
+			fly_bot_x += 160;
+	}
+
+	// Fan blade test
+	if ((frame++ & 3) == 0) {
+		fanFrame++;
+	}
+	if (fanFrame > 6)
+	{
+		fanFrame = 0;
+	}
+	for (int y = 0; y < 7; y++)
+	{
+		playfieldBuffer[(12 + y) * 5 + 1] = FanBladeGraphics[fanFrame][y * 2] >> 7;
+		playfieldBuffer[(12 + y) * 5 + 2] = FanBladeGraphics[fanFrame][y * 2] << 1 | FanBladeGraphics[fanFrame][y * 2 + 1] >> 7;
+		playfieldBuffer[(12 + y) * 5 + 3] = FanBladeGraphics[fanFrame][y * 2 + 1] << 1;
+		colupfBuffer[12 + y] = ColuFanBlade;
+	}
+
+	// Wall around light that will be zoomed to for challenge
+	for (int i = 0; i < 22; i++)
+	{
+		playfieldBuffer[(19 + i) * 5 + 2] = show_challenge_wall ? 0x3e : 0;
+		colupfBuffer[19 + i] = InitialColuWall;
+	}
+
+	// Monkey Walking Test
+	//for (int i = 0; i < 16; i++)
+	//{
+	//	for (int j = 0; j < 12; j++)
+	//	{
+	//		grp0Buffer[i * 12 + j] = MonkeyWalkingGraphics[(frame >> 3) & 1][j];
+	//	}
+	//}
+
+	//Fan Chasis
+	for (int i = 0; i < 64; i++)
+	{
+		grp1Buffer[i] = 0;
+	}
+	for (size_t i = 0; i < sizeof(FanChasisGraphics) / sizeof(FanChasisGraphics[0]); i++)
+	{
+		grp1Buffer[i + 3] = FanChasisGraphics[i];
+		colup1Buffer[i + 3] = FanChasisColu[i];
+	}
+
+	// Banana
+	banana_shown = banana_shown && bonus_enabled;
+	if (banana_shown)
+	{
+		for (size_t i = 0; i < sizeof(BonusBananaGraphics) / sizeof(BonusBananaGraphics[0]); i++)
+		{
+			grp1Buffer[i + 33] = BonusBananaGraphics[i];
+			colup1Buffer[i + 33] = BonusBananaColu[i];
+		}
+	}
+	banana_cooldown--;
+	if (banana_cooldown <= 0)
+	{
+		banana_shown = !banana_shown;
+		banana_cooldown = banana_shown ? 4 * 60 : 7 * 60;
+	}
+
+	for (size_t i = 130 * 5; i < sizeof(playfieldBuffer); i++)
+	{
+		playfieldBuffer[i] = 0;
+	}
+	// Mattress
+	if ((frame & 0x01) == 0)
+	{
+		sine_frame++;
+		if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && jumping_enabled)
+		{
+			if (jumping_monkey->y > 0x92)
+			{
+				// Once below sine middle move wave to player
+				sine_hpos = 34 - ((jumping_monkey->x.Round()) - 2) / 4;
+			}
+			// Adjust height down to player if needed
+			while (SineTables[sine_frame & 0x1f][((jumping_monkey->x.Round()) / 4) + sine_hpos] > (164 - jumping_monkey->y.Round()))
+			{
+				sine_frame++;
+			}
+		}
+		else
+		{
+		}
+		sine_frame &= 0x1f;
+	}
+
+	for (int i = bed_left; i < bed_right; i++)
+	{
+		int height = SineTables[sine_frame][i + sine_hpos]; //frame & 0x1f
+		if (i == ((standing_monkey->x.Round()) + 3) / 4)
+		{
+			standing_monkey->y = 160 - height;
+		}
+		if (!jump_in_progress && (i == ((jumping_monkey->x.Round()) + 3) / 4))
+		{
+			jumping_monkey->y = 160 - height;
+		}
+		for (int j = 0; j <= height; j++)
+		{
+			setPF(i, 169 - j);
+		}
+	}
+
+	if (jumping_monkey->y > monkey_y_hwm)
+	{
+		monkey_y_hwm = jumping_monkey->y.Round();
+	}
+
+	// Monkey Idle Test
+	for (int j = 0; j < 12; j++)
+	{
+		grp0Buffer[jumping_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j];
+		grp1Buffer[standing_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j]; //112-147
+	}
+
+	next_audio_frame(&audio_player0);
+	next_audio_frame(&audio_player1);
+	if (sfx_frames_remaining > 0)
+	{
+		sfx_frames_remaining--;
+		next_audio_frame(&sfx_player);
+		chan1_player = &sfx_player;
+	}
+	else
+	{
+		chan1_player = &audio_player1;
+	}
+	if (standing_monkey->y < min)
+	{
+		min = standing_monkey->y.Round();
+	}
+	if (standing_monkey->y > max)
+	{
+		max = standing_monkey->y.Round();
+	}
+
+	jumping_monkey->hit_box.X = jumping_monkey->x;
+	jumping_monkey->hit_box.Y = jumping_monkey->y;
+
+	fly_top_hit_box.X = fly_top_x;
+	if (jumping_monkey->hit_box.Intersects(fly_top_hit_box))
+	{
+		fly_top_spawned = fly_spawn_enabled;
+		fly_top_x = 4;
+		jumping_monkey->score += 1;
+	}
+
+	fly_bot_hit_box.X = fly_bot_x;
+	if (jumping_monkey->hit_box.Intersects(fly_bot_hit_box))
+	{
+		fly_bot_spawned = fly_spawn_enabled;
+		fly_bot_x = 4;
+		jumping_monkey->score += 1;
+	}
+	if (banana_shown && jumping_monkey->hit_box.Intersects(banana_hit_box))
+	{
+		banana_shown = false;
+		jumping_monkey->score += 5;
+	}
+}
+
+static const uint8_t ZoomWallLookup[] =
+{
+	0x00, 0x00, 0x3e, 0x00, 0x00,
+	0x00, 0x00, 0x7f, 0x00, 0x00,
+	0x00, 0x00, 0xff, 0x80, 0x00,
+	0x00, 0x01, 0xff, 0xc0, 0x00,
+	0x00, 0x03, 0xff, 0xe0, 0x00,
+	0x00, 0x07, 0xff, 0xf0, 0x00,
+	0x00, 0x0f, 0xff, 0xf8, 0x00,
+	0x00, 0x1f, 0xff, 0xfc, 0x00,
+	0x00, 0x3f, 0xff, 0xfe, 0x00,
+	0x00, 0x7f, 0xff, 0xff, 0x00,
+	0x00, 0xff, 0xff, 0xff, 0x80,
+	0x01, 0xff, 0xff, 0xff, 0xc0,
+	0x03, 0xff, 0xff, 0xff, 0xe0,
+	0x07, 0xff, 0xff, 0xff, 0xf0,
+	0x0f, 0xff, 0xff, 0xff, 0xf8,
+	0x1f, 0xff, 0xff, 0xff, 0xfc,
+	0x3f, 0xff, 0xff, 0xff, 0xfe,
+	0x3f, 0xff, 0xff, 0xff, 0xff,
+};
+
+void DrawZoomScene() {
+	int top = 19 - ((zoom_level * 19) / 17);
+	int bottom = 41 + ((zoom_level * 134) / 17);
+	for (int i = 0; i < top * 5; i++)
+	{
+		playfieldBuffer[i] = 0;
+	}
+	for (int i = top; i < bottom; i++)
+	{
+		for (int j = 0; j < 5; j++)
+		{
+			playfieldBuffer[i * 5 + j] = ZoomWallLookup[zoom_level * 5 + j];
+		}
+	}
+	for (int i = bottom * 5; i < 175 * 5; i++)
+	{
+		playfieldBuffer[i] = 0;
 	}
 }

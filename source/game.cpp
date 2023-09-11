@@ -44,6 +44,36 @@ static uint8_t ColuP0Monkey = InitialColuP0Monkey;
 static uint8_t ColuP1Monkey = InitialColuP1Monkey;
 static uint8_t ColuFloor = InitialColuFloor;
 
+const uint8_t BitWidthLookup[16] = { 0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4 };
+
+const uint8_t BitWidthTo24PixelLookup[25 * 3] = {
+	0x00, 0x00, 0x00,
+	0x00, 0x00, 0x01,
+	0x00, 0x00, 0x03,
+	0x00, 0x00, 0x07,
+	0x00, 0x00, 0x0f,
+	0x00, 0x00, 0x1f,
+	0x00, 0x00, 0x3f,
+	0x00, 0x00, 0x7f,
+	0x00, 0x00, 0xff,
+	0x00, 0x01, 0xff,
+	0x00, 0x03, 0xff,
+	0x00, 0x07, 0xff,
+	0x00, 0x0f, 0xff,
+	0x00, 0x1f, 0xff,
+	0x00, 0x3f, 0xff,
+	0x00, 0x7f, 0xff,
+	0x00, 0xff, 0xff,
+	0x01, 0xff, 0xff,
+	0x03, 0xff, 0xff,
+	0x07, 0xff, 0xff,
+	0x0f, 0xff, 0xff,
+	0x1f, 0xff, 0xff,
+	0x3f, 0xff, 0xff,
+	0x7f, 0xff, 0xff,
+	0xff, 0xff, 0xff
+};
+
 const uint8_t DoubleWideLookup[16] = {
 	0x00,
 	0x03,
@@ -406,7 +436,6 @@ int title_screen();
 void show_credits();
 void show_previews();
 void play_game(int player_count);
-void challenge_screen();
 void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
 void RenderMediumBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
 void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
@@ -414,6 +443,8 @@ void fade_palette(uint8_t fade_level);
 void RenderZoomScreen(int& line, int line_limit);
 void DrawBouncingScene();
 void DrawZoomScene();
+void DrawChallengeScreen();
+void RenderChallengeScreen();
 
 #if 1
 // Gopher
@@ -489,10 +520,8 @@ extern "C" int elf_main(uint32_t * args)
 		int menu_selection = title_screen();
 		switch (menu_selection)
 		{
-		case 1:
-			challenge_screen();
-			break;
 		case 0:
+		case 1:
 		case 2:
 			play_game(menu_selection);
 			break;
@@ -549,7 +578,6 @@ enum PlayState {
 Wide,
 Medium,
 Narrow,
-Challenge
 };
 
 enum PlaySubState {
@@ -558,10 +586,12 @@ enum PlaySubState {
 	MonkeyLanding,
 	FadingOut,
 	ZoomingIn,
+	Challenge,
 	ZoomingOut,
 	FadingIn,
 };
 
+bool challenge_mode = false;
 bool show_zoom_screen = false;
 bool jump_in_progress = true;
 bool show_challenge_wall = false;
@@ -605,16 +635,17 @@ int bed_left = 10;
 int bed_right = 31;
 
 void play_game(int player_count){
+	uint8_t but0;
 	PlayState play_state = Wide;
 	PlaySubState play_substate = Playing;
 	uint8_t joysticks = 0;
 	// Render loop
 	while (true) {
-
+		frame++;
 		//Check for state changes
 		switch (play_substate) {
 		case Playing:
-			if (button_down_event)
+//TODO SCORE BASED			if (button_down_event)
 				play_substate = FlyExit;
 			break;
 		case FlyExit:
@@ -636,18 +667,26 @@ void play_game(int player_count){
 			break;
 		case ZoomingIn:
 			if (zoom_level == 17)
-				play_substate = ZoomingOut;
+				play_substate = Challenge;
 			break;
+		case Challenge:
+			if (button_down_event)
+				play_substate = ZoomingOut;
 		case ZoomingOut:
 			if (zoom_level == 0)
 			{
 				play_substate = FadingIn;
 				fade_level = 0;
+				if (play_state == Wide)
+					play_state = Medium;
+				else if (play_state == Medium)
+					play_state = Narrow;
 			}
 		case FadingIn:
 			if (fade_level == 16)
 			{
 				play_substate = Playing;
+				fly_top_spawned = fly_bot_spawned = true;
 			}
 		}
 
@@ -686,8 +725,6 @@ void play_game(int player_count){
 			bed_left = 10;
 			bed_right = 31;
 			break;
-		case(Challenge):
-			break;
 		}
 
 		switch (play_substate) {
@@ -697,6 +734,7 @@ void play_game(int player_count){
 			jumping_enabled = true;
 			fly_spawn_enabled = true;
 			show_zoom_screen = false;
+			challenge_mode = false;
 			break;
 		case FlyExit:
 			show_challenge_wall = false;
@@ -704,6 +742,7 @@ void play_game(int player_count){
 			jumping_enabled = true;
 			fly_spawn_enabled = false;
 			show_zoom_screen = false;
+			challenge_mode = false;
 			break;
 		case MonkeyLanding:
 			show_challenge_wall = false;
@@ -711,6 +750,7 @@ void play_game(int player_count){
 			jumping_enabled = false;
 			fly_spawn_enabled = false;
 			show_zoom_screen = false;
+			challenge_mode = false;
 			break;
 		case FadingOut:
 			if(frame & 1)
@@ -720,22 +760,30 @@ void play_game(int player_count){
 			jumping_enabled = false;
 			fly_spawn_enabled = false;
 			show_zoom_screen = false;
+			challenge_mode = false;
 			break;
 		case ZoomingIn:
-			zoom_level++;
+			if (frame & 1)
+				zoom_level++;
 			show_challenge_wall = true;
 			bonus_enabled = false;
 			jumping_enabled = false;
 			fly_spawn_enabled = false;
 			show_zoom_screen = true;
+			challenge_mode = false;
+			break;
+		case Challenge:
+			challenge_mode = true;
 			break;
 		case ZoomingOut:
-			zoom_level--;
+			if (frame & 1)
+				zoom_level--;
 			show_challenge_wall = true;
 			bonus_enabled = false;
 			jumping_enabled = false;
 			fly_spawn_enabled = false;
 			show_zoom_screen = true;
+			challenge_mode = false;
 			break;
 		case FadingIn:
 			if(frame & 1)
@@ -745,12 +793,29 @@ void play_game(int player_count){
 			jumping_enabled = false;
 			fly_spawn_enabled = false;
 			show_zoom_screen = false;
+			challenge_mode = false;
 			break;
 		}
 
 		fade_palette(fade_level);
 
-		if (show_zoom_screen) {
+		next_audio_frame(&audio_player0);
+		next_audio_frame(&audio_player1);
+		if (sfx_frames_remaining > 0)
+		{
+			sfx_frames_remaining--;
+			next_audio_frame(&sfx_player);
+			chan1_player = &sfx_player;
+		}
+		else
+		{
+			chan1_player = &audio_player1;
+		}
+
+		if (challenge_mode) {
+			DrawChallengeScreen();
+		}
+		else if (show_zoom_screen) {
 			DrawZoomScene();
 		}
 		else {
@@ -790,116 +855,125 @@ void play_game(int player_count){
 		}
 
 		// Render
-		vcsEndOverblank();
-		vcsSta3(WSYNC); 
-		vcsWrite5(AUDC0, audio_player0.control);
-		vcsWrite5(AUDV0, audio_player0.volume);
-		vcsWrite5(AUDF0, audio_player0.frequency);
-		vcsWrite5(AUDC1, chan1_player->control);
-		vcsWrite5(AUDV1, chan1_player->volume);
-		vcsWrite5(AUDF1, chan1_player->frequency);
-		vcsSta3(WSYNC); vcsSta3(WSYNC);
-
-
-		vcsLda2(0);
-		vcsSta3(PF0);
-		vcsSta3(PF1);
-		vcsSta3(PF2);
-		vcsSta3(GRP0);
-		vcsSta3(GRP1);
-		vcsSta3(ENAM0);
-		vcsSta3(ENAM1);
-		vcsSta3(ENABL);
-		vcsSta3(NUSIZ0);
-		vcsLda2(ColuCeiling);
-		vcsSta3(COLUBK);
-		vcsLda2(ColuFanBlade);
-		vcsSta3(COLUPF);
-		vcsWrite5(COLUP0, jumping_monkey->color);
-		vcsSta3(RESPONE); // 42 cycles before this
-		vcsNop2n(7);
-		vcsWrite5(NUSIZ1, 0x30);
-		vcsWrite5(HMP1, 0x20);
-		vcsWrite5(VBLANK, 0);
-
-		DisplayText(ColuScoreBackground, 1);
-
-		int line = 0;
-
-		if (show_zoom_screen) {
-			RenderZoomScreen(line, 175);
+		if (challenge_mode)
+		{
+			RenderChallengeScreen();
 		}
 		else
 		{
-			// Ceiling
-			vcsSta3(HMOVE);
-			vcsLda2(ColuCeiling);
-			vcsSta3(COLUBK);
+			vcsEndOverblank();
+			vcsSta3(WSYNC);
+			vcsWrite5(AUDC0, audio_player0.control);
+			vcsWrite5(AUDV0, audio_player0.volume);
+			vcsWrite5(AUDF0, audio_player0.frequency);
+			vcsWrite5(AUDC1, chan1_player->control);
+			vcsWrite5(AUDV1, chan1_player->volume);
+			vcsWrite5(AUDF1, chan1_player->frequency);
+			vcsSta3(WSYNC); vcsSta3(WSYNC);
+
+
 			vcsLda2(0);
-			vcsSta3(GRP0);
-			vcsSta3(GRP1);
 			vcsSta3(PF0);
 			vcsSta3(PF1);
 			vcsSta3(PF2);
+			vcsSta3(GRP0);
+			vcsSta3(GRP1);
 			vcsSta3(ENAM0);
 			vcsSta3(ENAM1);
 			vcsSta3(ENABL);
 			vcsSta3(NUSIZ0);
-			vcsLdy2(ColuFanBlade);
+			vcsLda2(ColuCeiling);
+			vcsSta3(COLUBK);
+			vcsLda2(ColuFanBlade);
+			vcsSta3(COLUPF);
 			vcsWrite5(COLUP0, jumping_monkey->color);
 			vcsSta3(RESPONE); // 42 cycles before this
-			vcsSty3(COLUPF);
 			vcsNop2n(7);
 			vcsWrite5(NUSIZ1, 0x30);
-			vcsWrite5(HMP1, 0x00);
-			vcsNop2();
-			line++;
-			//
-			vcsSta3(HMOVE);
-			vcsWrite5(NUSIZ0, 0);
-			vcsNop2n(21);
-			vcsLdy2(ColuWall);
-			vcsSta4(HMCLR);
-			vcsSta3(WSYNC);
-			line++;
-			PositionObject(line, jumping_monkey->x.Round(), RESP0, HMP0);
+			vcsWrite5(HMP1, 0x20);
+			vcsWrite5(VBLANK, 0);
 
-			// Fan region
-			while (line < (show_challenge_wall ? 29 + 38 : 29))
+			DisplayText(ColuScoreBackground, 1);
+
+			int line = 0;
+
+			if (show_zoom_screen) {
+				RenderZoomScreen(line, 175);
+			}
+			else
 			{
+				vcsSta3(WSYNC);
+
+				// Ceiling
 				vcsSta3(HMOVE);
-				vcsSty3(COLUBK);
-				vcsWrite5(GRP1, grp1Buffer[line]);
-				vcsWrite5(GRP0, grp0Buffer[line]);
-				vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
-				vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
-				vcsWrite5(COLUP1, colup1Buffer[line]);
-				vcsWrite5(COLUPF, colupfBuffer[line]);
-				vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
-				vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
-				vcsWrite5(PF1, playfieldBuffer[line * 5 + 3]);
-				vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
-				vcsSta3(HMCLR);
-				vcsJmp3();
+				vcsLda2(ColuCeiling);
+				vcsSta3(COLUBK);
+				vcsLda2(0);
+				vcsSta3(GRP0);
+				vcsSta3(GRP1);
+				vcsSta3(PF0);
+				vcsSta3(PF1);
+				vcsSta3(PF2);
+				vcsSta3(ENAM0);
+				vcsSta3(ENAM1);
+				vcsSta3(ENABL);
+				vcsSta3(NUSIZ0);
+				vcsLdy2(ColuFanBlade);
+				vcsWrite5(COLUP0, jumping_monkey->color);
+				vcsSta3(RESPONE); // 42 cycles before this
+				vcsSty3(COLUPF);
+				vcsNop2n(7);
+				vcsWrite5(NUSIZ1, 0x30);
+				vcsWrite5(HMP1, 0x00);
+				vcsNop2();
+				line++;
+				//
+				vcsSta3(HMOVE);
+				vcsWrite5(NUSIZ0, 0);
+				vcsNop2n(21);
+				vcsLdy2(ColuWall);
+				vcsSta4(HMCLR);
 				vcsSta3(WSYNC);
 				line++;
-			}
+				PositionObject(line, jumping_monkey->x.Round(), RESP0, HMP0);
 
-			// Draw flies during normal play and when they're exiting, otherwise section above will fill this space
-			if (!show_challenge_wall) {
-				fly_top_hit_box.Y = fly_top_y + line;
-				DrawFlyRegion(line, 14, fly_top_x, fly_top_y, frame & 1);
-				fly_bot_hit_box.Y = fly_bot_y + line;
-				DrawFlyRegion(line, 24, fly_bot_x, fly_bot_y, frame & 1);
-			}
+				// Fan region
+				while (line < (show_challenge_wall ? 29 + 38 : 29))
+				{
+					vcsSta3(HMOVE);
+					vcsSty3(COLUBK);
+					vcsWrite5(GRP1, grp1Buffer[line]);
+					vcsWrite5(GRP0, grp0Buffer[line]);
+					vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
+					vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
+					vcsWrite5(COLUP1, colup1Buffer[line]);
+					vcsWrite5(COLUPF, colupfBuffer[line]);
+					vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
+					vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
+					vcsWrite5(PF1, playfieldBuffer[line * 5 + 3]);
+					vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
+					vcsSta3(HMCLR);
+					vcsJmp3();
+					vcsSta3(WSYNC);
+					line++;
+				}
 
-			render_bed(line, jumping_monkey, standing_monkey);
+				// Draw flies during normal play and when they're exiting, otherwise section above will fill this space
+				if (!show_challenge_wall) {
+					fly_top_hit_box.Y = fly_top_y + line;
+					DrawFlyRegion(line, 14, fly_top_x, fly_top_y, frame & 1);
+					fly_bot_hit_box.Y = fly_bot_y + line;
+					DrawFlyRegion(line, 24, fly_bot_x, fly_bot_y, frame & 1);
+				}
+
+				render_bed(line, jumping_monkey, standing_monkey);
+			}
 		}
 
 		vcsWrite5(VBLANK, 2);
 		joysticks = vcsRead4(SWCHA);
 		vcsNop2();
-		uint8_t but0 = vcsRead4(INPT4);
+		but0 = vcsRead4(INPT4);
 		vcsNop2();
 		uint8_t but1 = vcsRead4(INPT5);
 		vcsStartOverblank();
@@ -1471,28 +1545,33 @@ struct Bubble {
 
 };
 
-void challenge_screen() {
-	int frame_counter = 0;
-	uint8_t* posBuffer = colupfBuffer;
-	uint8_t prev_joy = 0;
-	uint8_t prev_but0 = 0;
-
+void DrawChallengeScreen() {
 	for (int i = 0; i < 4; i++)
 	{
 		for (int j = 0; j < 8; j++)
 		{
 			auto left = DoubleWideLookup[FanChasisGraphics[16 + i] >> 4];
 			auto right = DoubleWideLookup[FanChasisGraphics[16 + i] & 0xf];
-			playfieldBuffer[(i*8 + j) * 5 + 1] =  left >> 5;
-			playfieldBuffer[(i*8 + j) * 5 + 2] = left << 3 | right >> 5 ;
-			playfieldBuffer[(i*8 + j) * 5 + 3] = right << 3 ;
+			playfieldBuffer[(i * 8 + j) * 5 + 0] = 0;
+			playfieldBuffer[(i * 8 + j) * 5 + 1] = left >> 5;
+			playfieldBuffer[(i * 8 + j) * 5 + 2] = left << 3 | right >> 5;
+			playfieldBuffer[(i * 8 + j) * 5 + 3] = right << 3;
+			playfieldBuffer[(i * 8 + j) * 5 + 4] = 0;
 		}
+	}
+
+	for (int i = 4*8*5; i < 136*5; i++)
+	{
+		playfieldBuffer[i] = 0;
 	}
 
 	for (int i = 0; i < 136; i++)
 	{
+		playfieldBuffer[(56 + i) * 5 + 0] = 0;
 		playfieldBuffer[(56 + i) * 5 + 1] = MonkeyHandOpenGraphics[i];
+		playfieldBuffer[(56 + i) * 5 + 2] = 0;
 		playfieldBuffer[(56 + i) * 5 + 3] = MonkeyHandOpenGraphics[i];
+		playfieldBuffer[(56 + i) * 5 + 4] = 0;
 	}
 
 
@@ -1501,7 +1580,7 @@ void challenge_screen() {
 	{
 		int x = randint() & 0x7f;
 		grp1Buffer[i] = 0;
-		posBuffer[i] = ((-(x % 15) << 4) + 0x70) + (x / 15) + 1;
+		colupfBuffer[i] = ((-(x % 15) << 4) + 0x70) + (x / 15) + 1;
 		i++;
 		int b = randint() & 0x7;
 		b = b == 7 ? 0 : b;
@@ -1513,25 +1592,21 @@ void challenge_screen() {
 		}
 	}
 
-	while (true) {
+	for (int i = 0; i < 192; i++)
+	{
+		grp0Buffer[i] = 0;
+	}
 
-		next_audio_frame(&audio_player0);
-		next_audio_frame(&audio_player1);
+	// Blit fly
+	for (int i = 0; i < 11; i++)
+	{
+		grp0Buffer[40 + i] = FlyGraphics[(frame >> 4) & 1][i];
+		colup0Buffer[40 + i] = FlyColu[(frame >> 4) & 1][i];
+	}
+}
 
-		for (int i = 0; i < 192; i++)
-		{
-			grp0Buffer[i] =  0;
-		}
-
-		// Blit fly
-		for (int i = 0; i < 11; i++)
-		{
-			grp0Buffer[40 + i] = FlyGraphics[(frame_counter >> 4) & 1][i];
-			colup0Buffer[40 + i] = FlyColu[(frame_counter >> 4) & 1][i];
-		}
-
-		frame_counter++;
-		int line = 0;
+void RenderChallengeScreen(){
+			int line = 0;
 		vcsEndOverblank();
 		vcsWrite5(AUDC0, audio_player0.control);
 		vcsWrite5(AUDV0, audio_player0.volume);
@@ -1559,89 +1634,87 @@ void challenge_screen() {
 
 		DisplayText(ColuScoreBackground, 1);
 
+		// Prep for rest of screen
+		PositionObject(line, 30, RESP0, HMP0);
+		PositionObject(line, 100, RESPONE, HMP1);
+		vcsSta3(HMOVE);
+		vcsWrite5(GRP1, grp1Buffer[0]);
+		vcsWrite5(COLUP0, 0);
+		vcsSta3(COLUP1);
+		vcsWrite5(PF0, ReverseByte[playfieldBuffer[0] >> 4]);
+		vcsWrite5(PF1, (playfieldBuffer[0] << 4) | (playfieldBuffer[1] >> 4));
+		vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[1] << 4) | (playfieldBuffer[2] >> 4))]);
+		vcsWrite5(VDELP0, 0);
+		vcsWrite5(VDELP1, 1);
+		vcsJmp3();
+		vcsSta3(HMCLR);
+		vcsNop2n(12);
+		vcsWrite5(COLUBK, InitialColuWall);
+
 		for (int i = 0; i < 175; i++)
 		{
-				vcsSta3(HMOVE);							// 3
-				vcsJmp3();									// 6
-				vcsWrite5(GRP0, grp0Buffer[i]);		// 11
-				vcsWrite5(COLUP0, colup0Buffer[i]);	// 16
-				vcsWrite5(COLUP1, colup1Buffer[i]);	// 21
-				if ((posBuffer[i] & 0xf) == 1) {
-					vcsNop2();
-					vcsSta3(RESPONE);
-				}
-				vcsWrite5(COLUPF, i <32 ? FanChasisColu[18] : ColuP0Monkey);		// 26 31
-				if ((posBuffer[i] & 0xf) == 2) {
-					vcsNop2();
-					vcsSta3(RESPONE);
-				}
-				vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[i * 5 + 1] << 4)
-					| (playfieldBuffer[i * 5 + 2] >> 4))]);								// 31	36
-				if ((posBuffer[i] & 0xf) == 3) {
-					vcsNop2();
-					vcsSta3(RESPONE);
-				}
-				vcsWrite5(PF0, ReverseByte[playfieldBuffer[i * 5 + 2]]);				// 36	41
-				if ((posBuffer[i] & 0xf) == 4) {
-					vcsNop2();
-					vcsSta3(RESPONE);
-				}
-				vcsWrite5(PF1, playfieldBuffer[i * 5 + 3]);								// 41	46
-				if ((posBuffer[i] & 0xf) == 5) {
-					vcsNop2();
-					vcsSta3(RESPONE);
-				}
-				vcsWrite5(COLUPF, i < 32 ? FanChasisColu[18] : ColuP1Monkey);		// 46	51
-				if ((posBuffer[i] & 0xf) == 6) {
-					vcsNop2();
-					vcsSta3(RESPONE);
-				}
-				vcsWrite5(PF2, ReverseByte[playfieldBuffer[i * 5 + 4]]);				// 51	56
-				if ((posBuffer[i] & 0xf) == 7) {
-					vcsNop2();
-					vcsSta3(RESPONE);
-				}
-				vcsWrite5(PF0, ReverseByte[playfieldBuffer[(i + 1) * 5] >> 4]);	// 56	61
-				if ((posBuffer[i] & 0xf) == 8) {
-					vcsNop2();
-					vcsSta3(RESPONE);
-				}
-				vcsWrite5(HMP1, posBuffer[i]);
-				if ((posBuffer[i] & 0xf) == 9) {
-					vcsNop2();
-					vcsSta3(RESPONE);
-				}
-				vcsWrite5(PF1, (playfieldBuffer[(i + 1) * 5] << 4)
-					| (playfieldBuffer[(i + 1) * 5 + 1] >> 4));							//	66	71
-				if ((posBuffer[i] & 0xf) > 9) {
-					vcsNop2();
-					vcsSta3(RESPONE);
-				}
-				vcsWrite5(GRP1, grp1Buffer[i+1]);											// 71	76
-				if ((posBuffer[i] & 0xf) == 0) {
-					vcsWrite5(CXCLR, 0);
-				}
+			vcsSta3(HMOVE);							// 3
+			vcsJmp3();									// 6
+			vcsWrite5(GRP0, grp0Buffer[i]);		// 11
+			vcsWrite5(COLUP0, colup0Buffer[i]);	// 16
+			vcsWrite5(COLUP1, colup1Buffer[i]);	// 21
+			if ((colupfBuffer[i] & 0xf) == 1) {
+				vcsNop2();
+				vcsSta3(RESPONE);
+			}
+			vcsWrite5(COLUPF, i < 32 ? FanChasisColu[18] : InitialColuP0Monkey);		// 26 31
+			if ((colupfBuffer[i] & 0xf) == 2) {
+				vcsNop2();
+				vcsSta3(RESPONE);
+			}
+			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[i * 5 + 1] << 4)
+				| (playfieldBuffer[i * 5 + 2] >> 4))]);								// 31	36
+			if ((colupfBuffer[i] & 0xf) == 3) {
+				vcsNop2();
+				vcsSta3(RESPONE);
+			}
+			vcsWrite5(PF0, ReverseByte[playfieldBuffer[i * 5 + 2]]);				// 36	41
+			if ((colupfBuffer[i] & 0xf) == 4) {
+				vcsNop2();
+				vcsSta3(RESPONE);
+			}
+			vcsWrite5(PF1, playfieldBuffer[i * 5 + 3]);								// 41	46
+			if ((colupfBuffer[i] & 0xf) == 5) {
+				vcsNop2();
+				vcsSta3(RESPONE);
+			}
+			vcsWrite5(COLUPF, i < 32 ? FanChasisColu[18] : InitialColuP1Monkey);		// 46	51
+			if ((colupfBuffer[i] & 0xf) == 6) {
+				vcsNop2();
+				vcsSta3(RESPONE);
+			}
+			vcsWrite5(PF2, ReverseByte[playfieldBuffer[i * 5 + 4]]);				// 51	56
+			if ((colupfBuffer[i] & 0xf) == 7) {
+				vcsNop2();
+				vcsSta3(RESPONE);
+			}
+			vcsWrite5(PF0, ReverseByte[playfieldBuffer[(i + 1) * 5] >> 4]);	// 56	61
+			if ((colupfBuffer[i] & 0xf) == 8) {
+				vcsNop2();
+				vcsSta3(RESPONE);
+			}
+			vcsWrite5(HMP1, colupfBuffer[i]);
+			if ((colupfBuffer[i] & 0xf) == 9) {
+				vcsNop2();
+				vcsSta3(RESPONE);
+			}
+			vcsWrite5(PF1, (playfieldBuffer[(i + 1) * 5] << 4)
+				| (playfieldBuffer[(i + 1) * 5 + 1] >> 4));							//	66	71
+			if ((colupfBuffer[i] & 0xf) > 9) {
+				vcsNop2();
+				vcsSta3(RESPONE);
+			}
+			vcsWrite5(GRP1, grp1Buffer[i + 1]);											// 71	76
+			if ((colupfBuffer[i] & 0xf) == 0) {
+				vcsWrite5(CXCLR, 0);
+			}
 		}
-		vcsWrite5(VBLANK, 2);
-		uint8_t joy = vcsRead4(SWCHA);
-		vcsNop2();
-		uint8_t but0 = vcsRead4(INPT4);
-		vcsStartOverblank();
-		if (((joy & 0x40) == 0) && (prev_joy & 0x40)) {
-			// left
-		}
-		if (((joy & 0x80) == 0) && (prev_joy & 0x80)) {
-			// right
-		}
-		prev_joy = joy;
-		if (((but0 & 0x80) == 0) && (prev_but0 & 0x80))
-		{
-			// Button pressed
-			return;
-		}
-		prev_but0 = but0;
 	}
-}
 
 void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey) {
 	PositionObject(line, 132, RESPONE, HMP1);
@@ -1779,7 +1852,7 @@ void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey) {
 	vcsWrite5(COLUBK, ColuBedPost);
 	line++;
 
-	for (int i = 0; line < 176; i++)
+	for (int i = 0; line < 175; i++)
 	{
 		vcsSta3(HMOVE);
 		if (i == 0)
@@ -1979,7 +2052,7 @@ void RenderMediumBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey)
 	vcsSta3(WSYNC);
 	line++;
 
-	for (int i = 0; line < 176; i++)
+	for (int i = 0; line < 175; i++)
 	{
 		vcsSta3(HMOVE);
 		if (i == 0)
@@ -2169,7 +2242,7 @@ void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey)
 	vcsLdx2(line < 170 ? ColuSheet : ColuBedPost);
 	vcsSta3(WSYNC);
 
-	for (int i = 0; line < 176; i++)
+	for (int i = 0; line < 175; i++)
 	{
 		vcsSta3(HMOVE);
 		if (i == 0)
@@ -2213,8 +2286,8 @@ void RenderZoomScreen(int& line, int line_limit) {
 	vcsSta3(VDELP1);
 	vcsSta3(RESP0); // 36 cycles before here
 	vcsSta3(RESPONE);
-	vcsWrite5(HMP0, 0xe0);
-	vcsWrite5(HMP1, 0xf0);
+	vcsWrite5(HMP0, 0xa0);
+	vcsWrite5(HMP1, 0xb0);
 	vcsWrite5(VDELP0, 0x01);
 	vcsWrite5(COLUPF, InitialColuWall);
 	vcsLdx2(bitmap[by + 4]);
@@ -2237,13 +2310,13 @@ void RenderZoomScreen(int& line, int line_limit) {
 		vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
 		vcsWrite5(GRP0, bitmap[by + 2]);
 		vcsWrite6(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
-		vcsWrite5(PF1, playfieldBuffer[line * 5 + 3]);
+		vcsWrite6(PF1, playfieldBuffer[line * 5 + 3]);
 		vcsWrite5(GRP1, bitmap[by + 3]);
 		vcsStx3(GRP0);
 		vcsSty3(GRP1);
 		vcsStx3(GRP0);
 		vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
-		vcsSta4(HMCLR);
+		vcsSta3(HMCLR);
 
 		by += 6;
 		vcsLdx2(bitmap[by + 4]);
@@ -2324,7 +2397,7 @@ void DrawBouncingScene() {
 	}
 
 	// Fan blade test
-	if ((frame++ & 3) == 0) {
+	if ((frame & 3) == 0) {
 		fanFrame++;
 	}
 	if (fanFrame > 6)
@@ -2439,18 +2512,6 @@ void DrawBouncingScene() {
 		grp1Buffer[standing_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j]; //112-147
 	}
 
-	next_audio_frame(&audio_player0);
-	next_audio_frame(&audio_player1);
-	if (sfx_frames_remaining > 0)
-	{
-		sfx_frames_remaining--;
-		next_audio_frame(&sfx_player);
-		chan1_player = &sfx_player;
-	}
-	else
-	{
-		chan1_player = &audio_player1;
-	}
 	if (standing_monkey->y < min)
 	{
 		min = standing_monkey->y.Round();
@@ -2508,6 +2569,7 @@ static const uint8_t ZoomWallLookup[] =
 };
 
 void DrawZoomScene() {
+	// PF (wall)
 	int top = 19 - ((zoom_level * 19) / 17);
 	int bottom = 41 + ((zoom_level * 134) / 17);
 	for (int i = 0; i < top * 5; i++)
@@ -2525,4 +2587,32 @@ void DrawZoomScene() {
 	{
 		playfieldBuffer[i] = 0;
 	}
+
+	// Sprite (Light)
+	for (int i = 0; i < top * 6; i++)
+	{
+		bitmap[i] = 0;
+	}
+	int light_height = 1 + ((zoom_level * 7) / 17);
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < light_height; j++)
+		{
+			// Get graphics width
+			auto width = BitWidthLookup[FanChasisGraphics[16 + i] >> 4];
+			// Scale to zoom
+			width *= light_height;
+			bitmap[(i * light_height + j + top) * 6 + 0] = BitWidthTo24PixelLookup[width * 3];
+			bitmap[(i * light_height + j + top) * 6 + 1] = BitWidthTo24PixelLookup[width * 3 + 1];
+			bitmap[(i * light_height + j + top) * 6 + 2] = BitWidthTo24PixelLookup[width * 3 + 2];
+			bitmap[(i * light_height + j + top) * 6 + 3] = ReverseByte[BitWidthTo24PixelLookup[width * 3 + 2]];
+			bitmap[(i * light_height + j + top) * 6 + 4] = ReverseByte[BitWidthTo24PixelLookup[width * 3 + 1]];
+			bitmap[(i * light_height + j + top) * 6 + 5] = ReverseByte[BitWidthTo24PixelLookup[width * 3]];
+		}
+	}
+	for (int i = (4 * light_height + top) * 6; i < 40*60; i++)
+	{
+		bitmap[i] = 0;
+	}
+
 }

@@ -559,6 +559,11 @@ enum PlaySubState {
 void play_game(int player_count){
 	PlayState play_state = Wide;
 	PlaySubState play_substate = Playing;
+	bool jump_in_progress = true;
+	bool show_challenge_wall = false;
+	bool bonus_enabled = true;
+	bool jumping_enabled = true;
+	bool fly_spawn_enabled = true;
 	bool button_down_event = false;
 	bool banana_shown = false;
 	int banana_cooldown = 5 * 60;
@@ -595,15 +600,32 @@ void play_game(int player_count){
 
 	// Render loop
 	while (true) {
-		if (button_down_event)
-		{
-			play_substate = FlyExit;
-			//play_state = (PlayState)(((int)play_state) + 1);
-			//if (play_state == Challenge)
-			//{
-			//	play_state = Wide;
-			//}
+
+		//Check for state changes
+		switch (play_substate) {
+		case Playing:
+			if (button_down_event)
+				play_substate = FlyExit;
+			break;
+		case FlyExit:
+			if (!fly_top_spawned && !fly_bot_spawned)
+			{
+				play_substate = MonkeyLanding;
+			}
+			break;
+		case MonkeyLanding:
+			if (!jump_in_progress)
+				play_substate = FadingOut;
+			break;
+		case FadingOut:
+			if (fade_level == 0)
+			{
+				play_substate = ZoomingIn;
+			}
+			break;
 		}
+
+
 		//live_config.HandleInput(joysticks >> 4);
 		p0_monkey->color = ColuP0Monkey;
 		p1_monkey->color = ColuP1Monkey;
@@ -612,6 +634,7 @@ void play_game(int player_count){
 		auto render_bed = RenderWideBed;
 		int bed_left = 10; 
 		int bed_right = 31;
+		// Apply current state
 		switch (play_state) {
 		case(Wide):
 			InitialColuWall = 0x6a;
@@ -644,21 +667,51 @@ void play_game(int player_count){
 		}
 
 		switch (play_substate) {
+		case Playing:
+			show_challenge_wall = false;
+			bonus_enabled = true;
+			jumping_enabled = true;
+			fly_spawn_enabled = true;
+			break;
 		case FlyExit:
-			if (!fly_top_spawned && !fly_bot_spawned)
-			{
-				play_substate = MonkeyLanding;
-			}
+			show_challenge_wall = false;
+			bonus_enabled = true;
+			jumping_enabled = true;
+			fly_spawn_enabled = false;
+			break;
+		case MonkeyLanding:
+			show_challenge_wall = false;
+			bonus_enabled = false;
+			jumping_enabled = false;
+			fly_spawn_enabled = false;
 			break;
 		case FadingOut:
-			if (fade_level == 0)
-			{
-				play_substate = ZoomingIn;
-			}
-			else
-			{
+			if(frame & 1)
 				fade_level--;
-			}
+			show_challenge_wall = true;
+			bonus_enabled = false;
+			jumping_enabled = false;
+			fly_spawn_enabled = false;
+			break;
+		case ZoomingIn:
+			show_challenge_wall = true;
+			bonus_enabled = false;
+			jumping_enabled = false;
+			fly_spawn_enabled = false;
+			break;
+		case ZoomingOut:
+			show_challenge_wall = true;
+			bonus_enabled = false;
+			jumping_enabled = false;
+			fly_spawn_enabled = false;
+			break;
+		case FadingIn:
+			if(frame & 1)
+				fade_level++;
+			show_challenge_wall = true;
+			bonus_enabled = false;
+			jumping_enabled = false;
+			fly_spawn_enabled = false;
 			break;
 		}
 
@@ -687,8 +740,9 @@ void play_game(int player_count){
 		jumping_monkey->y += jumping_monkey->velocity_y;
 		if (jumping_monkey->y > 0xa3)
 		{
+			jump_in_progress = jumping_enabled;
 			jumping_monkey->y = 0xa3;
-			if (play_substate < MonkeyLanding)
+			if (jumping_enabled)
 			{
 				Monkey* temp = jumping_monkey;
 				jumping_monkey = standing_monkey;
@@ -696,9 +750,6 @@ void play_game(int player_count){
 				jumping_monkey->velocity_x = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x.Round()) + 3) / 4)) % 20];
 				//uncomment this to test max jump height jumping_monkey->y = 0x80;
 				jumping_monkey->velocity_y = fp32(-7.75);// velocity_adjust * -100;// (jumping_monkey->y.Round() - 500);
-			}
-			else if (play_substate == MonkeyLanding) {
-				play_substate = FadingOut;
 			}
 		}
 
@@ -754,7 +805,7 @@ void play_game(int player_count){
 		// Wall around light that will be zoomed to for challenge
 		for (int i = 0; i < 22; i++)
 		{
-			playfieldBuffer[(19 + i) * 5 + 2] = (play_substate < FadingOut) ? 0x00 : 0x3e;
+			playfieldBuffer[(19 + i) * 5 + 2] = show_challenge_wall ? 0x3e : 0;
 			colupfBuffer[19 + i] = InitialColuWall;
 		}
 
@@ -786,7 +837,7 @@ void play_game(int player_count){
 		////}
 
 		// Banana
-		banana_shown = banana_shown && play_substate < MonkeyLanding;
+		banana_shown = banana_shown && bonus_enabled;
 		if (banana_shown)
 		{
 			for (size_t i = 0; i < sizeof(BonusBananaGraphics) / sizeof(BonusBananaGraphics[0]); i++)
@@ -810,7 +861,7 @@ void play_game(int player_count){
 		if ((frame & 0x01) == 0)
 		{
 			sine_frame++;
-			if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && (play_substate < MonkeyLanding))
+			if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && jumping_enabled)
 			{
 				if (jumping_monkey->y > 0x92)
 				{
@@ -836,7 +887,7 @@ void play_game(int player_count){
 			{
 				standing_monkey->y = 160 - height;
 			}
-			if ((play_substate >= FadingOut) && (i == ((jumping_monkey->x.Round() )+3) /4))
+			if (!jump_in_progress && (i == ((jumping_monkey->x.Round() )+3) /4))
 			{
 				jumping_monkey->y = 160 - height;
 			}
@@ -894,7 +945,7 @@ void play_game(int player_count){
 		fly_top_hit_box.X = fly_top_x;
 		if (jumping_monkey->hit_box.Intersects(fly_top_hit_box))
 		{
-			fly_top_spawned = play_substate == Playing;
+			fly_top_spawned = fly_spawn_enabled;
 			fly_top_x = 4;
 			jumping_monkey->score += 1;
 		}
@@ -902,7 +953,7 @@ void play_game(int player_count){
 		fly_bot_hit_box.X = fly_bot_x;
 		if (jumping_monkey->hit_box.Intersects(fly_bot_hit_box))
 		{
-			fly_bot_spawned = play_substate == Playing;
+			fly_bot_spawned = fly_spawn_enabled;
 			fly_bot_x = 4;
 			jumping_monkey->score += 1;
 		}
@@ -1010,7 +1061,7 @@ void play_game(int player_count){
 		PositionObject(line, jumping_monkey->x.Round(), RESP0, HMP0);
 
 		// Fan region
-		while (line < (play_substate < FadingOut ?  29 :29+38) )
+		while (line < (show_challenge_wall ?  29+38 :29) )
 		{
 			vcsSta3(HMOVE);
 			vcsSty3(COLUBK); 
@@ -1031,7 +1082,7 @@ void play_game(int player_count){
 		}
 
 		// Draw flies during normal play and when they're exiting, otherwise section above will fill this space
-		if (play_substate < FadingOut) {
+		if (!show_challenge_wall) {
 			fly_top_hit_box.Y = fly_top_y + line;
 			DrawFlyRegion(line, 14, fly_top_x, fly_top_y, frame & 1);
 			fly_bot_hit_box.Y = fly_bot_y + line;

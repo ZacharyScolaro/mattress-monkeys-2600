@@ -447,6 +447,7 @@ void DrawChallengeScreen();
 void RenderChallengeScreen();
 void DrawMattress();
 void DrawMonkeys();
+void SetVariablesFromState();
 
 #if 1
 // Gopher
@@ -633,18 +634,35 @@ BoundingBox<FP32> banana_hit_box = BoundingBox<FP32>(77, 33, 0, 7, 0, 13);
 uint8_t fade_level = 16;
 int bed_left = 10; 
 int bed_right = 31;
+bool button_down_event = false;
+uint8_t but0 = 0, prev_but0 = 0;
+PlayState play_state = Wide;
+PlaySubState play_substate = Playing;
+uint8_t joysticks = 0;
+auto render_bed = RenderWideBed;
+PlayState max_play_state_reached = Narrow; // TODO WIDE
 
 void play_game(int player_count){
-	bool button_down_event = false;
-	uint8_t but0 = 0, prev_but0 = 0;
-	PlayState play_state = Wide;
-	PlaySubState play_substate = Playing;
-	uint8_t joysticks = 0;
+	button_down_event = false;
+	but0 = 0;
+	prev_but0 = 0;
+	play_substate = Playing;
+	joysticks = 0;
+
 	// Render loop
 	while (true) {
 		if (button_down_event)
 		{
-			return;
+			switch (play_state) {
+			case Wide:
+				play_state = Medium;
+				break;
+			case Medium:
+				play_state = Narrow;
+				break;
+			case Narrow:
+				return;
+			}
 		}
 		frame++;
 		//Check for state changes
@@ -683,9 +701,9 @@ void play_game(int player_count){
 				play_substate = FadingIn;
 				fade_level = 0;
 				if (play_state == Wide)
-					play_state = Medium;
+					max_play_state_reached = play_state = Medium;
 				else if (play_state == Medium)
-					play_state = Narrow;
+					max_play_state_reached = play_state = Narrow;
 			}
 		case FadingIn:
 			if (fade_level == 16)
@@ -695,112 +713,8 @@ void play_game(int player_count){
 			}
 		}
 
+		SetVariablesFromState();
 
-		//live_config.HandleInput(joysticks >> 4);
-		p0_monkey->color = ColuP0Monkey;
-		p1_monkey->color = ColuP1Monkey;
-
-
-		auto render_bed = RenderWideBed;
-		// Apply current state
-		switch (play_state) {
-		case(Wide):
-			InitialColuWall = 0x6a;
-			render_bed = RenderWideBed;
-			min_monkey_x = 16;
-			max_monkey_x = 140;
-			bed_left = 4;
-			bed_right = 37;
-			break;
-		case(Medium):
-			InitialColuWall = 0x9c;
-			InitialColuFloor = 0x1d;
-			render_bed = RenderMediumBed;
-			min_monkey_x = 28;
-			max_monkey_x = 128;
-			bed_left = 7;
-			bed_right = 34;
-			break;
-		case(Narrow):
-			InitialColuWall = 0xb9;
-			InitialColuFloor = 0x69;
-			render_bed = RenderNarrowBed;
-			min_monkey_x = 40;
-			max_monkey_x = 116;
-			bed_left = 10;
-			bed_right = 31;
-			break;
-		}
-
-		switch (play_substate) {
-		case Playing:
-			show_challenge_wall = false;
-			bonus_enabled = true;
-			jumping_enabled = true;
-			fly_spawn_enabled = true;
-			show_zoom_screen = false;
-			challenge_mode = false;
-			break;
-		case FlyExit:
-			show_challenge_wall = false;
-			bonus_enabled = true;
-			jumping_enabled = true;
-			fly_spawn_enabled = false;
-			show_zoom_screen = false;
-			challenge_mode = false;
-			break;
-		case MonkeyLanding:
-			show_challenge_wall = false;
-			bonus_enabled = false;
-			jumping_enabled = false;
-			fly_spawn_enabled = false;
-			show_zoom_screen = false;
-			challenge_mode = false;
-			break;
-		case FadingOut:
-			if(frame & 1)
-				fade_level--;
-			show_challenge_wall = true;
-			bonus_enabled = false;
-			jumping_enabled = false;
-			fly_spawn_enabled = false;
-			show_zoom_screen = false;
-			challenge_mode = false;
-			break;
-		case ZoomingIn:
-			if (frame & 1)
-				zoom_level++;
-			show_challenge_wall = true;
-			bonus_enabled = false;
-			jumping_enabled = false;
-			fly_spawn_enabled = false;
-			show_zoom_screen = true;
-			challenge_mode = false;
-			break;
-		case Challenge:
-			challenge_mode = true;
-			break;
-		case ZoomingOut:
-			if (frame & 1)
-				zoom_level--;
-			show_challenge_wall = true;
-			bonus_enabled = false;
-			jumping_enabled = false;
-			fly_spawn_enabled = false;
-			show_zoom_screen = true;
-			challenge_mode = false;
-			break;
-		case FadingIn:
-			if(frame & 1)
-				fade_level++;
-			show_challenge_wall = true;
-			bonus_enabled = false;
-			jumping_enabled = false;
-			fly_spawn_enabled = false;
-			show_zoom_screen = false;
-			challenge_mode = false;
-			break;
-		}
 
 		fade_palette(fade_level);
 
@@ -990,16 +904,18 @@ void play_game(int player_count){
 }
 
 int title_screen() {
-	Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0 };
-	Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0 };
+	play_substate = MonkeyLanding;
+	button_down_event = false;
+	but0 = 0;
+	prev_but0 = 0;
 	int menu_selection = 1;
-	uint8_t prev_joy = 0;
-	uint8_t prev_but0 = 0;
 	for (uint32_t i = 0; i < sizeof(bitmap)/sizeof(bitmap[0]); i++)
 	{
 		bitmap[i] = 0;
 	}
 	fade_palette(16);
+	joysticks = 0;
+	uint8_t prev_joy = 0;
 	while (true)
 	{
 		int line = 0;
@@ -1019,15 +935,9 @@ int title_screen() {
 		next_audio_frame(&audio_player1);
 
 		frame++;
-		bed_left = 4;
-		bed_right = 37;
-		jump_in_progress = false;
-		show_challenge_wall = false;
-		bonus_enabled = false;
-		jumping_enabled = false;
-		fly_spawn_enabled = false;
-		show_zoom_screen = false;
-		challenge_mode = false;
+		SetVariablesFromState();
+		ColuWall = InitialColuWall;
+		ColuFloor = InitialColuFloor;
 
 		// preclear buffers
 		for (int i = 0; i < 192; i++)
@@ -1070,6 +980,7 @@ int title_screen() {
 
 		// High Score
 		DisplayText(ColuScoreBackground, 1);
+		vcsSta3(WSYNC);
 
 		//Ceiling
 		vcsSta3(HMOVE);
@@ -1136,8 +1047,12 @@ int title_screen() {
 		vcsSta3(WSYNC);
 		line++;
 
+		vcsSta3(HMOVE);
+		vcsSta3(WSYNC);
+		line++;
+
 		PositionObject(line, jumping_monkey->x.Round(), RESP0, HMP0);
-		RenderWideBed(line, jumping_monkey, standing_monkey);
+		render_bed(line, jumping_monkey, standing_monkey);
 		vcsWrite5(VBLANK, 2);
 		uint8_t joy = vcsRead4(SWCHA);
 		vcsNop2();
@@ -1157,6 +1072,32 @@ int title_screen() {
 			if (menu_selection >= (int)(sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0])))
 			{
 				menu_selection = 0;
+			}
+		}
+		if (((joy & 0x20) == 0) && (prev_joy & 0x20)) {
+			// down
+			switch (play_state) {
+			case Narrow:
+				play_state = Medium;
+				break;
+			case Medium:
+				play_state = Wide;
+					break;
+			default:
+				break;
+			}
+		}
+		if (((joy & 0x10) == 0) && (prev_joy & 0x10) && (play_state != max_play_state_reached)) {
+			// up
+			switch (play_state) {
+			case Wide:
+				play_state = Medium;
+				break;
+			case Medium:
+				play_state = Narrow;
+					break;
+			default:
+				break;
 			}
 		}
 		prev_joy = joy;
@@ -1806,7 +1747,7 @@ void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey) {
 	for (int i = 0; i < 4; i++)
 	{
 		vcsSta3(HMOVE);
-		vcsWrite5(COLUPF, ColuHeadboard);
+		vcsWrite5(COLUPF, i < 2 ? ColuHeadboard : ColuBedPost);
 		vcsWrite5(GRP0, grp0Buffer[line]);
 		vcsWrite5(PF0, 0xff);
 		vcsWrite5(PF1, 0x80);
@@ -2653,5 +2594,112 @@ void DrawMonkeys() {
 	{
 		grp0Buffer[jumping_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j];
 		grp1Buffer[standing_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j]; //112-147
+	}
+}
+
+void SetVariablesFromState() {
+	//live_config.HandleInput(joysticks >> 4);
+	p0_monkey->color = ColuP0Monkey;
+	p1_monkey->color = ColuP1Monkey;
+
+
+	// Apply current state
+	switch (play_state) {
+	case(Wide):
+		InitialColuWall = 0x6a;
+		render_bed = RenderWideBed;
+		min_monkey_x = 16;
+		max_monkey_x = 140;
+		bed_left = 4;
+		bed_right = 37;
+		break;
+	case(Medium):
+		InitialColuWall = 0x9c;
+		InitialColuFloor = 0x1d;
+		render_bed = RenderMediumBed;
+		min_monkey_x = 28;
+		max_monkey_x = 128;
+		bed_left = 7;
+		bed_right = 34;
+		break;
+	case(Narrow):
+		InitialColuWall = 0xb9;
+		InitialColuFloor = 0x69;
+		render_bed = RenderNarrowBed;
+		min_monkey_x = 40;
+		max_monkey_x = 116;
+		bed_left = 10;
+		bed_right = 31;
+		break;
+	}
+
+	switch (play_substate) {
+	case Playing:
+		show_challenge_wall = false;
+		bonus_enabled = true;
+		jumping_enabled = true;
+		fly_spawn_enabled = true;
+		show_zoom_screen = false;
+		challenge_mode = false;
+		break;
+	case FlyExit:
+		show_challenge_wall = false;
+		bonus_enabled = true;
+		jumping_enabled = true;
+		fly_spawn_enabled = false;
+		show_zoom_screen = false;
+		challenge_mode = false;
+		break;
+	case MonkeyLanding:
+		show_challenge_wall = false;
+		bonus_enabled = false;
+		jumping_enabled = false;
+		fly_spawn_enabled = false;
+		show_zoom_screen = false;
+		challenge_mode = false;
+		break;
+	case FadingOut:
+		if (frame & 1)
+			fade_level--;
+		show_challenge_wall = true;
+		bonus_enabled = false;
+		jumping_enabled = false;
+		fly_spawn_enabled = false;
+		show_zoom_screen = false;
+		challenge_mode = false;
+		break;
+	case ZoomingIn:
+		if (frame & 1)
+			zoom_level++;
+		show_challenge_wall = true;
+		bonus_enabled = false;
+		jumping_enabled = false;
+		fly_spawn_enabled = false;
+		show_zoom_screen = true;
+		challenge_mode = false;
+		break;
+	case Challenge:
+		challenge_mode = true;
+		break;
+	case ZoomingOut:
+		if (frame & 1)
+			zoom_level--;
+		show_challenge_wall = true;
+		bonus_enabled = false;
+		jumping_enabled = false;
+		fly_spawn_enabled = false;
+		show_zoom_screen = true;
+		challenge_mode = false;
+		break;
+	case FadingIn:
+		if (frame & 1)
+			fade_level++;
+		show_challenge_wall = true;
+		bonus_enabled = false;
+		jumping_enabled = false;
+		fly_spawn_enabled = false;
+		show_zoom_screen = false;
+		challenge_mode = false;
+		break;
 	}
 }

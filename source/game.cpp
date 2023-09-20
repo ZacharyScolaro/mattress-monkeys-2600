@@ -382,23 +382,15 @@ public:
 	}
 };
 
-// For tuning purposes only
-ConfigEntry config_entries[] = {
-	ConfigEntry("Zoom Level "               ,0 		,&zoom_level),
-	//ConfigEntry("ColuWall "               ,ColuWall 		,&ColuWall),
-	//ConfigEntry("ColuSheet "              ,ColuSheet 	,&ColuSheet),
-	//ConfigEntry("ColuMattress "           ,ColuMattress ,&ColuMattress),
-	//ConfigEntry("ColuFlyWing "            ,ColuFlyWing	,&ColuFlyWing),
-	//ConfigEntry("ColuFlyBody "            ,ColuFlyBody	,&ColuFlyBody),
-	//ConfigEntry("ColuPillow "             ,ColuPillow  	,&ColuPillow),
-	//ConfigEntry("ColuHeadboard "          ,ColuHeadboard,&ColuHeadboard),
-	//ConfigEntry("ColuBedPost "            ,ColuBedPost 	,&ColuBedPost),
-	//ConfigEntry("ColuFanBlade "           ,ColuFanBlade ,&ColuFanBlade),
-	//ConfigEntry("ColuP0Monkey "           ,ColuP0Monkey ,&ColuP0Monkey),
-	//ConfigEntry("ColuP1Monkey "           ,ColuP1Monkey	,&ColuP1Monkey),
-};
-LiveConfig live_config = { .count = (int)(sizeof(config_entries) / sizeof(config_entries[0])), .entries = config_entries };
 
+enum MonkeyState {
+	Standing,
+	Walking,
+	Jumping,
+	FanSmacked,
+	ComingBack,
+	Dead,
+};
 
 class Monkey {
 public:
@@ -409,6 +401,9 @@ public:
 	FP32 velocity_x;
 	FP32 velocity_y;
 	int score;
+	MonkeyState state;
+	int frame;
+	bool face_left;
 };
 
 __attribute__((section(".noinit")))
@@ -620,8 +615,8 @@ track_player* chan1_player;
 int sfx_frames_remaining = 0;
 int sine_frame = 0;
 int sine_hpos = 20;
-Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0 };
-Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0 };
+Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .face_left = false };
+Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .face_left = true };
 Monkey* jumping_monkey = &monkey_0;
 Monkey* standing_monkey = &monkey_1;
 Monkey* p0_monkey = &monkey_0;
@@ -642,6 +637,34 @@ uint8_t joysticks = 0;
 auto render_bed = RenderWideBed;
 PlayState max_play_state_reached = Narrow; // TODO WIDE
 
+BoundingBox<FP32> fan_blade_hit_boxes[7] = {
+	BoundingBox<FP32>(60, 4, 0, 44, 0, 11),
+	BoundingBox<FP32>(60, 4, 8, 36, 0, 11),
+	BoundingBox<FP32>(60, 4, 12, 32, 0, 11),
+	BoundingBox<FP32>(60, 4, 16, 28, 0, 11),
+	BoundingBox<FP32>(60, 4, 12, 32, 0, 11),
+	BoundingBox<FP32>(60, 4, 8, 36, 0, 11),
+	BoundingBox<FP32>(60, 4, 0, 44, 0, 11),
+};
+
+// For tuning purposes only
+ConfigEntry config_entries[] = {
+	//ConfigEntry("Zoom Level "               ,0 		,&zoom_level),
+	//ConfigEntry("ColuWall "               ,ColuWall 		,&ColuWall),
+	//ConfigEntry("ColuSheet "              ,ColuSheet 	,&ColuSheet),
+	//ConfigEntry("ColuMattress "           ,ColuMattress ,&ColuMattress),
+	//ConfigEntry("ColuFlyWing "            ,ColuFlyWing	,&ColuFlyWing),
+	//ConfigEntry("ColuFlyBody "            ,ColuFlyBody	,&ColuFlyBody),
+	//ConfigEntry("ColuPillow "             ,ColuPillow  	,&ColuPillow),
+	//ConfigEntry("ColuHeadboard "          ,ColuHeadboard,&ColuHeadboard),
+	//ConfigEntry("ColuBedPost "            ,ColuBedPost 	,&ColuBedPost),
+	//ConfigEntry("ColuFanBlade "           ,ColuFanBlade ,&ColuFanBlade),
+	//ConfigEntry("ColuP0Monkey "           ,ColuP0Monkey ,&ColuP0Monkey),
+	//ConfigEntry("ColuP1Monkey "           ,ColuP1Monkey	,&ColuP1Monkey),
+};
+LiveConfig live_config = { .count = (int)(sizeof(config_entries) / sizeof(config_entries[0])), .entries = config_entries };
+
+
 void play_game(int player_count){
 	button_down_event = false;
 	but0 = 0;
@@ -651,19 +674,6 @@ void play_game(int player_count){
 
 	// Render loop
 	while (true) {
-		if (button_down_event)
-		{
-			switch (play_state) {
-			case Wide:
-				play_state = Medium;
-				break;
-			case Medium:
-				play_state = Narrow;
-				break;
-			case Narrow:
-				return;
-			}
-		}
 		frame++;
 		//Check for state changes
 		switch (play_substate) {
@@ -742,13 +752,6 @@ void play_game(int player_count){
 		}
 
 		// Scoring
-
-		// Used when debugging
-//		for (int i = 0; i < 8; i++)
-//		{
-//			scoreText[i] = (char)((uint32_t)(play_substate) >> ((7 - i) * 4)) & 0xf;
-//		}
-
 		int left_score = monkey_0.score;
 		for (int i = 0; i < 4; i++)
 		{
@@ -761,7 +764,17 @@ void play_game(int player_count){
 			scoreText[17 - i] = (right_score % 10) & 0xf;
 			right_score /= 10;
 		}
+		// Used when debugging
+		//for (int i = 0; i < 8; i++)
+		//{
+		//	scoreText[i] = (char)((uint32_t)(jumping_monkey->x.Round()) >> ((7 - i) * 4)) & 0xf;
+		//}
+		//for (int i = 0; i < 8; i++)
+		//{
+		//	scoreText[i+9] = (char)((uint32_t)(jumping_monkey->y.Round()) >> ((7 - i) * 4)) & 0xf;
+		//}
 		PrintText(scoreText, 0);
+		
 
 		// Update High Score
 		if (high_score < monkey_0.score)
@@ -1260,6 +1273,7 @@ void show_previews() {
 
 void move_monkey(uint8_t joy, Monkey* monkey)
 {
+	bool horizontal_input = false;
 	if (((joy & 0x4) == 0) && monkey->x > min_monkey_x) {
 		// left
 		monkey->x -= 1;
@@ -1267,6 +1281,8 @@ void move_monkey(uint8_t joy, Monkey* monkey)
 		{
 			monkey->velocity_x--;
 		}
+		monkey->face_left = true;
+		horizontal_input = true;
 	}
 	if (((joy & 0x8) == 0) && monkey->x < max_monkey_x) {
 		// right
@@ -1275,6 +1291,8 @@ void move_monkey(uint8_t joy, Monkey* monkey)
 		{
 			monkey->velocity_x++;
 		}
+		monkey->face_left = false;
+		horizontal_input = true;
 	}
 	if (((joy & 0x1) == 0) && monkey->y > 4) {
 		// up
@@ -1285,6 +1303,13 @@ void move_monkey(uint8_t joy, Monkey* monkey)
 		monkey->y += 1;
 	}
 
+	if(monkey->state == Walking && !horizontal_input) {
+		monkey->state = Standing;
+	}
+
+	if(monkey->state == Standing && horizontal_input) {
+		monkey->state = Walking;
+	}
 }
 
 void setPF(int x, int y)
@@ -2299,7 +2324,6 @@ void RenderZoomScreen(int& line, int line_limit) {
 }
 
 void DrawBouncingScene() {
-	// monkey physics
 	jumping_monkey->x += jumping_monkey->velocity_x;
 	if (jumping_monkey->x < min_monkey_x) {
 		jumping_monkey->x = min_monkey_x;
@@ -2332,8 +2356,21 @@ void DrawBouncingScene() {
 			jumping_monkey->velocity_x = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x.Round()) + 3) / 4)) % 20];
 			//uncomment this to test max jump height jumping_monkey->y = 0x80;
 			jumping_monkey->velocity_y = fp32(-7.75);// velocity_adjust * -100;// (jumping_monkey->y.Round() - 500);
+			jumping_monkey->state = Jumping;
+			standing_monkey->state = Standing;
 		}
 	}
+
+
+	if (jumping_monkey->hit_box.Intersects(fan_blade_hit_boxes[fanFrame]))
+	{
+		// TODO throw monkey
+	}
+
+	if (jumping_monkey->velocity_x < 0)
+		jumping_monkey->face_left = true;
+	else if (jumping_monkey->velocity_x > 0)
+		jumping_monkey->face_left = false;
 
 	// preclear buffers
 	for (int i = 0; i < 192; i++)
@@ -2588,14 +2625,28 @@ void DrawMattress() {
 	}
 }
 
-void DrawMonkeys() {
-	// Monkey Idle Test
+void DrawMonkey(Monkey* monkey, uint8_t* buffer) {
+	int sprite_index = 0;
+	if (monkey->state == Jumping)
+		sprite_index = 2;
+	else if (monkey->state == Standing)
+		sprite_index = 3;
+	else if (monkey->state == Walking)
+		sprite_index = (frame >> 4) & 1;
+
 	for (int j = 0; j < 12; j++)
 	{
-		grp0Buffer[jumping_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j];
-		grp1Buffer[standing_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j]; //112-147
+		auto grp = MonkeyGraphics[sprite_index][j];
+		if (!monkey->face_left)
+			grp = ReverseByte[grp];
+		buffer[monkey->y.Round() + j] = grp;
 	}
 }
+void DrawMonkeys() {
+	DrawMonkey(jumping_monkey, grp0Buffer);
+	DrawMonkey(standing_monkey, grp1Buffer);
+}
+
 
 void SetVariablesFromState() {
 	//live_config.HandleInput(joysticks >> 4);

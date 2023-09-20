@@ -156,6 +156,17 @@ def bin_to_c_array(f_header, f_source, bin_path, array_name):
 	f_source.write(',\n'.join(lines))
 	f_source.write('};');
 
+def make_sine_lookup_table(f_header, f_source, array_name, count):
+	sines = []
+	for i in range(0,count):
+		sines.append("fp32(" + str(math.sin(i*math.pi/count)) + ")")
+
+	f_header.write('\nextern const FP32 ' + array_name +'['+ str(count) +'];\n');
+	
+	f_source.write('\nconst FP32 ' + array_name +'['+ str(count) +'] = { ');
+	f_source.write(', '.join(sines))
+	f_source.write(' };');
+
 def init_ttt_typedefs(f_header):
 	global init_ttt_typedefs_called
 	if init_ttt_typedefs_called:
@@ -338,6 +349,7 @@ f_header = open('sprites.h', 'wt', newline='\n')
 f_header.write('''#ifndef SPRITES_H
 #define SPRITES_H
 #include <stdint.h>
+#include "fp32.hpp"
 ''')
 
 f_source = open('sprites.cpp', 'wt', newline='\n')
@@ -377,5 +389,7 @@ bin_to_c_array(f_header, f_source, 'kernel_7800.bin', 'kernel_7800')
 
 parse_ttt(f_header, f_source, 'MONKEYS.ttt', 'SongMonkeys', True, True)
 parse_ttt(f_header, f_source, 'bounce.ttt', 'SfxBounce', True, True)
+
+make_sine_lookup_table(f_header, f_source, 'Sine', 256);
 
 f_header.write('\n\n#endif // SPRITES_H')

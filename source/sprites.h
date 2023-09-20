@@ -1,6 +1,7 @@
 #ifndef SPRITES_H
 #define SPRITES_H
 #include <stdint.h>
+#include "fp32.hpp"
 
 extern const uint8_t ScoreSpritesGraphics[128*8];
 
@@ -90,5 +91,7 @@ typedef struct {
 
 extern const track_t SongMonkeys;
 extern const track_t SfxBounce;
+extern const FP32 Sine[256];
+
 
 #endif // SPRITES_H

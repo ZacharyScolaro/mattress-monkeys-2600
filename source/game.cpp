@@ -445,6 +445,8 @@ void DrawBouncingScene();
 void DrawZoomScene();
 void DrawChallengeScreen();
 void RenderChallengeScreen();
+void DrawMattress();
+void DrawMonkeys();
 
 #if 1
 // Gopher
@@ -598,7 +600,6 @@ bool show_challenge_wall = false;
 bool bonus_enabled = true;
 bool jumping_enabled = true;
 bool fly_spawn_enabled = true;
-bool button_down_event = false;
 bool banana_shown = false;
 int banana_cooldown = 5 * 60;
 int min = 500;
@@ -629,18 +630,22 @@ FP32 GravityFall = fp32(0.5);
 BoundingBox<FP32> fly_top_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
 BoundingBox<FP32> fly_bot_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
 BoundingBox<FP32> banana_hit_box = BoundingBox<FP32>(77, 33, 0, 7, 0, 13);
-uint8_t prev_but0 = 0;
 uint8_t fade_level = 16;
 int bed_left = 10; 
 int bed_right = 31;
 
 void play_game(int player_count){
-	uint8_t but0;
+	bool button_down_event = false;
+	uint8_t but0 = 0, prev_but0 = 0;
 	PlayState play_state = Wide;
 	PlaySubState play_substate = Playing;
 	uint8_t joysticks = 0;
 	// Render loop
 	while (true) {
+		if (button_down_event)
+		{
+			return;
+		}
 		frame++;
 		//Check for state changes
 		switch (play_substate) {
@@ -1013,6 +1018,27 @@ int title_screen() {
 		next_audio_frame(&audio_player0);
 		next_audio_frame(&audio_player1);
 
+		frame++;
+		bed_left = 4;
+		bed_right = 37;
+		jump_in_progress = false;
+		show_challenge_wall = false;
+		bonus_enabled = false;
+		jumping_enabled = false;
+		fly_spawn_enabled = false;
+		show_zoom_screen = false;
+		challenge_mode = false;
+
+		// preclear buffers
+		for (int i = 0; i < 192; i++)
+		{
+			grp0Buffer[i] = 0;
+			grp1Buffer[i] = 0;
+		}
+
+		DrawMattress();
+		DrawMonkeys();
+
 		char high_score_text[19] = "High Score:  00000";
 		int right_score = high_score;
 		for (int i = 0; i < 5; i++)
@@ -1110,9 +1136,8 @@ int title_screen() {
 		vcsSta3(WSYNC);
 		line++;
 
-		PositionObject(line, 132, RESPONE, HMP1);
-		PositionObject(line, 25, RESM1, HMM1);
-		RenderWideBed(line, &monkey_0, &monkey_1);
+		PositionObject(line, jumping_monkey->x.Round(), RESP0, HMP0);
+		RenderWideBed(line, jumping_monkey, standing_monkey);
 		vcsWrite5(VBLANK, 2);
 		uint8_t joy = vcsRead4(SWCHA);
 		vcsNop2();
@@ -1150,17 +1175,17 @@ void show_credits() {
 		next_audio_frame(&audio_player0);
 		next_audio_frame(&audio_player1);
 		int text_line = 0;
-		PrintText("Game Design       ", text_line++);
+		PrintText("Design            ", text_line++);
 		PrintText("  Mathew Halpern  ", text_line++);
-		PrintText("Game Programming  ", text_line++);
+		PrintText("                  ", text_line++);
+		PrintText("Programming       ", text_line++);
 		PrintText("  Zack Scolaro    ", text_line++);
-		PrintText("Music Producer    ", text_line++);
+		PrintText("                  ", text_line++);
+		PrintText("Audio             ", text_line++);
 		PrintText("  Marco Johannes  ", text_line++);
-		PrintText("The Song \"Monkeys ", text_line++);
-		PrintText("Spinning Monkeys\" ", text_line++);
-		PrintText("is licensed by    ", text_line++);
-		PrintText("Incompetech Inc.  ", text_line++);
-		PrintText("\x1f 2023            ", text_line++);
+		PrintText("                  ", text_line++);
+		PrintSmall("\"Monkeys Spinning Monkeys\" licensed ", text_line++, 0, 36);
+		PrintSmall("by Incopetech Inc. (c) 2023         ", text_line++, 0, 36);
 
 		vcsEndOverblank();
 		vcsSta3(WSYNC);
@@ -2462,61 +2487,14 @@ void DrawBouncingScene() {
 		banana_cooldown = banana_shown ? 4 * 60 : 7 * 60;
 	}
 
-	for (size_t i = 130 * 5; i < sizeof(playfieldBuffer); i++)
-	{
-		playfieldBuffer[i] = 0;
-	}
-	// Mattress
-	if ((frame & 0x01) == 0)
-	{
-		sine_frame++;
-		if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && jumping_enabled)
-		{
-			if (jumping_monkey->y > 0x92)
-			{
-				// Once below sine middle move wave to player
-				sine_hpos = 34 - ((jumping_monkey->x.Round()) - 2) / 4;
-			}
-			// Adjust height down to player if needed
-			while (SineTables[sine_frame & 0x1f][((jumping_monkey->x.Round()) / 4) + sine_hpos] > (164 - jumping_monkey->y.Round()))
-			{
-				sine_frame++;
-			}
-		}
-		else
-		{
-		}
-		sine_frame &= 0x1f;
-	}
-
-	for (int i = bed_left; i < bed_right; i++)
-	{
-		int height = SineTables[sine_frame][i + sine_hpos]; //frame & 0x1f
-		if (i == ((standing_monkey->x.Round()) + 3) / 4)
-		{
-			standing_monkey->y = 160 - height;
-		}
-		if (!jump_in_progress && (i == ((jumping_monkey->x.Round()) + 3) / 4))
-		{
-			jumping_monkey->y = 160 - height;
-		}
-		for (int j = 0; j <= height; j++)
-		{
-			setPF(i, 169 - j);
-		}
-	}
+	DrawMattress();
 
 	if (jumping_monkey->y > monkey_y_hwm)
 	{
 		monkey_y_hwm = jumping_monkey->y.Round();
 	}
 
-	// Monkey Idle Test
-	for (int j = 0; j < 12; j++)
-	{
-		grp0Buffer[jumping_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j];
-		grp1Buffer[standing_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j]; //112-147
-	}
+	DrawMonkeys();
 
 	if (standing_monkey->y < min)
 	{
@@ -2621,4 +2599,59 @@ void DrawZoomScene() {
 		bitmap[i] = 0;
 	}
 
+}
+
+void DrawMattress() {
+	// Mattress
+	for (size_t i = 130 * 5; i < sizeof(playfieldBuffer); i++)
+	{
+		playfieldBuffer[i] = 0;
+	}
+	if ((frame & 0x01) == 0)
+	{
+		sine_frame++;
+		if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && jumping_enabled)
+		{
+			if (jumping_monkey->y > 0x92)
+			{
+				// Once below sine middle move wave to player
+				sine_hpos = 34 - ((jumping_monkey->x.Round()) - 2) / 4;
+			}
+			// Adjust height down to player if needed
+			while (SineTables[sine_frame & 0x1f][((jumping_monkey->x.Round()) / 4) + sine_hpos] > (164 - jumping_monkey->y.Round()))
+			{
+				sine_frame++;
+			}
+		}
+		else
+		{
+		}
+		sine_frame &= 0x1f;
+	}
+
+	for (int i = bed_left; i < bed_right; i++)
+	{
+		int height = SineTables[sine_frame][i + sine_hpos]; //frame & 0x1f
+		if (i == ((standing_monkey->x.Round()) + 3) / 4)
+		{
+			standing_monkey->y = 160 - height;
+		}
+		if (!jump_in_progress && (i == ((jumping_monkey->x.Round()) + 3) / 4))
+		{
+			jumping_monkey->y = 160 - height;
+		}
+		for (int j = 0; j <= height; j++)
+		{
+			setPF(i, 169 - j);
+		}
+	}
+}
+
+void DrawMonkeys() {
+	// Monkey Idle Test
+	for (int j = 0; j < 12; j++)
+	{
+		grp0Buffer[jumping_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j];
+		grp1Buffer[standing_monkey->y.Round() + j] = MonkeyGraphics[(frame >> 4) & 3][j]; //112-147
+	}
 }

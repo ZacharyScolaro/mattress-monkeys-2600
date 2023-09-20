@@ -1061,10 +1061,10 @@ int title_screen() {
 		vcsSta3(PF0);
 		vcsSta3(PF1);
 		vcsSta3(PF2);
-		vcsSta3(COLUP0);
+		vcsWrite5(COLUP0, FanChasisColu[18]);
 		vcsSta3(COLUP1);
 		vcsWrite5(VDELP0, 1);
-		vcsWrite5(VDELP1, 1);
+		vcsSta3(VDELP1);
 		vcsSta3(HMCLR);
 		vcsSta3(WSYNC);
 		line++;
@@ -1072,20 +1072,26 @@ int title_screen() {
 		for (int i = 0; i < 60; i++)
 		{
 			vcsSta3(HMOVE);
-			vcsWrite5(COLUBK, ColuWall);
-			vcsWrite5(GRP0, bitmap[ix++]);
-			vcsWrite5(GRP1, bitmap[ix++]);
-			vcsWrite5(GRP0, bitmap[ix++]);
-			vcsJmp3();
-			vcsJmp3();
-			vcsNop2n(4);
-			vcsLda2(bitmap[ix++]);
-			vcsLdx2(bitmap[ix++]);
-			vcsLdy2(bitmap[ix++]);
-			vcsSta3(GRP1);
-			vcsStx3(GRP0);
-			vcsSty3(GRP1);
-			vcsSty3(GRP0);
+			if (i == 50) {
+				vcsWrite5(COLUP0, 0);
+				vcsSta3(COLUP1);
+				ix += 6;
+			} else {
+				vcsWrite5(COLUBK, ColuWall);
+				vcsWrite5(GRP0, bitmap[ix++]);
+				vcsWrite5(GRP1, bitmap[ix++]);
+				vcsWrite5(GRP0, bitmap[ix++]);
+				vcsJmp3();
+				vcsJmp3();
+				vcsNop2n(4);
+				vcsLda2(bitmap[ix++]);
+				vcsLdx2(bitmap[ix++]);
+				vcsLdy2(bitmap[ix++]);
+				vcsSta3(GRP1);
+				vcsStx3(GRP0);
+				vcsSty3(GRP1);
+				vcsSty3(GRP0);
+			}
 			vcsSta3(WSYNC);
 			line++;
 		}

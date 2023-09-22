@@ -403,6 +403,8 @@ public:
 	int score;
 	MonkeyState state;
 	int frame;
+	int animation;
+	int lives;
 	bool face_left;
 };
 
@@ -615,8 +617,8 @@ track_player* chan1_player;
 int sfx_frames_remaining = 0;
 int sine_frame = 0;
 int sine_hpos = 20;
-Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .face_left = false };
-Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .face_left = true };
+Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false };
+Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0,.animation = 0, .lives = 3, .face_left = true };
 Monkey* jumping_monkey = &monkey_0;
 Monkey* standing_monkey = &monkey_1;
 Monkey* p0_monkey = &monkey_0;
@@ -675,10 +677,12 @@ void play_game(int player_count){
 	// Render loop
 	while (true) {
 		frame++;
+		if (jumping_monkey->state == Dead)
+			return;
 		//Check for state changes
 		switch (play_substate) {
 		case Playing:
-//TODO SCORE BASED			if (button_down_event)
+			if (monkey_0.score > 5 * (1 + (int)play_state))
 				play_substate = FlyExit;
 			break;
 		case FlyExit:
@@ -752,11 +756,19 @@ void play_game(int player_count){
 		}
 
 		// Scoring
+		for (int i = 0; i < 18; i++)
+		{
+			scoreText[i] = ' ';
+		}
 		int left_score = monkey_0.score;
 		for (int i = 0; i < 4; i++)
 		{
 			scoreText[3 - i] = (left_score % 10) & 0xf;
 			left_score /= 10;
+		}
+		for (int i = 0; i < monkey_0.lives; i++)
+		{
+			scoreText[5 + i] = 18;
 		}
 		int right_score = monkey_1.score;
 		for (int i = 0; i < 4; i++)
@@ -764,10 +776,14 @@ void play_game(int player_count){
 			scoreText[17 - i] = (right_score % 10) & 0xf;
 			right_score /= 10;
 		}
+		for (int i = 0; i < monkey_1.lives; i++)
+		{
+			scoreText[10 + i] = 18;
+		}
 		// Used when debugging
 		//for (int i = 0; i < 8; i++)
 		//{
-		//	scoreText[i] = (char)((uint32_t)(jumping_monkey->x.Round()) >> ((7 - i) * 4)) & 0xf;
+		//	scoreText[i] = (char)((uint32_t)(jumping_monkey->state) >> ((7 - i) * 4)) & 0xf;
 		//}
 		//for (int i = 0; i < 8; i++)
 		//{
@@ -917,6 +933,7 @@ void play_game(int player_count){
 }
 
 int title_screen() {
+	jumping_monkey->state = Jumping;
 	play_substate = MonkeyLanding;
 	button_down_event = false;
 	but0 = 0;
@@ -1273,6 +1290,11 @@ void show_previews() {
 
 void move_monkey(uint8_t joy, Monkey* monkey)
 {
+	if (monkey->state == FanSmacked || monkey->state == ComingBack || monkey->state == Dead)
+	{
+		return;
+	}
+
 	bool horizontal_input = false;
 	if (((joy & 0x4) == 0) && monkey->x > min_monkey_x) {
 		// left
@@ -2323,17 +2345,7 @@ void RenderZoomScreen(int& line, int line_limit) {
 	}
 }
 
-void DrawBouncingScene() {
-	jumping_monkey->x += jumping_monkey->velocity_x;
-	if (jumping_monkey->x < min_monkey_x) {
-		jumping_monkey->x = min_monkey_x;
-		jumping_monkey->velocity_x = 0;
-	}
-	if (jumping_monkey->x > max_monkey_x) {
-		jumping_monkey->x = max_monkey_x;
-		jumping_monkey->velocity_x = 0;
-	}
-	// Apply gravity
+void ApplyGravity() {
 	if (jumping_monkey->velocity_y > 0)
 	{
 		// Fall faster than ascent
@@ -2342,6 +2354,66 @@ void DrawBouncingScene() {
 	else
 	{
 		jumping_monkey->velocity_y += GravityAscend;
+	}
+}
+
+void DrawBouncingScene() {
+	jumping_monkey->x += jumping_monkey->velocity_x;
+	switch (jumping_monkey->state) {
+	case 	Standing:
+	case Walking:
+	case Jumping:
+
+		if (jumping_monkey->x < min_monkey_x) {
+			jumping_monkey->x = min_monkey_x;
+			jumping_monkey->velocity_x = 0;
+		}
+		if (jumping_monkey->x > max_monkey_x) {
+			jumping_monkey->x = max_monkey_x;
+			jumping_monkey->velocity_x = 0;
+		}
+		ApplyGravity();
+		break;
+	case FanSmacked:
+		if (jumping_monkey->x < 0 || jumping_monkey->x > 159)
+		{
+			// TODO handle right side smacks
+			jumping_monkey->velocity_x = 0;
+			jumping_monkey->velocity_y = 0;
+			jumping_monkey->face_left = false;
+			jumping_monkey->frame = 0;
+			jumping_monkey->x = 0;
+			jumping_monkey->y = 0x69;
+			if (jumping_monkey->lives > 0) {
+				jumping_monkey->lives--;
+				jumping_monkey->state = ComingBack;
+			}
+			else
+			{
+				jumping_monkey->state = Dead;
+			}
+		}
+		break;
+	case ComingBack:
+		if ((frame & 3) == 0)
+		{
+			jumping_monkey->x++;
+			if (jumping_monkey->x == min_monkey_x-9)
+			{
+				jumping_monkey->frame = 1;
+				jumping_monkey->velocity_x = fp32(1.25);
+				jumping_monkey->velocity_y = fp32(-4);
+			}
+		}
+		if (jumping_monkey->frame > 0) {
+			ApplyGravity();
+		}
+		if (jumping_monkey->x >= min_monkey_x) {
+			jumping_monkey->state = Jumping;
+		}
+		break;
+	case Dead:
+		break;
 	}
 	jumping_monkey->y += jumping_monkey->velocity_y;
 	if (jumping_monkey->y > 0xa3)
@@ -2361,10 +2433,13 @@ void DrawBouncingScene() {
 		}
 	}
 
-
+	jumping_monkey->hit_box.X = jumping_monkey->x;
+	jumping_monkey->hit_box.Y = jumping_monkey->y;
 	if (jumping_monkey->hit_box.Intersects(fan_blade_hit_boxes[fanFrame]))
 	{
-		// TODO throw monkey
+		jumping_monkey->state = FanSmacked;
+		jumping_monkey->velocity_x = jumping_monkey->x < 88 ? -1 : 1;
+		jumping_monkey->velocity_y = fp32(0.1);
 	}
 
 	if (jumping_monkey->velocity_x < 0)
@@ -2483,28 +2558,28 @@ void DrawBouncingScene() {
 		max = standing_monkey->y.Round();
 	}
 
-	jumping_monkey->hit_box.X = jumping_monkey->x;
-	jumping_monkey->hit_box.Y = jumping_monkey->y;
+	if (jumping_monkey->state != FanSmacked) {
 
-	fly_top_hit_box.X = fly_top_x;
-	if (jumping_monkey->hit_box.Intersects(fly_top_hit_box))
-	{
-		fly_top_spawned = fly_spawn_enabled;
-		fly_top_x = 4;
-		jumping_monkey->score += 1;
-	}
+		fly_top_hit_box.X = fly_top_x;
+		if (jumping_monkey->hit_box.Intersects(fly_top_hit_box))
+		{
+			fly_top_spawned = fly_spawn_enabled;
+			fly_top_x = 4;
+			jumping_monkey->score += 1;
+		}
 
-	fly_bot_hit_box.X = fly_bot_x;
-	if (jumping_monkey->hit_box.Intersects(fly_bot_hit_box))
-	{
-		fly_bot_spawned = fly_spawn_enabled;
-		fly_bot_x = 4;
-		jumping_monkey->score += 1;
-	}
-	if (banana_shown && jumping_monkey->hit_box.Intersects(banana_hit_box))
-	{
-		banana_shown = false;
-		jumping_monkey->score += 5;
+		fly_bot_hit_box.X = fly_bot_x;
+		if (jumping_monkey->hit_box.Intersects(fly_bot_hit_box))
+		{
+			fly_bot_spawned = fly_spawn_enabled;
+			fly_bot_x = 4;
+			jumping_monkey->score += 1;
+		}
+		if (banana_shown && jumping_monkey->hit_box.Intersects(banana_hit_box))
+		{
+			banana_shown = false;
+			jumping_monkey->score += 5;
+		}
 	}
 }
 
@@ -2631,8 +2706,21 @@ void DrawMonkey(Monkey* monkey, uint8_t* buffer) {
 		sprite_index = 2;
 	else if (monkey->state == Standing)
 		sprite_index = 3;
-	else if (monkey->state == Walking)
+	else if (monkey->state == Walking || (monkey->state == ComingBack && monkey->frame == 0))
 		sprite_index = (frame >> 4) & 1;
+	else if (monkey->state == FanSmacked) {
+		monkey->frame++;
+		if (monkey->frame >= 8)
+		{
+			monkey->frame = 0;
+			monkey->animation++;
+			if (monkey->animation >= 8) {
+				monkey->animation = 4;
+			}
+		}
+		sprite_index = monkey->animation;
+	}
+
 
 	for (int j = 0; j < 12; j++)
 	{

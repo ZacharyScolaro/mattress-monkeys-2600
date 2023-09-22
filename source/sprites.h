@@ -19,9 +19,9 @@ extern const uint8_t FanChasisGraphics[20];
 
 extern const uint8_t FanChasisColu[20];
 
-extern const uint8_t MonkeyGraphics[4][12];
+extern const uint8_t MonkeyGraphics[12][12];
 
-extern const uint8_t MonkeyColu[4][12];
+extern const uint8_t MonkeyColu[12][12];
 
 extern const uint8_t BonusBananaGraphics[13];
 

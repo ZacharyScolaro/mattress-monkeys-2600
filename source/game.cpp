@@ -623,7 +623,7 @@ Monkey* jumping_monkey = &monkey_0;
 Monkey* standing_monkey = &monkey_1;
 Monkey* p0_monkey = &monkey_0;
 Monkey* p1_monkey = &monkey_1;
-FP32 GravityAscend = fp32(0.25);
+FP32 GravityAscend = fp32(0.24);
 FP32 GravityFall = fp32(0.5);
 BoundingBox<FP32> fly_top_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
 BoundingBox<FP32> fly_bot_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
@@ -673,7 +673,8 @@ void play_game(int player_count){
 	prev_but0 = 0;
 	play_substate = Playing;
 	joysticks = 0;
-
+	monkey_0.lives = 3;
+	monkey_1.lives = 3;
 	// Render loop
 	while (true) {
 		frame++;
@@ -783,7 +784,7 @@ void play_game(int player_count){
 		// Used when debugging
 		//for (int i = 0; i < 8; i++)
 		//{
-		//	scoreText[i] = (char)((uint32_t)(jumping_monkey->state) >> ((7 - i) * 4)) & 0xf;
+		//	scoreText[i] = (char)((uint32_t)(jumping_monkey->x.Round()) >> ((7 - i) * 4)) & 0xf;
 		//}
 		//for (int i = 0; i < 8; i++)
 		//{
@@ -2438,7 +2439,7 @@ void DrawBouncingScene() {
 	if (jumping_monkey->hit_box.Intersects(fan_blade_hit_boxes[fanFrame]))
 	{
 		jumping_monkey->state = FanSmacked;
-		jumping_monkey->velocity_x = jumping_monkey->x < 88 ? -1 : 1;
+		jumping_monkey->velocity_x = jumping_monkey->x < 0x4d ? -1 : 1;
 		jumping_monkey->velocity_y = fp32(0.1);
 	}
 

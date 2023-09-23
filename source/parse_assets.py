@@ -208,7 +208,19 @@ typedef struct {
 } track_t;
 """)
 
-def parse_ttt(f_header, f_source, ttt_path, tack_name, parse_0, parse_1):
+def parse_ttp(f_header, f_source, ttp_path, track_name):
+	init_ttt_typedefs(f_header)
+	with open('../assets/sound/' +ttp_path, mode='rt') as f:
+		ttt_json = json.load(f)
+		sequence0 = '0' 
+		sequence1 = '(sequence_t[]){ { .goto_index=-1, .pattern_index=0 } }'
+		instruments = ['0']
+		d, p = parse_ttt_percussion(ttt_json)
+		percussions = [ p ]
+		patterns = [ ttt_pattern_to_cpp('SFX', d['length'], d['length'], ['0x11', '0x00']) ]  
+		write_ttt(f_header, f_source, track_name, sequence0, sequence1, instruments, percussions, patterns)
+
+def parse_ttt(f_header, f_source, ttt_path, track_name, parse_0, parse_1):
 	init_ttt_typedefs(f_header)
 	with open('../assets/sound/' +ttt_path, mode='rt') as f:
 		ttt_json = json.load(f)
@@ -217,8 +229,10 @@ def parse_ttt(f_header, f_source, ttt_path, tack_name, parse_0, parse_1):
 		instruments, iids = parse_ttt_instruments(ttt_json)
 		percussions = parse_ttt_percussions(ttt_json)
 		patterns = parse_ttt_patterns(ttt_json, iids)
+		write_ttt(f_header, f_source, track_name, sequence0, sequence1, instruments, percussions, patterns)
 
-	f_header.write('\nextern const track_t {name};'.format(name=tack_name))
+def write_ttt(f_header, f_source, track_name, sequence0, sequence1, instruments, percussions, patterns):
+	f_header.write('\nextern const track_t {name};'.format(name=track_name))
 	f_source.write("""
 
 const track_t {name} =
@@ -228,7 +242,7 @@ const track_t {name} =
 	.percussions = (percussion_t[]){{{percussions}}},
 	.patterns = (pattern_t[]){{{patterns}}}
 }};
-""".format(name=tack_name, instruments=',\n'.join(instruments), percussions=',\n'.join(percussions), \
+""".format(name=track_name, instruments=',\n'.join(instruments), percussions=',\n'.join(percussions), \
 			 patterns=',\n'.join(patterns), sequence0=sequence0, sequence1=sequence1))
 
 def parse_ttt_sequence(ttt_json, index):
@@ -277,22 +291,26 @@ def append_instrument(instruments, d):
 def parse_ttt_percussions(ttt_json):
 	percussions = []
 	for percussion in ttt_json['percussion']:
-		d = { \
-			'length': str(percussion['envelopeLength']), \
-			'name': str(percussion['name']), \
-			'frequencies': str(', '.join(map(str, percussion['frequencies']))), \
-			'volumes': str(', '.join(map(str, percussion['volumes']))), \
-			'waveforms': str(', '.join(map(str, percussion['waveforms']))), \
-			}
+		d, a = parse_ttt_percussion(percussion)
 		if d['name'] != '---':
-			   percussions.append('''   {{
+			   percussions.append(a)
+	return percussions
+
+def parse_ttt_percussion(percussion):
+	d = { \
+		'length': str(percussion['envelopeLength']), \
+		'name': str(percussion['name']), \
+		'frequencies': str(', '.join(map(str, percussion['frequencies']))), \
+		'volumes': str(', '.join(map(str, percussion['volumes']))), \
+		'waveforms': str(', '.join(map(str, percussion['waveforms']))), \
+		}
+	return d, '''   {{
    // {name}
    .frequencies = (uint8_t[]) {{ {frequencies} }},
    .volumes = (uint8_t[]) {{ {volumes} }},
    .waveforms = (uint8_t[]) {{ {waveforms} }},
    .length = {length}
-}}'''.format(**d))
-	return percussions
+}}'''.format(**d)
 
 def parse_ttt_note(note_json, instrument_ids):
 	if note_json['type'] == 0:
@@ -332,16 +350,16 @@ def parse_ttt_patterns(ttt_json, instrument_ids):
 		#print(evenspeed)		
 		#print(oddspeed)		
 		#print(',\n'.join([', '.join(notes[i:i + 8]) for i in range(0, len(notes), 8)]))
+		patterns.append(ttt_pattern_to_cpp(p['name'], evenspeed, oddspeed, notes))
+	return patterns
 
-		patterns.append('''   {{
+def ttt_pattern_to_cpp(name, evenspeed, oddspeed, notes):
+	return '''   {{
    // {name}
    .even_speed = {evenspeed},
    .odd_speed = {oddspeed},
    .notes = (uint8_t[]) {{ {notes} }}
-}}'''.format(name=p['name'], evenspeed=evenspeed, oddspeed=oddspeed, notes=',\n'.join([', '.join(notes[i:i + 8]) for i in range(0, len(notes), 8)])))
-	return patterns
-
-
+}}'''.format(name=name, evenspeed=evenspeed, oddspeed=oddspeed, notes=',\n'.join([', '.join(notes[i:i + 8]) for i in range(0, len(notes), 8)]))
 
 parse_palette('palette.png')
 
@@ -388,7 +406,6 @@ generate_sine_tables(f_header, f_source)
 bin_to_c_array(f_header, f_source, 'kernel_7800.bin', 'kernel_7800')
 
 parse_ttt(f_header, f_source, 'MONKEYS.ttt', 'SongMonkeys', True, True)
-parse_ttt(f_header, f_source, 'bounce.ttt', 'SfxBounce', True, True)
 
 make_sine_lookup_table(f_header, f_source, 'Sine', 256);
 

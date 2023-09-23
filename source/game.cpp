@@ -2431,6 +2431,8 @@ void DrawBouncingScene() {
 			jumping_monkey->velocity_y = fp32(-7.75);// velocity_adjust * -100;// (jumping_monkey->y.Round() - 500);
 			jumping_monkey->state = Jumping;
 			standing_monkey->state = Standing;
+			init_audio_player(&sfx_player, 1, &SfxBounce);
+			sfx_frames_remaining = SfxBounce.percussions[0].length;
 		}
 	}
 
@@ -2441,6 +2443,7 @@ void DrawBouncingScene() {
 		jumping_monkey->state = FanSmacked;
 		jumping_monkey->velocity_x = jumping_monkey->x < 0x4d ? -1 : 1;
 		jumping_monkey->velocity_y = fp32(0.1);
+		// TODO SFX
 	}
 
 	if (jumping_monkey->velocity_x < 0)
@@ -2567,6 +2570,7 @@ void DrawBouncingScene() {
 			fly_top_spawned = fly_spawn_enabled;
 			fly_top_x = 4;
 			jumping_monkey->score += 1;
+			// TODO SFX
 		}
 
 		fly_bot_hit_box.X = fly_bot_x;
@@ -2575,11 +2579,13 @@ void DrawBouncingScene() {
 			fly_bot_spawned = fly_spawn_enabled;
 			fly_bot_x = 4;
 			jumping_monkey->score += 1;
+			// TODO SFX
 		}
 		if (banana_shown && jumping_monkey->hit_box.Intersects(banana_hit_box))
 		{
 			banana_shown = false;
 			jumping_monkey->score += 5;
+			// TODO SFX
 		}
 	}
 }

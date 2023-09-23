@@ -1,0 +1,36 @@
+{
+    "envelopeLength": 8,
+    "frequencies": [
+        30,
+        23,
+        18,
+        23,
+        20,
+        15,
+        9,
+        3
+    ],
+    "name": "bed-bounce",
+    "overlay": false,
+    "version": 1,
+    "volumes": [
+        10,
+        9,
+        9,
+        8,
+        7,
+        6,
+        4,
+        1
+    ],
+    "waveforms": [
+        12,
+        12,
+        12,
+        4,
+        4,
+        4,
+        4,
+        4
+    ]
+}

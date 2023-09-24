@@ -7,6 +7,8 @@ extern const uint8_t ScoreSpritesGraphics[128*8];
 
 extern const uint8_t TitleArtGraphics[6*48];
 
+extern const uint8_t GameOverGraphics[6*48];
+
 extern const uint8_t MenuOptionsGraphics[5][30];
 
 extern const uint8_t MenuOptionsColu[5][30];

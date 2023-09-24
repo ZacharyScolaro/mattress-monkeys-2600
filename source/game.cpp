@@ -430,6 +430,7 @@ void DrawFlyRegion(int& line, int height, int fly_x, int fly_y, int fly_frame);
 void PositionObject(int& line, int x, uint8_t resp, uint8_t hm);
 void move_monkey(uint8_t joy, Monkey* monkey);
 int title_screen();
+void game_over_screen();
 void show_credits();
 void show_previews();
 void play_game(int player_count);
@@ -444,7 +445,9 @@ void DrawChallengeScreen();
 void RenderChallengeScreen();
 void DrawMattress();
 void DrawMonkeys();
+void DrawScores();
 void SetVariablesFromState();
+void ApplyGravity();
 
 #if 1
 // Gopher
@@ -679,7 +682,7 @@ void play_game(int player_count){
 	while (true) {
 		frame++;
 		if (jumping_monkey->state == Dead)
-			return;
+			break;
 		//Check for state changes
 		switch (play_substate) {
 		case Playing:
@@ -756,42 +759,7 @@ void play_game(int player_count){
 			DrawBouncingScene();
 		}
 
-		// Scoring
-		for (int i = 0; i < 18; i++)
-		{
-			scoreText[i] = ' ';
-		}
-		int left_score = monkey_0.score;
-		for (int i = 0; i < 4; i++)
-		{
-			scoreText[3 - i] = (left_score % 10) & 0xf;
-			left_score /= 10;
-		}
-		for (int i = 0; i < monkey_0.lives; i++)
-		{
-			scoreText[5 + i] = 18;
-		}
-		int right_score = monkey_1.score;
-		for (int i = 0; i < 4; i++)
-		{
-			scoreText[17 - i] = (right_score % 10) & 0xf;
-			right_score /= 10;
-		}
-		for (int i = 0; i < monkey_1.lives; i++)
-		{
-			scoreText[10 + i] = 18;
-		}
-		// Used when debugging
-		//for (int i = 0; i < 8; i++)
-		//{
-		//	scoreText[i] = (char)((uint32_t)(jumping_monkey->x.Round()) >> ((7 - i) * 4)) & 0xf;
-		//}
-		//for (int i = 0; i < 8; i++)
-		//{
-		//	scoreText[i+9] = (char)((uint32_t)(jumping_monkey->y.Round()) >> ((7 - i) * 4)) & 0xf;
-		//}
-		PrintText(scoreText, 0);
-		
+		DrawScores();
 
 		// Update High Score
 		if (high_score < monkey_0.score)
@@ -931,41 +899,67 @@ void play_game(int player_count){
 		button_down_event = (((but0 & 0x80) == 0) && (prev_but0 & 0x80));
 		prev_but0 = but0;
 	}
+	
+	game_over_screen();
 }
 
-int title_screen() {
-	jumping_monkey->state = Jumping;
-	play_substate = MonkeyLanding;
+int bitmap_screen(bool is_title_screen) {
+	int bitmap_frame = 0;
 	button_down_event = false;
 	but0 = 0;
 	prev_but0 = 0;
+
+	if (is_title_screen) {
+		play_substate = MonkeyLanding;
+		fade_palette(16);
+		monkey_0.state = Standing;
+		monkey_0.face_left = false;
+		monkey_0.x = 60;
+		monkey_0.y = 150;
+		monkey_1.state = Standing;
+		monkey_1.face_left = true;
+		monkey_1.x = 100;
+		monkey_1.y = 150;
+	}
 	int menu_selection = 1;
 	for (uint32_t i = 0; i < sizeof(bitmap)/sizeof(bitmap[0]); i++)
 	{
 		bitmap[i] = 0;
 	}
-	fade_palette(16);
 	joysticks = 0;
 	uint8_t prev_joy = 0;
 	while (true)
 	{
+		int ix;
 		int line = 0;
-		int ix = 6*5;
-		for (int i = 0; i < 6*48; i++)
-		{
-			bitmap[ix++] = TitleArtGraphics[i];
-		}
+		if (is_title_screen) {
+			ix = 6 * 5;
+			for (int i = 0; i < 6 * 48; i++)
+			{
+				bitmap[ix++] = TitleArtGraphics[i];
+			}
 
-		ix += 6 * 5;
-		for (int i = 0; i < 6*5; i++)
+			ix += 6 * 5;
+			for (int i = 0; i < 6 * 5; i++)
+			{
+				bitmap[ix++] = MenuOptionsGraphics[menu_selection][i];
+			}
+			frame++;
+		}
+		else
 		{
-			bitmap[ix++] = MenuOptionsGraphics[menu_selection][i];
+			frame = 1;
+			bitmap_frame++;
+			ix = 6 * 19;
+			for (int i = 0; i < 6 * 20; i++)
+			{
+				bitmap[ix++] = GameOverGraphics[i];
+			}
 		}
 
 		next_audio_frame(&audio_player0);
 		next_audio_frame(&audio_player1);
 
-		frame++;
 		SetVariablesFromState();
 		ColuWall = InitialColuWall;
 		ColuFloor = InitialColuFloor;
@@ -976,18 +970,22 @@ int title_screen() {
 			grp0Buffer[i] = 0;
 			grp1Buffer[i] = 0;
 		}
+		
+		DrawBouncingScene();
 
-		DrawMattress();
-		DrawMonkeys();
-
-		char high_score_text[19] = "High Score:  00000";
-		int right_score = high_score;
-		for (int i = 0; i < 5; i++)
-		{
-			high_score_text[17 - i] = (right_score % 10) & 0xf;
-			right_score /= 10;
+		if (is_title_screen || bitmap_frame & 0x40) {
+			char high_score_text[19] = "High Score:  00000";
+			int right_score = high_score;
+			for (int i = 0; i < 5; i++)
+			{
+				high_score_text[17 - i] = (right_score % 10) & 0xf;
+				right_score /= 10;
+			}
+			PrintText(high_score_text, 0);
 		}
-		PrintText(high_score_text, 0);
+		else {
+			DrawScores();
+		}
 
 		ix = 18;
 		vcsEndOverblank();
@@ -1021,7 +1019,7 @@ int title_screen() {
 
 		PositionObject(line, 58, RESP0, HMP0);
 		PositionObject(line, 66, RESPONE, HMP1);
-		
+
 		vcsSta3(HMOVE);
 		vcsWrite5(COLUBK, ColuWall);
 		vcsWrite5(GRP0, 0);
@@ -1044,7 +1042,8 @@ int title_screen() {
 				vcsWrite5(COLUP0, 0);
 				vcsSta3(COLUP1);
 				ix += 6;
-			} else {
+			}
+			else {
 				vcsWrite5(COLUBK, ColuWall);
 				vcsWrite5(GRP0, bitmap[ix++]);
 				vcsWrite5(GRP1, bitmap[ix++]);
@@ -1089,46 +1088,48 @@ int title_screen() {
 		vcsNop2();
 		uint8_t but0 = vcsRead4(INPT4);
 		vcsStartOverblank();
-		if (((joy & 0x40) == 0) && (prev_joy & 0x40)) {
-			// left
-			if (menu_selection <= 0)
-			{
-				menu_selection = sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0]);
+		if (is_title_screen) {
+			if (((joy & 0x40) == 0) && (prev_joy & 0x40)) {
+				// left
+				if (menu_selection <= 0)
+				{
+					menu_selection = sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0]);
+				}
+				menu_selection--;
 			}
-			menu_selection--;
-		}
-		if (((joy & 0x80) == 0) && (prev_joy & 0x80)) {
-			// right
-			menu_selection++;
-			if (menu_selection >= (int)(sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0])))
-			{
-				menu_selection = 0;
+			if (((joy & 0x80) == 0) && (prev_joy & 0x80)) {
+				// right
+				menu_selection++;
+				if (menu_selection >= (int)(sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0])))
+				{
+					menu_selection = 0;
+				}
 			}
-		}
-		if (((joy & 0x20) == 0) && (prev_joy & 0x20)) {
-			// down
-			switch (play_state) {
-			case Narrow:
-				play_state = Medium;
-				break;
-			case Medium:
-				play_state = Wide;
+			if (((joy & 0x20) == 0) && (prev_joy & 0x20)) {
+				// down
+				switch (play_state) {
+				case Narrow:
+					play_state = Medium;
 					break;
-			default:
-				break;
-			}
-		}
-		if (((joy & 0x10) == 0) && (prev_joy & 0x10) && (play_state != max_play_state_reached)) {
-			// up
-			switch (play_state) {
-			case Wide:
-				play_state = Medium;
-				break;
-			case Medium:
-				play_state = Narrow;
+				case Medium:
+					play_state = Wide;
 					break;
-			default:
-				break;
+				default:
+					break;
+				}
+			}
+			if (((joy & 0x10) == 0) && (prev_joy & 0x10) && (play_state != max_play_state_reached)) {
+				// up
+				switch (play_state) {
+				case Wide:
+					play_state = Medium;
+					break;
+				case Medium:
+					play_state = Narrow;
+					break;
+				default:
+					break;
+				}
 			}
 		}
 		prev_joy = joy;
@@ -1138,6 +1139,14 @@ int title_screen() {
 		}
 		prev_but0 = but0;
 	}
+}
+
+int title_screen() {
+	return bitmap_screen(true);
+}
+
+void game_over_screen() {
+	bitmap_screen(false);
 }
 
 void show_credits() {
@@ -2852,4 +2861,42 @@ void SetVariablesFromState() {
 		challenge_mode = false;
 		break;
 	}
+}
+
+void DrawScores() {
+	// Scoring
+	for (int i = 0; i < 18; i++)
+	{
+		scoreText[i] = ' ';
+	}
+	int left_score = monkey_0.score;
+	for (int i = 0; i < 4; i++)
+	{
+		scoreText[3 - i] = (left_score % 10) & 0xf;
+		left_score /= 10;
+	}
+	for (int i = 0; i < monkey_0.lives; i++)
+	{
+		scoreText[5 + i] = 18;
+	}
+	int right_score = monkey_1.score;
+	for (int i = 0; i < 4; i++)
+	{
+		scoreText[17 - i] = (right_score % 10) & 0xf;
+		right_score /= 10;
+	}
+	for (int i = 0; i < monkey_1.lives; i++)
+	{
+		scoreText[10 + i] = 18;
+	}
+	// Used when debugging
+	//for (int i = 0; i < 8; i++)
+	//{
+	//	scoreText[i] = (char)((uint32_t)(jumping_monkey->x.Round()) >> ((7 - i) * 4)) & 0xf;
+	//}
+	//for (int i = 0; i < 8; i++)
+	//{
+	//	scoreText[i+9] = (char)((uint32_t)(jumping_monkey->y.Round()) >> ((7 - i) * 4)) & 0xf;
+	//}
+	PrintText(scoreText, 0);
 }

@@ -1,0 +1,290 @@
+------- FILE kernel_7800.asm LEVEL 1 PASS 2
+      1  1a25 ????
+      2  1a25 ????				      processor	6502
+      3  1a25 ????
+      4  1a25 ????						;****** 00-1F ********* TIA REGISTERS ******************
+      5  1a25 ????
+      6  1a25 ????	       00 01	   INPTCTRL   =	$01	;Input control 			       write-only
+      7  1a25 ????
+      8  1a25 ????	       00 08	   INPT0      =	$08	;Paddle Control Input 0		       read-only
+      9  1a25 ????	       00 09	   INPT1      =	$09	;Paddle Control Input 1		       read-only
+     10  1a25 ????	       00 0a	   INPT2      =	$0A	;Paddle Control Input 2		       read-only
+     11  1a25 ????	       00 0b	   INPT3      =	$0B	;Paddle Control Input 3		       read-only
+     12  1a25 ????
+     13  1a25 ????						; ** some common alternate names for INPT0/1/2/3
+     14  1a25 ????	       00 08	   INPT4B     =	$08	;Joystick 0 Fire 0			       read-only
+     15  1a25 ????	       00 09	   INPT4A     =	$09	;Joystick 0 Fire 1			       read-only
+     16  1a25 ????	       00 0a	   INPT5B     =	$0A	;Joystick 1 Fire 0			       read-only
+     17  1a25 ????	       00 0b	   INPT5A     =	$0B	;Joystick 1 Fire 1			       read-only
+     18  1a25 ????	       00 08	   INPT4R     =	$08	;Joystick 0 Fire 0			       read-only
+     19  1a25 ????	       00 09	   INPT4L     =	$09	;Joystick 0 Fire 1			       read-only
+     20  1a25 ????	       00 0a	   INPT5R     =	$0A	;Joystick 1 Fire 0			       read-only
+     21  1a25 ????	       00 0b	   INPT5L     =	$0B	;Joystick 1 Fire 1			       read-only
+     22  1a25 ????
+     23  1a25 ????	       00 0c	   INPT4      =	$0C	;Player 0 Fire Button Input		       read-only
+     24  1a25 ????	       00 0d	   INPT5      =	$0D	;Player 1 Fire Button Input		       read-only
+     25  1a25 ????
+     26  1a25 ????	       00 15	   AUDC0      =	$15	;Audio Control Channel 0		       write-only
+     27  1a25 ????	       00 16	   AUDC1      =	$16	;Audio Control Channel 1		       write-only
+     28  1a25 ????	       00 17	   AUDF0      =	$17	;Audio Frequency Channel 0		       write-only
+     29  1a25 ????	       00 18	   AUDF1      =	$18	;Audio Frequency Channel 1		       write-only
+     30  1a25 ????	       00 19	   AUDV0      =	$19	;Audio Volume Channel 0		       write-only
+     31  1a25 ????	       00 1a	   AUDV1      =	$1A	;Audio Volume Channel 1		       write-only
+     32  1a25 ????
+     33  1a25 ????						;****** 20-3F ********* MARIA REGISTERS ***************
+     34  1a25 ????
+     35  1a25 ????	       00 20	   BACKGRND   =	$20	;Background Color			       write-only
+     36  1a25 ????	       00 21	   P0C1       =	$21	;Palette 0 - Color 1			       write-only
+     37  1a25 ????	       00 22	   P0C2       =	$22	;Palette 0 - Color 2			       write-only
+     38  1a25 ????	       00 23	   P0C3       =	$23	;Palette 0 - Color 3			       write-only
+     39  1a25 ????	       00 24	   WSYNC      =	$24	;Wait For Sync 			       write-only
+     40  1a25 ????	       00 25	   P1C1       =	$25	;Palette 1 - Color 1			       write-only
+     41  1a25 ????	       00 26	   P1C2       =	$26	;Palette 1 - Color 2			       write-only
+     42  1a25 ????	       00 27	   P1C3       =	$27	;Palette 1 - Color 3			       write-only
+     43  1a25 ????	       00 28	   MSTAT      =	$28	;Maria Status				       read-only
+     44  1a25 ????	       00 29	   P2C1       =	$29	;Palette 2 - Color 1			       write-only
+     45  1a25 ????	       00 2a	   P2C2       =	$2A	;Palette 2 - Color 2			       write-only
+     46  1a25 ????	       00 2b	   P2C3       =	$2B	;Palette 2 - Color 3			       write-only
+     47  1a25 ????	       00 2c	   DPPH       =	$2C	;Display List List Pointer High	       write-only
+     48  1a25 ????	       00 2d	   P3C1       =	$2D	;Palette 3 - Color 1			       write-only
+     49  1a25 ????	       00 2e	   P3C2       =	$2E	;Palette 3 - Color 2			       write-only
+     50  1a25 ????	       00 2f	   P3C3       =	$2F	;Palette 3 - Color 3			       write-only
+     51  1a25 ????	       00 30	   DPPL       =	$30	;Display List List Pointer Low 	       write-only
+     52  1a25 ????	       00 31	   P4C1       =	$31	;Palette 4 - Color 1			       write-only
+     53  1a25 ????	       00 32	   P4C2       =	$32	;Palette 4 - Color 2			       write-only
+     54  1a25 ????	       00 33	   P4C3       =	$33	;Palette 4 - Color 3			       write-only
+     55  1a25 ????	       00 34	   CHARBASE   =	$34	;Character Base Address		       write-only
+     56  1a25 ????	       00 35	   P5C1       =	$35	;Palette 5 - Color 1			       write-only
+     57  1a25 ????	       00 36	   P5C2       =	$36	;Palette 5 - Color 2			       write-only
+     58  1a25 ????	       00 37	   P5C3       =	$37	;Palette 5 - Color 3			       write-only
+     59  1a25 ????	       00 38	   OFFSET     =	$38	;Unused - Store zero here		       write-only
+     60  1a25 ????	       00 39	   P6C1       =	$39	;Palette 6 - Color 1			       write-only
+     61  1a25 ????	       00 3a	   P6C2       =	$3A	;Palette 6 - Color 2			       write-only
+     62  1a25 ????	       00 3b	   P6C3       =	$3B	;Palette 6 - Color 3			       write-only
+     63  1a25 ????	       00 3c	   CTRL       =	$3C	;Maria Control Register		       write-only
+     64  1a25 ????	       00 3d	   P7C1       =	$3D	;Palette 7 - Color 1			       write-only
+     65  1a25 ????	       00 3e	   P7C2       =	$3E	;Palette 7 - Color 2			       write-only
+     66  1a25 ????	       00 3f	   P7C3       =	$3F	;Palette 7 - Color 3			       write-only
+     67  1a25 ????
+     68  1a25 ????						;****** 280-2FF ******* PIA PORTS AND TIMERS ************
+     69  1a25 ????
+     70  1a25 ????	       02 80	   SWCHA      =	$280	;P0, P1 Joystick Directional Input	       read-write
+     71  1a25 ????	       02 82	   SWCHB      =	$282	;Console Switches			       read-write
+     72  1a25 ????	       02 81	   CTLSWA     =	$281	;I/O Control for SCHWA 		       read-write
+     73  1a25 ????	       02 81	   SWACNT     =	$281	;VCS name for above			       read-write
+     74  1a25 ????	       02 83	   CTLSWB     =	$283	;I/O Control for SCHWB 		       read-write
+     75  1a25 ????	       02 83	   SWBCNT     =	$283	;VCS name for above			       read-write
+     76  1a25 ????
+     77  1a25 ????	       02 84	   INTIM      =	$284	;Iterval Timer Read			       read-only
+     78  1a25 ????	       02 94	   TIM1T      =	$294	;Set 1    CLK Interval (838   nsec/interval)  write-only
+     79  1a25 ????	       02 95	   TIM8T      =	$295	;Set 8    CLK Interval (6.7   usec/interval)  write-only
+     80  1a25 ????	       02 96	   TIM64T     =	$296	;Set 64   CLK Interval (63.6  usec/interval)  write-only
+     81  1a25 ????	       02 97	   T1024T     =	$297	;Set 1024 CLK Interval (858.2 usec/interval)  write-only
+     82  1a25 ????	       02 9e	   TIM64TI    =	$29E	;Interrupt timer 64T			       write-only
+     83  1a25 ????
+     84  1a25 ????
+     85  1a25 ????				      SEG
+     86  1800					      ORG	$1800
+     87  1800							;
+     88  1800							;loop:
+     89  1800							;	ldx $40
+     90  1800							;	inx
+     91  1800							;	cpx #131
+     92  1800							;	bne skip
+     93  1800							;	ldx #0
+     94  1800							;skip:
+     95  1800							;	stx $40
+     96  1800							;	stx BACKGRND
+     97  1800							;	stx WSYNC
+     98  1800							;	stx WSYNC
+     99  1800							;	jmp loop
+    100  1800
+    101  1800		       a9 19		      lda	#>DLL
+    102  1802		       85 2c		      sta	DPPH
+    103  1804		       a9 00		      lda	#<DLL
+    104  1806		       85 30		      sta	DPPL
+    105  1808							; Wait for VBLANK
+    106  1808				   PollVBlank
+    107  1808		       85 24		      sta	WSYNC
+    108  180a		       a5 28		      lda	MSTAT
+    109  180c		       10 fa		      bpl	PollVBlank
+    110  180e							; Check for signal that cart has the data ready
+    111  180e		       ae fc 18 	      ldx	$18fc
+    112  1811		       ae fd 18 	      ldx	$18fd
+    113  1814		       ae fe 18 	      ldx	$18fe
+    114  1817		       ae ff 18 	      ldx	$18ff
+    115  181a		       ae dc f7 	      ldx	$f7dc
+    116  181d		       e0 25		      cpx	#$25
+    117  181f		       d0 04		      bne	NoSignal
+    118  1821							; Disable DMA
+    119  1821		       85 3c		      sta	CTRL
+    120  1823		       85 24		      sta	WSYNC
+    121  1825							;	jmp $f700
+    122  1825				   NoSignal
+    123  1825							; Enable DMA
+    124  1825		       a9 40		      lda	#$40
+    125  1827		       85 3c		      sta	CTRL
+    126  1829
+    127  1829							; Wait for VBLANK END
+    128  1829				   PollNotVBlank
+    129  1829		       85 24		      sta	WSYNC
+    130  182b		       a5 28		      lda	MSTAT
+    131  182d		       30 fa		      bmi	PollNotVBlank
+    132  182f		       4c 08 18 	      jmp	PollVBlank
+    133  1832
+    134  1832							; Signal for ARM that 6502 is getting ready to poll for control transfer signal
+    135  18fa					      ORG	$18fa
+    136  18fa				   DL_End
+    137  18fa		       00 00		      HEX	00 00
+    138  18fc				   Signal_Cart
+    139  18fc		       25 25 25 25	      HEX	25 25 25 25
+    140  1900
+    141  1900							; DLs $1a00-$1bff (512) 12 per page
+    142  1900							; DLL $1900-$19ff (256)
+    143  1900							; Code $1800-$18ff (256)
+    144  1900
+    145  1900					      ORG	$1900
+    146  1900				   DLL
+    147  1900							; Top padding
+    148  1900		       0f		      HEX	0f
+    149  1901		       18		      BYTE.b	>DL_End
+    150  1902		       fa		      BYTE.b	<DL_End
+    151  1903		       08		      HEX	08
+    152  1904		       18		      BYTE.b	>DL_End
+    153  1905		       fa		      BYTE.b	<DL_End
+    154  1906
+    155  1906					      REPEAT	24
+    156  1906		       07		      HEX	07
+    157  1907		       1a		      BYTE.b	>DL00
+    158  1908		       00		      BYTE.b	<DL00
+    155  1908					      REPEND
+    156  1909		       07		      HEX	07
+    157  190a		       1a		      BYTE.b	>DL00
+    158  190b		       00		      BYTE.b	<DL00
+    155  190b					      REPEND
+    156  190c		       07		      HEX	07
+    157  190d		       1a		      BYTE.b	>DL00
+    158  190e		       00		      BYTE.b	<DL00
+    155  190e					      REPEND
+    156  190f		       07		      HEX	07
+    157  1910		       1a		      BYTE.b	>DL00
+    158  1911		       00		      BYTE.b	<DL00
+    155  1911					      REPEND
+    156  1912		       07		      HEX	07
+    157  1913		       1a		      BYTE.b	>DL00
+    158  1914		       00		      BYTE.b	<DL00
+    155  1914					      REPEND
+    156  1915		       07		      HEX	07
+    157  1916		       1a		      BYTE.b	>DL00
+    158  1917		       00		      BYTE.b	<DL00
+    155  1917					      REPEND
+    156  1918		       07		      HEX	07
+    157  1919		       1a		      BYTE.b	>DL00
+    158  191a		       00		      BYTE.b	<DL00
+    155  191a					      REPEND
+    156  191b		       07		      HEX	07
+    157  191c		       1a		      BYTE.b	>DL00
+    158  191d		       00		      BYTE.b	<DL00
+    155  191d					      REPEND
+    156  191e		       07		      HEX	07
+    157  191f		       1a		      BYTE.b	>DL00
+    158  1920		       00		      BYTE.b	<DL00
+    155  1920					      REPEND
+    156  1921		       07		      HEX	07
+    157  1922		       1a		      BYTE.b	>DL00
+    158  1923		       00		      BYTE.b	<DL00
+    155  1923					      REPEND
+    156  1924		       07		      HEX	07
+    157  1925		       1a		      BYTE.b	>DL00
+    158  1926		       00		      BYTE.b	<DL00
+    155  1926					      REPEND
+    156  1927		       07		      HEX	07
+    157  1928		       1a		      BYTE.b	>DL00
+    158  1929		       00		      BYTE.b	<DL00
+    155  1929					      REPEND
+    156  192a		       07		      HEX	07
+    157  192b		       1a		      BYTE.b	>DL00
+    158  192c		       00		      BYTE.b	<DL00
+    155  192c					      REPEND
+    156  192d		       07		      HEX	07
+    157  192e		       1a		      BYTE.b	>DL00
+    158  192f		       00		      BYTE.b	<DL00
+    155  192f					      REPEND
+    156  1930		       07		      HEX	07
+    157  1931		       1a		      BYTE.b	>DL00
+    158  1932		       00		      BYTE.b	<DL00
+    155  1932					      REPEND
+    156  1933		       07		      HEX	07
+    157  1934		       1a		      BYTE.b	>DL00
+    158  1935		       00		      BYTE.b	<DL00
+    155  1935					      REPEND
+    156  1936		       07		      HEX	07
+    157  1937		       1a		      BYTE.b	>DL00
+    158  1938		       00		      BYTE.b	<DL00
+    155  1938					      REPEND
+    156  1939		       07		      HEX	07
+    157  193a		       1a		      BYTE.b	>DL00
+    158  193b		       00		      BYTE.b	<DL00
+    155  193b					      REPEND
+    156  193c		       07		      HEX	07
+    157  193d		       1a		      BYTE.b	>DL00
+    158  193e		       00		      BYTE.b	<DL00
+    155  193e					      REPEND
+    156  193f		       07		      HEX	07
+    157  1940		       1a		      BYTE.b	>DL00
+    158  1941		       00		      BYTE.b	<DL00
+    155  1941					      REPEND
+    156  1942		       07		      HEX	07
+    157  1943		       1a		      BYTE.b	>DL00
+    158  1944		       00		      BYTE.b	<DL00
+    155  1944					      REPEND
+    156  1945		       07		      HEX	07
+    157  1946		       1a		      BYTE.b	>DL00
+    158  1947		       00		      BYTE.b	<DL00
+    155  1947					      REPEND
+    156  1948		       07		      HEX	07
+    157  1949		       1a		      BYTE.b	>DL00
+    158  194a		       00		      BYTE.b	<DL00
+    155  194a					      REPEND
+    156  194b		       07		      HEX	07
+    157  194c		       1a		      BYTE.b	>DL00
+    158  194d		       00		      BYTE.b	<DL00
+    159  194e					      REPEND
+    160  194e
+    161  194e							; Bottom padding
+    162  194e					      REPEAT	5
+    163  194e		       0f		      HEX	0f
+    164  194f		       18		      BYTE.b	>DL_End
+    165  1950		       fa		      BYTE.b	<DL_End
+    162  1950					      REPEND
+    163  1951		       0f		      HEX	0f
+    164  1952		       18		      BYTE.b	>DL_End
+    165  1953		       fa		      BYTE.b	<DL_End
+    162  1953					      REPEND
+    163  1954		       0f		      HEX	0f
+    164  1955		       18		      BYTE.b	>DL_End
+    165  1956		       fa		      BYTE.b	<DL_End
+    162  1956					      REPEND
+    163  1957		       0f		      HEX	0f
+    164  1958		       18		      BYTE.b	>DL_End
+    165  1959		       fa		      BYTE.b	<DL_End
+    162  1959					      REPEND
+    163  195a		       0f		      HEX	0f
+    164  195b		       18		      BYTE.b	>DL_End
+    165  195c		       fa		      BYTE.b	<DL_End
+    166  195d					      REPEND
+    167  195d
+    168  195d							; GRP_LOW MODE GRP_HIGH PAL/WIDTH POSITION
+    169  1a00					      ORG	$1a00
+    170  1a00				   DL00 		; 24-29 cycles for DMA startup
+    171  1a00							; Always start from $f700 because xxx1 0xxx xxxx xxxx is always in cart space
+    172  1a00							; 160a
+    173  1a00		       c0 40 f0 0c*	      HEX	c0 40 f0 0c 00	;10 per header
+    174  1a05		       c0 40 f0 0c*	      HEX	c0 40 f0 0c 50	; 3 per byte read
+    175  1a0a		       c0 40 f0 0c*	      HEX	c0 40 f0 0c 50	; extra for H scrolling
+    176  1a0f							; 160b
+    177  1a0f		       c0 c0 f0 80*	      HEX	c0 c0 f0 80 00
+    178  1a14		       c0 c0 f0 80*	      HEX	c0 c0 f0 80 40
+    179  1a19		       c0 c0 f0 90*	      HEX	c0 c0 f0 90 80
+    180  1a1e		       c0 c0 f0 90*	      HEX	c0 c0 f0 90 80	; extra for H scrolling
+    181  1a23		       00 00		      HEX	00 00

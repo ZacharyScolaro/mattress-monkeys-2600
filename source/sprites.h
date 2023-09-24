@@ -91,6 +91,9 @@ typedef struct {
 
 extern const track_t SongMonkeys;
 extern const track_t SfxBounce;
+extern const track_t SfxBonus;
+extern const track_t SfxFly;
+extern const track_t SfxFan;
 extern const FP32 Sine[256];
 
 

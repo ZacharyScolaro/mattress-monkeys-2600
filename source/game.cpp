@@ -2443,7 +2443,8 @@ void DrawBouncingScene() {
 		jumping_monkey->state = FanSmacked;
 		jumping_monkey->velocity_x = jumping_monkey->x < 0x4d ? -1 : 1;
 		jumping_monkey->velocity_y = fp32(0.1);
-		// TODO SFX
+		init_audio_player(&sfx_player, 1, &SfxFan);
+		sfx_frames_remaining = SfxFan.percussions[0].length;
 	}
 
 	if (jumping_monkey->velocity_x < 0)
@@ -2570,7 +2571,8 @@ void DrawBouncingScene() {
 			fly_top_spawned = fly_spawn_enabled;
 			fly_top_x = 4;
 			jumping_monkey->score += 1;
-			// TODO SFX
+			init_audio_player(&sfx_player, 1, &SfxFly);
+			sfx_frames_remaining = SfxFly.percussions[0].length;
 		}
 
 		fly_bot_hit_box.X = fly_bot_x;
@@ -2579,13 +2581,15 @@ void DrawBouncingScene() {
 			fly_bot_spawned = fly_spawn_enabled;
 			fly_bot_x = 4;
 			jumping_monkey->score += 1;
-			// TODO SFX
+			init_audio_player(&sfx_player, 1, &SfxFly);
+			sfx_frames_remaining = SfxFly.percussions[0].length;
 		}
 		if (banana_shown && jumping_monkey->hit_box.Intersects(banana_hit_box))
 		{
 			banana_shown = false;
 			jumping_monkey->score += 5;
-			// TODO SFX
+			init_audio_player(&sfx_player, 1, &SfxBonus);
+			sfx_frames_remaining = SfxBonus.percussions[0].length;
 		}
 	}
 }

@@ -408,7 +408,10 @@ bin_to_c_array(f_header, f_source, 'kernel_7800.bin', 'kernel_7800')
 # Music
 parse_ttt(f_header, f_source, 'MONKEYS.ttt', 'SongMonkeys', True, True)
 # Sound Effects
-parse_ttp(f_header, f_source, 'bed-bounce.ttp', 'SfxBounce')
+parse_ttp(f_header, f_source, 'BedBounce.ttp', 'SfxBounce')
+parse_ttp(f_header, f_source, 'BananaBonus.ttp', 'SfxBonus')
+parse_ttp(f_header, f_source, 'FlyCaught.ttp', 'SfxFly')
+parse_ttp(f_header, f_source, 'FanWhack.ttp', 'SfxFan')
 
 make_sine_lookup_table(f_header, f_source, 'Sine', 256);
 

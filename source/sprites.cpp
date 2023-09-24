@@ -812,58 +812,79 @@ const track_t SongMonkeys =
 
 const track_t SfxBounce =
 {
-	.channels = { {(sequence_t[]){{ .goto_index=0, .pattern_index=0 }}}, {(sequence_t[]){{ .goto_index=-1, .pattern_index=1 }}} },
-	.instruments = (instrument_t[]){   {
-   // Simple
-   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-   .volumes = (uint8_t[]) { 15, 13, 9, 8, 6, 5, 3, 2, 1, 0, 0, 0 },
-   .sustainStart = 3,
-   .releaseStart = 4,
-   .waveform = 4,
-   .length = 12
-},
-   {
-   // Simple
-   .frequencies = (int8_t[]) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-   .volumes = (uint8_t[]) { 15, 13, 9, 8, 6, 5, 3, 2, 1, 0, 0, 0 },
-   .sustainStart = 3,
-   .releaseStart = 4,
-   .waveform = 12,
-   .length = 12
-},
-   {
-   // Flute
-   .frequencies = (int8_t[]) { 0, 0 },
-   .volumes = (uint8_t[]) { 0, 0 },
-   .sustainStart = 0,
-   .releaseStart = 1,
-   .waveform = 7,
-   .length = 2
-}},
+	.channels = { {0}, {(sequence_t[]){ { .goto_index=-1, .pattern_index=0 } }} },
+	.instruments = (instrument_t[]){0},
 	.percussions = (percussion_t[]){   {
-   // bed-bounce
-   .frequencies = (uint8_t[]) { 30, 23, 18, 23, 20, 15, 9, 3 },
-   .volumes = (uint8_t[]) { 10, 9, 9, 8, 7, 6, 4, 1 },
-   .waveforms = (uint8_t[]) { 12, 12, 12, 4, 4, 4, 4, 4 },
-   .length = 8
-},
-   {
-   // Gunshot - pistol
-   .frequencies = (uint8_t[]) { 28, 29, 26, 21, 5, 3, 5, 6, 6, 6 },
-   .volumes = (uint8_t[]) { 12, 8, 8, 6, 3, 6, 8, 5, 3, 1 },
-   .waveforms = (uint8_t[]) { 7, 7, 7, 7, 8, 8, 8, 8, 8, 8 },
-   .length = 10
+   // New Bounce
+   .frequencies = (uint8_t[]) { 10, 12, 10, 8, 6, 6, 8, 10, 12, 12, 11, 9, 7, 4, 2, 1 },
+   .volumes = (uint8_t[]) { 9, 10, 10, 10, 10, 10, 10, 10, 10, 10, 9, 8, 6, 4, 2, 0 },
+   .waveforms = (uint8_t[]) { 1, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6 },
+   .length = 16
 }},
 	.patterns = (pattern_t[]){   {
-   // Intro left
-   .even_speed = 8,
-   .odd_speed = 8,
-   .notes = (uint8_t[]) { 0x12, 0x00 }
-},
-   {
-   // Intro right
-   .even_speed = 8,
-   .odd_speed = 8,
+   // SFX
+   .even_speed = 16,
+   .odd_speed = 16,
+   .notes = (uint8_t[]) { 0x11, 0x00 }
+}}
+};
+
+
+const track_t SfxBonus =
+{
+	.channels = { {0}, {(sequence_t[]){ { .goto_index=-1, .pattern_index=0 } }} },
+	.instruments = (instrument_t[]){0},
+	.percussions = (percussion_t[]){   {
+   // Bonus Banana
+   .frequencies = (uint8_t[]) { 25, 23, 25, 23, 17, 15, 17, 15, 17, 11, 9, 11, 9, 11, 9, 11 },
+   .volumes = (uint8_t[]) { 0, 6, 9, 10, 10, 10, 10, 10, 10, 10, 10, 9, 5, 2, 1, 0 },
+   .waveforms = (uint8_t[]) { 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 },
+   .length = 16
+}},
+	.patterns = (pattern_t[]){   {
+   // SFX
+   .even_speed = 16,
+   .odd_speed = 16,
+   .notes = (uint8_t[]) { 0x11, 0x00 }
+}}
+};
+
+
+const track_t SfxFly =
+{
+	.channels = { {0}, {(sequence_t[]){ { .goto_index=-1, .pattern_index=0 } }} },
+	.instruments = (instrument_t[]){0},
+	.percussions = (percussion_t[]){   {
+   // Fly Caught
+   .frequencies = (uint8_t[]) { 22, 22, 20, 15, 6, 5, 6, 7, 6, 5, 6, 7, 6, 5, 6, 7 },
+   .volumes = (uint8_t[]) { 0, 7, 10, 10, 10, 10, 10, 9, 7, 5, 3, 2, 1, 1, 1, 0 },
+   .waveforms = (uint8_t[]) { 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 },
+   .length = 16
+}},
+	.patterns = (pattern_t[]){   {
+   // SFX
+   .even_speed = 16,
+   .odd_speed = 16,
+   .notes = (uint8_t[]) { 0x11, 0x00 }
+}}
+};
+
+
+const track_t SfxFan =
+{
+	.channels = { {0}, {(sequence_t[]){ { .goto_index=-1, .pattern_index=0 } }} },
+	.instruments = (instrument_t[]){0},
+	.percussions = (percussion_t[]){   {
+   // Fan Whack
+   .frequencies = (uint8_t[]) { 31, 31, 23, 2, 0, 0, 1, 0, 0, 1, 2, 4, 7, 8, 9, 12 },
+   .volumes = (uint8_t[]) { 12, 8, 10, 11, 12, 10, 10, 10, 9, 8, 8, 8, 8, 7, 5, 0 },
+   .waveforms = (uint8_t[]) { 7, 7, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 8, 8 },
+   .length = 16
+}},
+	.patterns = (pattern_t[]){   {
+   // SFX
+   .even_speed = 16,
+   .odd_speed = 16,
    .notes = (uint8_t[]) { 0x11, 0x00 }
 }}
 };

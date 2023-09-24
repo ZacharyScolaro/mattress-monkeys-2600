@@ -2725,7 +2725,7 @@ void DrawMonkey(Monkey* monkey, uint8_t* buffer) {
 	if (monkey->state == Jumping)
 		sprite_index = 2;
 	else if (monkey->state == Standing)
-		sprite_index = 3;
+		sprite_index = 0;
 	else if (monkey->state == Walking || (monkey->state == ComingBack && monkey->frame == 0))
 		sprite_index = (frame >> 4) & 1;
 	else if (monkey->state == FanSmacked) {

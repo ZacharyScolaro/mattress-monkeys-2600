@@ -838,8 +838,8 @@ const track_t SfxBonus =
 	.instruments = (instrument_t[]){0},
 	.percussions = (percussion_t[]){   {
    // Bonus Banana
-   .frequencies = (uint8_t[]) { 25, 23, 25, 23, 17, 15, 17, 15, 17, 11, 9, 11, 9, 11, 9, 11 },
-   .volumes = (uint8_t[]) { 0, 6, 9, 10, 10, 10, 10, 10, 10, 10, 10, 9, 5, 2, 1, 0 },
+   .frequencies = (uint8_t[]) { 23, 23, 23, 23, 17, 17, 17, 17, 17, 11, 11, 11, 11, 11, 11, 11 },
+   .volumes = (uint8_t[]) { 0, 6, 9, 10, 10, 10, 10, 10, 10, 10, 9, 5, 3, 2, 1, 0 },
    .waveforms = (uint8_t[]) { 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 },
    .length = 16
 }},

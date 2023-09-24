@@ -1162,7 +1162,7 @@ void show_credits() {
 		PrintText("Programming       ", text_line++);
 		PrintText("  Zack Scolaro    ", text_line++);
 		PrintText("                  ", text_line++);
-		PrintText("Audio             ", text_line++);
+		PrintText("TIA Music         ", text_line++);
 		PrintText("  Marco Johannes  ", text_line++);
 		PrintText("                  ", text_line++);
 		PrintSmall("\"Monkeys Spinning Monkeys\" licensed ", text_line++, 0, 36);

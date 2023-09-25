@@ -933,13 +933,13 @@ int bitmap_screen(bool is_title_screen) {
 		int ix;
 		int line = 0;
 		if (is_title_screen) {
-			ix = 6 * 5;
-			for (int i = 0; i < 6 * 48; i++)
+			ix = 6 * 19; // vertical position of title art
+			for (int i = 0; i < 6 * 32; i++)
 			{
 				bitmap[ix++] = TitleArtGraphics[i];
 			}
 
-			ix += 6 * 5;
+			ix += 6 * 5; // vertical gap before selection menu
 			for (int i = 0; i < 6 * 5; i++)
 			{
 				bitmap[ix++] = MenuOptionsGraphics[menu_selection][i];
@@ -950,8 +950,8 @@ int bitmap_screen(bool is_title_screen) {
 		{
 			frame = 1;
 			bitmap_frame++;
-			ix = 6 * 19;
-			for (int i = 0; i < 6 * 20; i++)
+			ix = 6 * 36; // vertical position of Game Over sprite
+			for (int i = 0; i < 6 * 5; i++)
 			{
 				bitmap[ix++] = GameOverGraphics[i];
 			}

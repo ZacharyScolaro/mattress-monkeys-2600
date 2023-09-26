@@ -643,6 +643,8 @@ PlaySubState play_substate = Playing;
 uint8_t joysticks = 0;
 auto render_bed = RenderWideBed;
 PlayState max_play_state_reached = Narrow; // TODO WIDE
+int room_height = 175;
+int shake_frames_remaining = 0;
 
 BoundingBox<FP32> fan_blade_hit_boxes[7] = {
 	BoundingBox<FP32>(60, 4, 0, 44, 0, 11),
@@ -821,6 +823,28 @@ void play_game(int player_count){
 			}
 			else
 			{
+				room_height = 175;
+				// Shake screen for fan strikes
+				if (shake_frames_remaining & 0x2)
+				{
+					for (int i = 0; i < 4; i++)
+					{
+						vcsSta3(WSYNC);
+						room_height--;
+						vcsSta3(HMOVE);
+						vcsLda2(0);
+						vcsSta3(GRP0);
+						vcsSta3(GRP1);
+						vcsSta3(PF0);
+						vcsSta3(PF1);
+						vcsSta3(PF2);
+						vcsSta3(ENAM0);
+						vcsSta3(ENAM1);
+						vcsSta3(ENABL);
+						vcsSta3(COLUBK);
+					}
+				}
+
 				vcsSta3(WSYNC);
 
 				// Ceiling
@@ -1889,7 +1913,7 @@ void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey) {
 	vcsWrite5(COLUBK, ColuBedPost);
 	line++;
 
-	for (int i = 0; line < 175; i++)
+	for (int i = 0; line < room_height; i++)
 	{
 		vcsSta3(HMOVE);
 		if (i == 0)
@@ -2089,7 +2113,7 @@ void RenderMediumBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey)
 	vcsSta3(WSYNC);
 	line++;
 
-	for (int i = 0; line < 175; i++)
+	for (int i = 0; line < room_height; i++)
 	{
 		vcsSta3(HMOVE);
 		if (i == 0)
@@ -2279,7 +2303,7 @@ void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey)
 	vcsLdx2(line < 170 ? ColuSheet : ColuBedPost);
 	vcsSta3(WSYNC);
 
-	for (int i = 0; line < 175; i++)
+	for (int i = 0; line < room_height; i++)
 	{
 		vcsSta3(HMOVE);
 		if (i == 0)
@@ -2481,6 +2505,10 @@ void DrawBouncingScene() {
 	case Dead:
 		break;
 	}
+
+	if (shake_frames_remaining > 0) {
+		shake_frames_remaining--;
+	}
 	
 	if (jumping_monkey->y > 0xa3)
 	{
@@ -2505,6 +2533,7 @@ void DrawBouncingScene() {
 	jumping_monkey->hit_box.Y = jumping_monkey->y;
 	if (jumping_monkey->hit_box.Intersects(fan_blade_hit_boxes[fanFrame]))
 	{
+		shake_frames_remaining = 4;
 		jumping_monkey->state = FanSmacked;
 		jumping_monkey->velocity_x = jumping_monkey->x < 0x4d ? -2 : 2;
 		jumping_monkey->velocity_y = 0;

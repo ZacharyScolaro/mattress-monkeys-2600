@@ -388,7 +388,9 @@ enum MonkeyState {
 	Walking,
 	Jumping,
 	FanSmacked,
-	ComingBack,
+	HoppingOntoPost,
+	WalkingToEdge,
+	HoppingOntoMattress,
 	Dead,
 };
 
@@ -1300,9 +1302,15 @@ void show_previews() {
 
 void move_monkey(uint8_t joy, Monkey* monkey)
 {
-	if (monkey->state == FanSmacked || monkey->state == ComingBack || monkey->state == Dead)
-	{
+	switch (monkey->state) {
+	case FanSmacked:
+	case HoppingOntoPost:
+	case WalkingToEdge:
+	case HoppingOntoMattress:
+	case Dead:
 		return;
+	default:
+		break;
 	}
 
 	bool horizontal_input = false;
@@ -2368,11 +2376,11 @@ void ApplyGravity() {
 }
 
 void DrawBouncingScene() {
-	jumping_monkey->x += jumping_monkey->velocity_x;
 	switch (jumping_monkey->state) {
-	case 	Standing:
+	case Standing:
 	case Walking:
 	case Jumping:
+		jumping_monkey->x += jumping_monkey->velocity_x;
 
 		if (jumping_monkey->x < min_monkey_x) {
 			jumping_monkey->x = min_monkey_x;
@@ -2383,49 +2391,97 @@ void DrawBouncingScene() {
 			jumping_monkey->velocity_x = 0;
 		}
 		ApplyGravity();
+		jumping_monkey->y += jumping_monkey->velocity_y;
 		break;
 	case FanSmacked:
+		jumping_monkey->x += jumping_monkey->velocity_x;
 		if (jumping_monkey->x < 0 || jumping_monkey->x > 159)
 		{
-			// TODO handle right side smacks
 			jumping_monkey->velocity_x = 0;
 			jumping_monkey->velocity_y = 0;
-			jumping_monkey->face_left = false;
+			jumping_monkey->face_left = !jumping_monkey->face_left;
 			jumping_monkey->frame = 0;
 			jumping_monkey->x = 0;
-			jumping_monkey->y = 0x69;
+			switch (play_state) {
+			case Wide:
+			jumping_monkey->y = jumping_monkey->face_left ? 0x5b : 0x65;
+			jumping_monkey->velocity_y = fp32(4);
+			break;
+			case Medium:
+			jumping_monkey->y = jumping_monkey->face_left ? 0x37 : 0x4b;
+			jumping_monkey->velocity_y = fp32(2);
+			break;
+			case Narrow:
+			default:
+			jumping_monkey->y = jumping_monkey->face_left ? 0x5f : 0x6e;
+			jumping_monkey->velocity_y = fp32(-4);
+			break;
+			}
 			if (jumping_monkey->lives > 0) {
 				jumping_monkey->lives--;
-				jumping_monkey->state = ComingBack;
+				jumping_monkey->velocity_x = jumping_monkey->face_left ? fp32(-1.5) : fp32(1.5);
+				jumping_monkey->frame = 0;
+				jumping_monkey->state = HoppingOntoPost;
 			}
 			else
 			{
 				jumping_monkey->state = Dead;
 			}
 		}
-		break;
-	case ComingBack:
-		if ((frame & 3) == 0)
+		else
 		{
-			jumping_monkey->x++;
-			if (jumping_monkey->x == min_monkey_x-9)
+			jumping_monkey->velocity_y += fp32(0.0625);
+		}
+		jumping_monkey->y += jumping_monkey->velocity_y;
+		break;
+	case HoppingOntoPost:
+		// Debug if ((frame & 0x3) == 0)
+		{
+			jumping_monkey->frame++;
+			jumping_monkey->x += jumping_monkey->velocity_x;
+			if (jumping_monkey->x < 0)
 			{
-				jumping_monkey->frame = 1;
-				jumping_monkey->velocity_x = fp32(1.25);
-				jumping_monkey->velocity_y = fp32(-4);
+				jumping_monkey->x += 160;
 			}
+			if (jumping_monkey->face_left 
+				? (jumping_monkey->x <= max_monkey_x + 16)
+				: (jumping_monkey->x >= min_monkey_x - 16)) {
+				jumping_monkey->velocity_y = 0;
+				jumping_monkey->velocity_x = jumping_monkey->face_left ? fp32(-0.25) : fp32(0.25);
+				jumping_monkey->state = WalkingToEdge;
+			}
+			else {
+				// Make it a quick hop since player lacks control on ascent
+				jumping_monkey->velocity_y += GravityFall;
+			}
+			jumping_monkey->y += jumping_monkey->velocity_y;
 		}
-		if (jumping_monkey->frame > 0) {
-			ApplyGravity();
+		break;
+	case WalkingToEdge:
+		jumping_monkey->x += jumping_monkey->velocity_x;
+		if (jumping_monkey->face_left
+			? (jumping_monkey->x <= max_monkey_x + 5)
+			: (jumping_monkey->x >= min_monkey_x - 5)) {
+			jumping_monkey->velocity_x = jumping_monkey->face_left ? fp32(-1.5) : fp32(1.5);
+			jumping_monkey->velocity_y = fp32(-4);
+			jumping_monkey->state = HoppingOntoMattress;
 		}
-		if (jumping_monkey->x >= min_monkey_x) {
+		break;
+	case HoppingOntoMattress:
+		jumping_monkey->x += jumping_monkey->velocity_x;
+		// Make it a quick hop since player lacks control on ascent
+		jumping_monkey->velocity_y += GravityFall;
+		jumping_monkey->y += jumping_monkey->velocity_y;
+		if (jumping_monkey->face_left
+			? (jumping_monkey->x < max_monkey_x)
+			: (jumping_monkey->x > min_monkey_x)) {
 			jumping_monkey->state = Jumping;
 		}
 		break;
 	case Dead:
 		break;
 	}
-	jumping_monkey->y += jumping_monkey->velocity_y;
+	
 	if (jumping_monkey->y > 0xa3)
 	{
 		jump_in_progress = jumping_enabled;
@@ -2450,8 +2506,8 @@ void DrawBouncingScene() {
 	if (jumping_monkey->hit_box.Intersects(fan_blade_hit_boxes[fanFrame]))
 	{
 		jumping_monkey->state = FanSmacked;
-		jumping_monkey->velocity_x = jumping_monkey->x < 0x4d ? -1 : 1;
-		jumping_monkey->velocity_y = fp32(0.1);
+		jumping_monkey->velocity_x = jumping_monkey->x < 0x4d ? -2 : 2;
+		jumping_monkey->velocity_y = 0;
 		init_audio_player(&sfx_player, 1, &SfxFan);
 		sfx_frames_remaining = SfxFan.percussions[0].length;
 	}
@@ -2722,15 +2778,15 @@ void DrawMattress() {
 
 void DrawMonkey(Monkey* monkey, uint8_t* buffer) {
 	int sprite_index = 0;
-	if (monkey->state == Jumping)
+	if (monkey->state == Jumping || monkey->state == HoppingOntoPost || monkey->state == HoppingOntoMattress)
 		sprite_index = 2;
 	else if (monkey->state == Standing)
 		sprite_index = 0;
-	else if (monkey->state == Walking || (monkey->state == ComingBack && monkey->frame == 0))
-		sprite_index = (frame >> 4) & 1;
+	else if (monkey->state == Walking || monkey->state == WalkingToEdge)
+		sprite_index = (frame >> 3) & 1;
 	else if (monkey->state == FanSmacked) {
 		monkey->frame++;
-		if (monkey->frame >= 8)
+		if (monkey->frame >= 4)
 		{
 			monkey->frame = 0;
 			monkey->animation++;
@@ -2896,7 +2952,7 @@ void DrawScores() {
 	//}
 	//for (int i = 0; i < 8; i++)
 	//{
-	//	scoreText[i+9] = (char)((uint32_t)(jumping_monkey->y.Round()) >> ((7 - i) * 4)) & 0xf;
+	//	scoreText[i+10] = (char)((uint32_t)(jumping_monkey->y.Round()) >> ((7 - i) * 4)) & 0xf;
 	//}
 	PrintText(scoreText, 0);
 }

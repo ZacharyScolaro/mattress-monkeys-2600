@@ -681,7 +681,9 @@ void play_game(int player_count){
 	play_substate = Playing;
 	joysticks = 0;
 	monkey_0.lives = 3;
+	monkey_0.score = 0;
 	monkey_1.lives = 3;
+	monkey_1.score = 0;
 	// Render loop
 	while (true) {
 		frame++;

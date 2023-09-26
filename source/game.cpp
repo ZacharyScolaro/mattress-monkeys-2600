@@ -825,7 +825,7 @@ void play_game(int player_count){
 			{
 				room_height = 175;
 				// Shake screen for fan strikes
-				if (shake_frames_remaining & 0x2)
+				if (shake_frames_remaining)
 				{
 					for (int i = 0; i < 4; i++)
 					{
@@ -936,16 +936,21 @@ int bitmap_screen(bool is_title_screen) {
 	prev_but0 = 0;
 
 	if (is_title_screen) {
+		play_state = Wide;
 		play_substate = MonkeyLanding;
 		fade_palette(16);
-		monkey_0.state = Standing;
+		monkey_0.state = WalkingToEdge;
 		monkey_0.face_left = false;
-		monkey_0.x = 60;
-		monkey_0.y = 150;
+		monkey_0.x = 0;
+		jumping_monkey->velocity_x = fp32(0.5);
+		monkey_0.y = 105;
+		jumping_monkey->velocity_y = 0;
 		monkey_1.state = Standing;
 		monkey_1.face_left = true;
-		monkey_1.x = 100;
-		monkey_1.y = 150;
+		monkey_1.x = 0;
+		monkey_1.y = 105;
+		jumping_monkey = &monkey_0;
+		standing_monkey = &monkey_1;
 	}
 	int menu_selection = 1;
 	for (uint32_t i = 0; i < sizeof(bitmap)/sizeof(bitmap[0]); i++)
@@ -971,6 +976,13 @@ int bitmap_screen(bool is_title_screen) {
 				bitmap[ix++] = MenuOptionsGraphics[menu_selection][i];
 			}
 			frame++;
+
+			if (monkey_0.state == Standing && monkey_1.x == 0) {
+				jumping_monkey = &monkey_1;
+				standing_monkey = &monkey_0;
+				jumping_monkey->state = WalkingToEdge;
+				jumping_monkey->velocity_x = fp32(-0.5);
+			}
 		}
 		else
 		{
@@ -1096,7 +1108,7 @@ int bitmap_screen(bool is_title_screen) {
 		vcsSta3(GRP0);
 		vcsSta3(GRP1);
 		vcsSta3(NUSIZ0);
-		vcsWrite5(COLUP0, monkey_0.color);
+		vcsWrite5(COLUP0, jumping_monkey->color);
 		vcsWrite5(NUSIZ1, 0x30);
 		vcsWrite5(VDELP0, 0);
 		vcsWrite5(VDELP1, 0);
@@ -1131,37 +1143,42 @@ int bitmap_screen(bool is_title_screen) {
 					menu_selection = 0;
 				}
 			}
-			if (((joy & 0x20) == 0) && (prev_joy & 0x20)) {
-				// down
-				switch (play_state) {
-				case Narrow:
-					play_state = Medium;
-					break;
-				case Medium:
-					play_state = Wide;
-					break;
-				default:
-					break;
+			if (monkey_0.state == Standing && monkey_1.state == Standing) {
+				if (((joy & 0x20) == 0) && (prev_joy & 0x20)) {
+					// down
+					switch (play_state) {
+					case Narrow:
+						play_state = Medium;
+						break;
+					case Medium:
+						play_state = Wide;
+						break;
+					default:
+						break;
+					}
 				}
-			}
-			if (((joy & 0x10) == 0) && (prev_joy & 0x10) && (play_state != max_play_state_reached)) {
-				// up
-				switch (play_state) {
-				case Wide:
-					play_state = Medium;
-					break;
-				case Medium:
-					play_state = Narrow;
-					break;
-				default:
-					break;
+				if (((joy & 0x10) == 0) && (prev_joy & 0x10) && (play_state != max_play_state_reached)) {
+					// up
+					switch (play_state) {
+					case Wide:
+						play_state = Medium;
+						break;
+					case Medium:
+						play_state = Narrow;
+						break;
+					default:
+						break;
+					}
 				}
 			}
 		}
 		prev_joy = joy;
-		if (((but0 & 0x80) == 0) && (prev_but0 & 0x80))
-		{
-			return menu_selection;
+		
+		if (!is_title_screen || (monkey_0.state == Standing && monkey_1.state == Standing)) {
+			if (((but0 & 0x80) == 0) && (prev_but0 & 0x80))
+			{
+				return menu_selection;
+			}
 		}
 		prev_but0 = but0;
 	}
@@ -2483,6 +2500,10 @@ void DrawBouncingScene() {
 		break;
 	case WalkingToEdge:
 		jumping_monkey->x += jumping_monkey->velocity_x;
+		if (jumping_monkey->x < 0)
+		{
+			jumping_monkey->x += 160;
+		}
 		if (jumping_monkey->face_left
 			? (jumping_monkey->x <= max_monkey_x + 5)
 			: (jumping_monkey->x >= min_monkey_x - 5)) {
@@ -2528,12 +2549,17 @@ void DrawBouncingScene() {
 			sfx_frames_remaining = SfxBounce.percussions[0].length;
 		}
 	}
+	else if (jumping_monkey->y > 129)
+	{
+		jumping_monkey->state = Standing;
+		jumping_monkey->velocity_x = 0;
+	}
 
 	jumping_monkey->hit_box.X = jumping_monkey->x;
 	jumping_monkey->hit_box.Y = jumping_monkey->y;
 	if (jumping_monkey->hit_box.Intersects(fan_blade_hit_boxes[fanFrame]))
 	{
-		shake_frames_remaining = 4;
+		shake_frames_remaining = 2;
 		jumping_monkey->state = FanSmacked;
 		jumping_monkey->velocity_x = jumping_monkey->x < 0x4d ? -2 : 2;
 		jumping_monkey->velocity_y = 0;

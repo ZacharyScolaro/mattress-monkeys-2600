@@ -644,9 +644,10 @@ PlayState play_state = Wide;
 PlaySubState play_substate = Playing;
 uint8_t joysticks = 0;
 auto render_bed = RenderWideBed;
-PlayState max_play_state_reached = Narrow; // TODO WIDE
+PlayState max_play_state_reached = Narrow; // TODO Wide;
 int room_height = 175;
 int shake_frames_remaining = 0;
+FP32 wave_length = 80;
 
 BoundingBox<FP32> fan_blade_hit_boxes[7] = {
 	BoundingBox<FP32>(60, 4, 0, 44, 0, 11),
@@ -1373,7 +1374,7 @@ void move_monkey(uint8_t joy, Monkey* monkey)
 		// up
 		monkey->y -= 1;
 	}
-	if (((joy & 0x2) == 0) && monkey->y < 0xa3) {
+	if (((joy & 0x2) == 0) && monkey->y < 157) {
 		// down
 		monkey->y += 1;
 	}
@@ -2408,6 +2409,12 @@ void ApplyGravity() {
 	{
 		jumping_monkey->velocity_y += GravityAscend;
 	}
+
+	FP32 TerminalVelocity = jumping_monkey->velocity_y > 120 ? fp32(3) : fp32(6);
+	if (jumping_monkey->velocity_y > TerminalVelocity)
+	{
+		jumping_monkey->velocity_y = TerminalVelocity;
+	}
 }
 
 void DrawBouncingScene() {
@@ -2533,18 +2540,18 @@ void DrawBouncingScene() {
 		shake_frames_remaining--;
 	}
 	
-	if (jumping_monkey->y > 0xa3)
+	if (jumping_monkey->y > 156)
 	{
 		jump_in_progress = jumping_enabled;
-		jumping_monkey->y = 0xa3;
+		jumping_monkey->y = 156;
 		if (jumping_enabled)
 		{
 			Monkey* temp = jumping_monkey;
 			jumping_monkey = standing_monkey;
 			standing_monkey = temp;
-			jumping_monkey->velocity_x = 0; // TODO Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x.Round()) + 3) / 4)) % 20];
+			jumping_monkey->velocity_x = fp32(-2.0) * FP32(Sine[(uint8_t)((((sine_hpos % wave_length) * 256) / wave_length)).Round()], true);
 			//uncomment this to test max jump height jumping_monkey->y = 0x80;
-			jumping_monkey->velocity_y = fp32(-7.75);// velocity_adjust * -100;// (jumping_monkey->y.Round() - 500);
+			jumping_monkey->velocity_y = fp32(-5) + (fp32(-2.75) * FP32(Sine[(uint8_t)((((sine_hpos % wave_length) * 128) / wave_length)).Round()], true));
 			jumping_monkey->state = Jumping;
 			standing_monkey->state = Standing;
 			init_audio_player(&sfx_player, 1, &SfxBounce);
@@ -2788,7 +2795,6 @@ void DrawZoomScene() {
 }
 
 void DrawMattress() {
-	FP32 wave_length = 80;
 	FP32 max_height = FP32(Sine[sine_frame], true) * fp32(16);
 	// Mattress
 	for (size_t i = 130 * 5; i < sizeof(playfieldBuffer); i++)
@@ -2801,16 +2807,16 @@ void DrawMattress() {
 		max_height = FP32(Sine[sine_frame], true) * fp32(15);
 		if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && jumping_enabled)
 		{
-			if (jumping_monkey->y > 0x92)
+			if (jumping_monkey->y > 142)
 			{
 				// Once below sine middle move wave to player
-				sine_hpos = jumping_monkey->x.Round() + (wave_length / 4);
+				sine_hpos = jumping_monkey->x.Round() + 2 + (wave_length / 4);
 			}
 			// Adjust height down to player if needed
-			FP32 height_ratio = FP32(Sine[(uint8_t)((jumping_monkey->x.Round() - sine_hpos) % wave_length).Round()], true);
-			while (max_height * height_ratio  > (164 - jumping_monkey->y.Round()))
+			FP32 height_ratio = FP32(Sine[(uint8_t)(((((jumping_monkey->x.Round()+4) - sine_hpos) % wave_length) * 256) / wave_length).Round()], true);
+			while (((max_height * height_ratio) + 15)  > (159 - jumping_monkey->y.Round()))
 			{
-				sine_frame+=4;
+				sine_frame++;
 				max_height = FP32(Sine[sine_frame], true) * fp32(15);
 			}
 		}
@@ -2821,7 +2827,7 @@ void DrawMattress() {
 
 	for (int i = bed_left; i < bed_right; i++)
 	{
-		uint8_t si = (uint8_t)(((i % wave_length) * 256) / wave_length).Round();
+		uint8_t si = (uint8_t)((((i - sine_hpos) % wave_length) * 256) / wave_length).Round();
 		int height = 15 + (FP32(Sine[si], true) * max_height).Round();
 		if (i == ((standing_monkey->x.Round()) + 3))
 		{
@@ -2892,6 +2898,7 @@ void SetVariablesFromState() {
 		max_monkey_x = 140;
 		bed_left = 16;
 		bed_right = 148;
+		wave_length = 80;
 		break;
 	case(Medium):
 		InitialColuWall = 0x9c;
@@ -2901,6 +2908,7 @@ void SetVariablesFromState() {
 		max_monkey_x = 128;
 		bed_left = 28;
 		bed_right = 136;
+		wave_length = 65;
 		break;
 	case(Narrow):
 		InitialColuWall = 0xb9;
@@ -2910,6 +2918,7 @@ void SetVariablesFromState() {
 		max_monkey_x = 116;
 		bed_left = 40;
 		bed_right = 124;
+		wave_length = 50;
 		break;
 	}
 
@@ -3014,13 +3023,17 @@ void DrawScores() {
 		scoreText[10 + i] = 18;
 	}
 	// Used when debugging
+	//auto vx = fp32(-2.0) * FP32(Sine[(uint8_t)((((sine_hpos % wave_length) * 256) / wave_length)).Round()], true);
+	////uncomment this to test max jump height jumping_monkey->y = 0x80;
+	//auto vy = fp32(-7.75) * FP32(Sine[(uint8_t)((((sine_hpos % wave_length) * 128) / wave_length)).Round()], true);
+
 	//for (int i = 0; i < 8; i++)
 	//{
-	//	scoreText[i] = (char)((uint32_t)(jumping_monkey->x.Round()) >> ((7 - i) * 4)) & 0xf;
+	//	scoreText[i] = (char)((uint32_t)(vx.Value) >> ((7 - i) * 4)) & 0xf;
 	//}
 	//for (int i = 0; i < 8; i++)
 	//{
-	//	scoreText[i+10] = (char)((uint32_t)(jumping_monkey->y.Round()) >> ((7 - i) * 4)) & 0xf;
+	//	scoreText[i + 10] = (char)((uint32_t)(vy.Value) >> ((7 - i) * 4)) & 0xf;
 	//}
 	PrintText(scoreText, 0);
 }

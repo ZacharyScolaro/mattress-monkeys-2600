@@ -450,6 +450,7 @@ void DrawMonkeys();
 void DrawScores();
 void SetVariablesFromState();
 void ApplyGravity();
+void place_monkey_on_post();
 
 #if 1
 // Gopher
@@ -586,6 +587,7 @@ Narrow,
 };
 
 enum PlaySubState {
+	NotPlaying, // Hold monkeys in place for title screen and level transitions
 	Playing,
 	FlyExit,
 	MonkeyLanding,
@@ -691,6 +693,8 @@ void play_game(int player_count){
 			break;
 		//Check for state changes
 		switch (play_substate) {
+		case NotPlaying:
+			break;
 		case Playing:
 			if (monkey_0.score > 5 * (1 + (int)play_state))
 				play_substate = FlyExit;
@@ -728,6 +732,10 @@ void play_game(int player_count){
 					max_play_state_reached = play_state = Medium;
 				else if (play_state == Medium)
 					max_play_state_reached = play_state = Narrow;
+				place_monkey_on_post();
+				standing_monkey->face_left = !jumping_monkey->face_left;
+				standing_monkey->x = 88;
+				standing_monkey->state = Standing;
 			}
 		case FadingIn:
 			if (fade_level == 16)
@@ -939,23 +947,17 @@ int bitmap_screen(bool is_title_screen) {
 
 	if (is_title_screen) {
 		play_state = Wide;
-		play_substate = MonkeyLanding;
+		play_substate = NotPlaying;
 		fade_palette(16);
-		monkey_0.state = WalkingToEdge;
-		monkey_0.face_left = false;
-		monkey_0.x = 0;
-		jumping_monkey->velocity_x = fp32(0.5);
-		monkey_0.y = 105;
-		jumping_monkey->velocity_y = 0;
-		monkey_1.state = Standing;
-		monkey_1.face_left = true;
-		monkey_1.x = 0;
-		monkey_1.y = 105;
 		jumping_monkey = &monkey_0;
 		standing_monkey = &monkey_1;
+		monkey_1.state = Standing;
+		monkey_1.face_left = true;
+		monkey_1.x = 100;
+		monkey_1.y = 145;
 	}
 	int menu_selection = 1;
-	for (uint32_t i = 0; i < sizeof(bitmap)/sizeof(bitmap[0]); i++)
+	for (uint32_t i = 0; i < sizeof(bitmap) / sizeof(bitmap[0]); i++)
 	{
 		bitmap[i] = 0;
 	}
@@ -978,13 +980,7 @@ int bitmap_screen(bool is_title_screen) {
 				bitmap[ix++] = MenuOptionsGraphics[menu_selection][i];
 			}
 			frame++;
-
-			if (monkey_0.state == Standing && monkey_1.x == 0) {
-				jumping_monkey = &monkey_1;
-				standing_monkey = &monkey_0;
-				jumping_monkey->state = WalkingToEdge;
-				jumping_monkey->velocity_x = fp32(-0.5);
-			}
+			place_monkey_on_post();
 		}
 		else
 		{
@@ -1010,7 +1006,7 @@ int bitmap_screen(bool is_title_screen) {
 			grp0Buffer[i] = 0;
 			grp1Buffer[i] = 0;
 		}
-		
+
 		DrawBouncingScene();
 
 		if (is_title_screen || bitmap_frame & 0x40) {
@@ -1145,42 +1141,38 @@ int bitmap_screen(bool is_title_screen) {
 					menu_selection = 0;
 				}
 			}
-			if (monkey_0.state == Standing && monkey_1.state == Standing) {
-				if (((joy & 0x20) == 0) && (prev_joy & 0x20)) {
-					// down
-					switch (play_state) {
-					case Narrow:
-						play_state = Medium;
-						break;
-					case Medium:
-						play_state = Wide;
-						break;
-					default:
-						break;
-					}
+			if (((joy & 0x20) == 0) && (prev_joy & 0x20)) {
+				// down
+				switch (play_state) {
+				case Narrow:
+					play_state = Medium;
+					break;
+				case Medium:
+					play_state = Wide;
+					break;
+				default:
+					break;
 				}
-				if (((joy & 0x10) == 0) && (prev_joy & 0x10) && (play_state != max_play_state_reached)) {
-					// up
-					switch (play_state) {
-					case Wide:
-						play_state = Medium;
-						break;
-					case Medium:
-						play_state = Narrow;
-						break;
-					default:
-						break;
-					}
+			}
+			if (((joy & 0x10) == 0) && (prev_joy & 0x10) && (play_state != max_play_state_reached)) {
+				// up
+				switch (play_state) {
+				case Wide:
+					play_state = Medium;
+					break;
+				case Medium:
+					play_state = Narrow;
+					break;
+				default:
+					break;
 				}
 			}
 		}
 		prev_joy = joy;
-		
-		if (!is_title_screen || (monkey_0.state == Standing && monkey_1.state == Standing)) {
-			if (((but0 & 0x80) == 0) && (prev_but0 & 0x80))
-			{
-				return menu_selection;
-			}
+
+		if (((but0 & 0x80) == 0) && (prev_but0 & 0x80))
+		{
+			return menu_selection;
 		}
 		prev_but0 = but0;
 	}
@@ -2490,7 +2482,6 @@ void DrawBouncingScene() {
 				? (jumping_monkey->x <= max_monkey_x + 16)
 				: (jumping_monkey->x >= min_monkey_x - 16)) {
 				jumping_monkey->velocity_y = 0;
-				jumping_monkey->velocity_x = jumping_monkey->face_left ? fp32(-0.25) : fp32(0.25);
 				jumping_monkey->state = WalkingToEdge;
 			}
 			else {
@@ -2501,17 +2492,28 @@ void DrawBouncingScene() {
 		}
 		break;
 	case WalkingToEdge:
-		jumping_monkey->x += jumping_monkey->velocity_x;
-		if (jumping_monkey->x < 0)
+		switch (play_substate)
 		{
-			jumping_monkey->x += 160;
-		}
-		if (jumping_monkey->face_left
-			? (jumping_monkey->x <= max_monkey_x + 5)
-			: (jumping_monkey->x >= min_monkey_x - 5)) {
-			jumping_monkey->velocity_x = jumping_monkey->face_left ? fp32(-1.5) : fp32(1.5);
-			jumping_monkey->velocity_y = fp32(-4);
-			jumping_monkey->state = HoppingOntoMattress;
+		case Playing:
+		case FlyExit:
+		case MonkeyLanding:
+			jumping_monkey->velocity_x = jumping_monkey->face_left ? fp32(-0.25) : fp32(0.25);
+			jumping_monkey->x += jumping_monkey->velocity_x;
+			if (jumping_monkey->x < 0)
+			{
+				jumping_monkey->x += 160;
+			}
+			if (jumping_monkey->face_left
+				? (jumping_monkey->x <= max_monkey_x + 3)
+				: (jumping_monkey->x >= min_monkey_x - 3)) {
+				jumping_monkey->velocity_x = jumping_monkey->face_left ? fp32(-1.5) : fp32(1.5);
+				jumping_monkey->velocity_y = fp32(-4);
+				jumping_monkey->state = HoppingOntoMattress;
+				jump_in_progress = true;
+			}
+			break;
+		default:
+			break;
 		}
 		break;
 	case HoppingOntoMattress:
@@ -2519,9 +2521,7 @@ void DrawBouncingScene() {
 		// Make it a quick hop since player lacks control on ascent
 		jumping_monkey->velocity_y += GravityFall;
 		jumping_monkey->y += jumping_monkey->velocity_y;
-		if (jumping_monkey->face_left
-			? (jumping_monkey->x < max_monkey_x)
-			: (jumping_monkey->x > min_monkey_x)) {
+		if (jumping_monkey->y > 130) {
 			jumping_monkey->state = Jumping;
 		}
 		break;
@@ -2837,7 +2837,7 @@ void DrawMonkey(Monkey* monkey, uint8_t* buffer) {
 	int sprite_index = 0;
 	if (monkey->state == Jumping || monkey->state == HoppingOntoPost || monkey->state == HoppingOntoMattress)
 		sprite_index = 2;
-	else if (monkey->state == Standing)
+	else if (monkey->state == Standing || play_substate == NotPlaying)
 		sprite_index = 0;
 	else if (monkey->state == Walking || monkey->state == WalkingToEdge)
 		sprite_index = (frame >> 3) & 1;
@@ -2906,6 +2906,9 @@ void SetVariablesFromState() {
 	}
 
 	switch (play_substate) {
+	case NotPlaying:
+		// currently set elsewhere, may want to move to here in future
+		break;
 	case Playing:
 		show_challenge_wall = false;
 		bonus_enabled = true;
@@ -3012,4 +3015,14 @@ void DrawScores() {
 	//	scoreText[i+10] = (char)((uint32_t)(jumping_monkey->y.Round()) >> ((7 - i) * 4)) & 0xf;
 	//}
 	PrintText(scoreText, 0);
+}
+
+void place_monkey_on_post() {
+	SetVariablesFromState();
+	jumping_monkey->face_left = (jumping_monkey == &monkey_1);
+	jumping_monkey->x = jumping_monkey->face_left ? max_monkey_x + 7 : min_monkey_x - 7;
+	jumping_monkey->y = 105;
+	jumping_monkey->velocity_y = 0;
+	jumping_monkey->state = WalkingToEdge;
+	jump_in_progress = true;
 }

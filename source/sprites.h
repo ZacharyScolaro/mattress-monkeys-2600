@@ -55,8 +55,6 @@ extern const uint8_t FlyGraphics[2][11];
 
 extern const uint8_t FlyColu[2][11];
 
-extern const uint8_t SineTables[32][80];
-
 extern const uint8_t kernel_7800[549];
 
 
@@ -98,7 +96,7 @@ extern const track_t SfxBounce;
 extern const track_t SfxBonus;
 extern const track_t SfxFly;
 extern const track_t SfxFan;
-extern const FP32 Sine[256];
+extern const int32_t Sine[256];
 
 
 #endif // SPRITES_H

@@ -622,8 +622,8 @@ size_t fly_loop_index = 0;
 track_player sfx_player;
 track_player* chan1_player;
 int sfx_frames_remaining = 0;
-int sine_frame = 0;
-int sine_hpos = 20;
+uint8_t sine_frame = 0;
+FP32 sine_hpos = 20;
 Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false };
 Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0,.animation = 0, .lives = 3, .face_left = true };
 Monkey* jumping_monkey = &monkey_0;
@@ -636,8 +636,8 @@ BoundingBox<FP32> fly_top_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
 BoundingBox<FP32> fly_bot_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
 BoundingBox<FP32> banana_hit_box = BoundingBox<FP32>(77, 33, 0, 7, 0, 13);
 uint8_t fade_level = 16;
-int bed_left = 10; 
-int bed_right = 31;
+int bed_left = 40; 
+int bed_right = 124;
 bool button_down_event = false;
 uint8_t but0 = 0, prev_but0 = 0;
 PlayState play_state = Wide;
@@ -2542,7 +2542,7 @@ void DrawBouncingScene() {
 			Monkey* temp = jumping_monkey;
 			jumping_monkey = standing_monkey;
 			standing_monkey = temp;
-			jumping_monkey->velocity_x = Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x.Round()) + 3) / 4)) % 20];
+			jumping_monkey->velocity_x = 0; // TODO Initial_X_Velocity_Lookup[((sine_hpos + 105) - (((standing_monkey->x.Round()) + 3) / 4)) % 20];
 			//uncomment this to test max jump height jumping_monkey->y = 0x80;
 			jumping_monkey->velocity_y = fp32(-7.75);// velocity_adjust * -100;// (jumping_monkey->y.Round() - 500);
 			jumping_monkey->state = Jumping;
@@ -2551,7 +2551,7 @@ void DrawBouncingScene() {
 			sfx_frames_remaining = SfxBounce.percussions[0].length;
 		}
 	}
-	else if (jumping_monkey->y > 129)
+	else if (jumping_monkey->y > 129 && jumping_monkey->velocity_y > 0)
 	{
 		jumping_monkey->state = Standing;
 		jumping_monkey->velocity_x = 0;
@@ -2788,47 +2788,55 @@ void DrawZoomScene() {
 }
 
 void DrawMattress() {
+	FP32 wave_length = 80;
+	FP32 max_height = FP32(Sine[sine_frame], true) * fp32(16);
 	// Mattress
 	for (size_t i = 130 * 5; i < sizeof(playfieldBuffer); i++)
 	{
 		playfieldBuffer[i] = 0;
 	}
-	if ((frame & 0x01) == 0)
+	if (jumping_monkey->state != Dead)
 	{
-		sine_frame++;
+		sine_frame+=6;
+		max_height = FP32(Sine[sine_frame], true) * fp32(15);
 		if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && jumping_enabled)
 		{
 			if (jumping_monkey->y > 0x92)
 			{
 				// Once below sine middle move wave to player
-				sine_hpos = 34 - ((jumping_monkey->x.Round()) - 2) / 4;
+				sine_hpos = jumping_monkey->x.Round() + (wave_length / 4);
 			}
 			// Adjust height down to player if needed
-			while (SineTables[sine_frame & 0x1f][((jumping_monkey->x.Round()) / 4) + sine_hpos] > (164 - jumping_monkey->y.Round()))
+			FP32 height_ratio = FP32(Sine[(uint8_t)((jumping_monkey->x.Round() - sine_hpos) % wave_length).Round()], true);
+			while (max_height * height_ratio  > (164 - jumping_monkey->y.Round()))
 			{
-				sine_frame++;
+				sine_frame+=4;
+				max_height = FP32(Sine[sine_frame], true) * fp32(15);
 			}
 		}
 		else
 		{
 		}
-		sine_frame &= 0x1f;
 	}
 
 	for (int i = bed_left; i < bed_right; i++)
 	{
-		int height = SineTables[sine_frame][i + sine_hpos]; //frame & 0x1f
-		if (i == ((standing_monkey->x.Round()) + 3) / 4)
+		uint8_t si = (uint8_t)(((i % wave_length) * 256) / wave_length).Round();
+		int height = 15 + (FP32(Sine[si], true) * max_height).Round();
+		if (i == ((standing_monkey->x.Round()) + 3))
 		{
-			standing_monkey->y = 160 - height;
+			standing_monkey->y = 158 - height;
 		}
-		if (!jump_in_progress && (i == ((jumping_monkey->x.Round()) + 3) / 4))
+		if (!jump_in_progress && (i == ((jumping_monkey->x.Round()) + 3)))
 		{
-			jumping_monkey->y = 160 - height;
+			jumping_monkey->y = 158 - height;
 		}
-		for (int j = 0; j <= height; j++)
+		if ((i & 0x3) == 0)
 		{
-			setPF(i, 169 - j);
+			for (int j = 0; j <= height; j++)
+			{
+				setPF(i/4, 169 - j);
+			}
 		}
 	}
 }
@@ -2882,8 +2890,8 @@ void SetVariablesFromState() {
 		render_bed = RenderWideBed;
 		min_monkey_x = 16;
 		max_monkey_x = 140;
-		bed_left = 4;
-		bed_right = 37;
+		bed_left = 16;
+		bed_right = 148;
 		break;
 	case(Medium):
 		InitialColuWall = 0x9c;
@@ -2891,8 +2899,8 @@ void SetVariablesFromState() {
 		render_bed = RenderMediumBed;
 		min_monkey_x = 28;
 		max_monkey_x = 128;
-		bed_left = 7;
-		bed_right = 34;
+		bed_left = 28;
+		bed_right = 136;
 		break;
 	case(Narrow):
 		InitialColuWall = 0xb9;
@@ -2900,8 +2908,8 @@ void SetVariablesFromState() {
 		render_bed = RenderNarrowBed;
 		min_monkey_x = 40;
 		max_monkey_x = 116;
-		bed_left = 10;
-		bed_right = 31;
+		bed_left = 40;
+		bed_right = 124;
 		break;
 	}
 

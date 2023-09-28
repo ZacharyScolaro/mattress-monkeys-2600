@@ -159,11 +159,11 @@ def bin_to_c_array(f_header, f_source, bin_path, array_name):
 def make_sine_lookup_table(f_header, f_source, array_name, count):
 	sines = []
 	for i in range(0,count):
-		sines.append("fp32(" + str(math.sin(i*math.pi/count)) + ")")
+		sines.append(str(int(math.sin(i*2*math.pi/count) * 0x10000)))
 
-	f_header.write('\nextern const FP32 ' + array_name +'['+ str(count) +'];\n');
+	f_header.write('\nextern const int32_t ' + array_name +'['+ str(count) +'];\n');
 	
-	f_source.write('\nconst FP32 ' + array_name +'['+ str(count) +'] = { ');
+	f_source.write('\nconst int32_t ' + array_name +'['+ str(count) +'] = { ');
 	f_source.write(', '.join(sines))
 	f_source.write(' };');
 
@@ -402,7 +402,7 @@ parse_sprite_strip(f_header, f_source, 'challenge-monkey-hand-open.png', 'Monkey
 parse_sprite_strip(f_header, f_source, 'challenge-bubbles-sprites.png', 'Bubble', 8, 15, 7, 1, 1, 1, 0, None, 1)
 parse_sprite_strip(f_header, f_source, 'challenge-fly-2cycle.png', 'Fly', 8, 11, 2, 1, 1, 0, 0, None)
 
-generate_sine_tables(f_header, f_source)
+# TODO DEPRECATE THIS FUCNTION generate_sine_tables(f_header, f_source)
 
 bin_to_c_array(f_header, f_source, 'kernel_7800.bin', 'kernel_7800')
 

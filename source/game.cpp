@@ -969,13 +969,13 @@ int bitmap_screen(bool is_title_screen) {
 		int line = 0;
 		if (is_title_screen) {
 			ix = 6 * 19; // vertical position of title art
-			for (int i = 0; i < 6 * 32; i++)
+			for (unsigned int i = 0; i < sizeof(TitleArtGraphics[0]); i++)
 			{
-				bitmap[ix++] = TitleArtGraphics[i];
+				bitmap[ix++] = TitleArtGraphics[(frame >> 3 & 1)][i];
 			}
 
-			ix += 6 * 5; // vertical gap before selection menu
-			for (int i = 0; i < 6 * 5; i++)
+			ix = 6 * 54; // vertical gap before selection menu
+			for (unsigned int i = 0; i < sizeof(MenuOptionsGraphics[0]); i++)
 			{
 				bitmap[ix++] = MenuOptionsGraphics[menu_selection][i];
 			}
@@ -986,8 +986,8 @@ int bitmap_screen(bool is_title_screen) {
 		{
 			frame = 1;
 			bitmap_frame++;
-			ix = 6 * 36; // vertical position of Game Over sprite
-			for (int i = 0; i < 6 * 5; i++)
+			ix = 6 * 20; // vertical position of Game Over sprite
+			for (unsigned int i = 0; i < sizeof(GameOverGraphics); i++)
 			{
 				bitmap[ix++] = GameOverGraphics[i];
 			}

@@ -8,6 +8,7 @@
 
 int min_monkey_x = 16;
 int max_monkey_x = 140;
+int shake_frames_remaining = 0;
 
 int monkey_y_hwm = 0;
 
@@ -565,7 +566,7 @@ void fade_color(uint8_t& faded_color, uint8_t original_color, uint8_t level)
 void fade_palette(uint8_t fade_level) {
 	// Do fading first so it takes effect everywhere this frame
 	fade_color(ColuCeiling, InitialColuCeiling, fade_level);
-	fade_color(ColuWall, InitialColuWall, fade_level);
+	fade_color(ColuWall, shake_frames_remaining ? 0x42 : InitialColuWall, fade_level);
 	fade_color(ColuFloor, InitialColuFloor, fade_level);
 	fade_color(ColuSheet, InitialColuSheet, fade_level);
 	fade_color(ColuMattress, InitialColuMattress, fade_level);
@@ -646,7 +647,6 @@ uint8_t joysticks = 0;
 auto render_bed = RenderWideBed;
 PlayState max_play_state_reached = Narrow; // TODO Wide;
 int room_height = 175;
-int shake_frames_remaining = 0;
 FP32 wave_length = 80;
 
 BoundingBox<FP32> fan_blade_hit_boxes[7] = {

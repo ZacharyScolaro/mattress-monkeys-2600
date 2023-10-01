@@ -452,6 +452,8 @@ void DrawScores();
 void SetVariablesFromState();
 void ApplyGravity();
 void place_monkey_on_post();
+void writeAudio30();
+void next_audio_frame();
 
 #if 1
 // Gopher
@@ -751,18 +753,7 @@ void play_game(int player_count){
 
 		fade_palette(fade_level);
 
-		next_audio_frame(&audio_player0);
-		next_audio_frame(&audio_player1);
-		if (sfx_frames_remaining > 0)
-		{
-			sfx_frames_remaining--;
-			next_audio_frame(&sfx_player);
-			chan1_player = &sfx_player;
-		}
-		else
-		{
-			chan1_player = &audio_player1;
-		}
+		next_audio_frame();
 
 		if (challenge_mode) {
 			DrawChallengeScreen();
@@ -795,12 +786,7 @@ void play_game(int player_count){
 		{
 			vcsEndOverblank();
 			vcsSta3(WSYNC);
-			vcsWrite5(AUDC0, audio_player0.control);
-			vcsWrite5(AUDV0, audio_player0.volume);
-			vcsWrite5(AUDF0, audio_player0.frequency);
-			vcsWrite5(AUDC1, chan1_player->control);
-			vcsWrite5(AUDV1, chan1_player->volume);
-			vcsWrite5(AUDF1, chan1_player->frequency);
+			writeAudio30();
 			vcsSta3(WSYNC); vcsSta3(WSYNC);
 
 
@@ -994,8 +980,7 @@ int bitmap_screen(bool is_title_screen) {
 			}
 		}
 
-		next_audio_frame(&audio_player0);
-		next_audio_frame(&audio_player1);
+		next_audio_frame();
 
 		SetVariablesFromState();
 		ColuWall = InitialColuWall;
@@ -1026,12 +1011,7 @@ int bitmap_screen(bool is_title_screen) {
 
 		ix = 18;
 		vcsEndOverblank();
-		vcsWrite5(AUDC0, audio_player0.control);
-		vcsWrite5(AUDV0, audio_player0.volume);
-		vcsWrite5(AUDF0, audio_player0.frequency);
-		vcsWrite5(AUDC1, audio_player1.control);
-		vcsWrite5(AUDV1, audio_player1.volume);
-		vcsWrite5(AUDF1, audio_player1.frequency);
+		writeAudio30();
 		vcsWrite5(COLUP0, 0);
 		vcsSta3(COLUP1);
 		vcsSta3(PF0);
@@ -1133,6 +1113,8 @@ int bitmap_screen(bool is_title_screen) {
 					menu_selection = sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0]);
 				}
 				menu_selection--;
+				init_audio_player(&sfx_player, 1, &SfxBounce);
+				sfx_frames_remaining = SfxBounce.percussions[0].length;
 			}
 			if (((joy & 0x80) == 0) && (prev_joy & 0x80)) {
 				// right
@@ -1141,6 +1123,8 @@ int bitmap_screen(bool is_title_screen) {
 				{
 					menu_selection = 0;
 				}
+				init_audio_player(&sfx_player, 1, &SfxBounce);
+				sfx_frames_remaining = SfxBounce.percussions[0].length;
 			}
 			if (((joy & 0x20) == 0) && (prev_joy & 0x20)) {
 				// down
@@ -1191,8 +1175,7 @@ void show_credits() {
 	uint8_t prev_but0 = 0;
 	while (true)
 	{
-		next_audio_frame(&audio_player0);
-		next_audio_frame(&audio_player1);
+		next_audio_frame();
 		int text_line = 0;
 		PrintText("Design            ", text_line++);
 		PrintText("  Mathew Halpern  ", text_line++);
@@ -1208,12 +1191,7 @@ void show_credits() {
 
 		vcsEndOverblank();
 		vcsSta3(WSYNC);
-		vcsWrite5(AUDC0, audio_player0.control);
-		vcsWrite5(AUDV0, audio_player0.volume);
-		vcsWrite5(AUDF0, audio_player0.frequency);
-		vcsWrite5(AUDC1, audio_player1.control);
-		vcsWrite5(AUDV1, audio_player1.volume);
-		vcsWrite5(AUDF1, audio_player1.frequency);
+		writeAudio30();
 		vcsSta3(WSYNC);
 		vcsLda2(ColuWall);
 		vcsSta3(COLUBK);
@@ -1265,17 +1243,11 @@ void show_previews() {
 			frameCount = 0;
 			tenthCount++;
 		}
-		next_audio_frame(&audio_player0);
-		next_audio_frame(&audio_player1);
+		next_audio_frame();
 
 		vcsEndOverblank();
 		vcsSta3(WSYNC);
-		vcsWrite5(AUDC0, audio_player0.control);
-		vcsWrite5(AUDV0, audio_player0.volume);
-		vcsWrite5(AUDF0, audio_player0.frequency);
-		vcsWrite5(AUDC1, audio_player1.control);
-		vcsWrite5(AUDV1, audio_player1.volume);
-		vcsWrite5(AUDF1, audio_player1.frequency);
+		writeAudio30();
 		vcsSta3(WSYNC);
 
 		vcsSta3(WSYNC);
@@ -1681,12 +1653,8 @@ void DrawChallengeScreen() {
 void RenderChallengeScreen(){
 			int line = 0;
 		vcsEndOverblank();
-		vcsWrite5(AUDC0, audio_player0.control);
-		vcsWrite5(AUDV0, audio_player0.volume);
-		vcsWrite5(AUDF0, audio_player0.frequency);
-		vcsWrite5(AUDC1, audio_player1.control);
-		vcsWrite5(AUDV1, audio_player1.volume);
-		vcsWrite5(AUDF1, audio_player1.frequency);
+		writeAudio30();
+
 
 		vcsSta3(WSYNC);
 		PositionObject(line, 30, RESP0, HMP0);
@@ -3046,4 +3014,33 @@ void place_monkey_on_post() {
 	jumping_monkey->velocity_y = 0;
 	jumping_monkey->state = WalkingToEdge;
 	jump_in_progress = true;
+}
+
+void writeAudio30()
+{
+	// Channel 0 is always music
+	vcsWrite5(AUDC0, audio_player0.control);
+	vcsWrite5(AUDV0, audio_player0.volume);
+	vcsWrite5(AUDF0, audio_player0.frequency);
+	// Channel 1 is either music or SFX
+	vcsWrite5(AUDC1, chan1_player->control);
+	vcsWrite5(AUDV1, chan1_player->volume);
+	vcsWrite5(AUDF1, chan1_player->frequency);
+}
+
+void next_audio_frame() {
+	// Always move music to next frame, even when SFX is playing
+	next_audio_frame(&audio_player0);
+	next_audio_frame(&audio_player1);
+	// If SFX is playing, move it to the next frame
+	if (sfx_frames_remaining > 0)
+	{
+		sfx_frames_remaining--;
+		next_audio_frame(&sfx_player);
+		chan1_player = &sfx_player; // point channel 1 to SFX
+	}
+	else
+	{
+		chan1_player = &audio_player1; // point channel 1 to music
+	}
 }

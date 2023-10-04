@@ -2378,7 +2378,7 @@ void ApplyGravity() {
 		jumping_monkey->velocity_y += GravityAscend;
 	}
 
-	FP32 TerminalVelocity = jumping_monkey->velocity_y > 120 ? fp32(3) : fp32(6);
+	FP32 TerminalVelocity = jumping_monkey->y > 120 ? fp32(2.5) : fp32(5);
 	if (jumping_monkey->velocity_y > TerminalVelocity)
 	{
 		jumping_monkey->velocity_y = TerminalVelocity;
@@ -2528,7 +2528,6 @@ void DrawBouncingScene() {
 	}
 	else if (jumping_monkey->y > 129 && jumping_monkey->velocity_y > 0)
 	{
-		jumping_monkey->state = Standing;
 		jumping_monkey->velocity_x = 0;
 	}
 
@@ -2776,10 +2775,10 @@ void DrawMattress() {
 		if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && jumping_enabled)
 		{
 			if (jumping_monkey->y > 142)
-			{
+		{
 				// Once below sine middle move wave to player
 				sine_hpos = jumping_monkey->x.Round() + 2 + (wave_length / 4);
-			}
+		}
 			// Adjust height down to player if needed
 			FP32 height_ratio = FP32(Sine[(uint8_t)(((((jumping_monkey->x.Round()+4) - sine_hpos) % wave_length) * 256) / wave_length).Round()], true);
 			while (((max_height * height_ratio) + 15)  > (159 - jumping_monkey->y.Round()))
@@ -2790,7 +2789,7 @@ void DrawMattress() {
 		}
 		else
 		{
-		}
+	}
 	}
 
 	for (int i = bed_left; i < bed_right; i++)

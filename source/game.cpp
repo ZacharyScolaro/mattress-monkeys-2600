@@ -10,6 +10,7 @@ int min_monkey_x = 16;
 int max_monkey_x = 140;
 int shake_frames_remaining = 0;
 
+int monkey_y_lwm = 500;
 int monkey_y_hwm = 0;
 
 uint8_t zoom_level = 0;
@@ -409,6 +410,7 @@ public:
 	int animation;
 	int lives;
 	bool face_left;
+	bool bottomed_out;
 };
 
 __attribute__((section(".noinit")))
@@ -627,14 +629,15 @@ track_player* chan1_player;
 int sfx_frames_remaining = 0;
 uint8_t sine_frame = 0;
 FP32 sine_hpos = 20;
-Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false };
-Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0,.animation = 0, .lives = 3, .face_left = true };
+Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false, .bottomed_out = false };
+Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0,.animation = 0, .lives = 3, .face_left = true, .bottomed_out = false };
 Monkey* jumping_monkey = &monkey_0;
 Monkey* standing_monkey = &monkey_1;
 Monkey* p0_monkey = &monkey_0;
 Monkey* p1_monkey = &monkey_1;
 FP32 GravityAscend = fp32(0.24);
 FP32 GravityFall = fp32(0.5);
+FP32 MattressFriction = fp32(-0.3);
 BoundingBox<FP32> fly_top_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
 BoundingBox<FP32> fly_bot_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
 BoundingBox<FP32> banana_hit_box = BoundingBox<FP32>(77, 33, 0, 7, 0, 13);
@@ -699,9 +702,13 @@ void play_game(int player_count){
 		case NotPlaying:
 			break;
 		case Playing:
-			if (monkey_0.score > 5 * (1 + (int)play_state))
+		{
+			auto challenge_threshold = 5; // Challenge screen activates after each multiple of the threshold
+			auto hs = monkey_0.score > monkey_1.score ? monkey_0.score : monkey_1.score;
+			if (hs > challenge_threshold * (1 + (int)play_state))
 				play_substate = FlyExit;
-			break;
+			break; 
+		}
 		case FlyExit:
 			if (!fly_top_spawned && !fly_bot_spawned)
 			{
@@ -2370,15 +2377,24 @@ void RenderZoomScreen(int& line, int line_limit) {
 void ApplyGravity() {
 	if (jumping_monkey->velocity_y > 0)
 	{
-		// Fall faster than ascent
-		jumping_monkey->velocity_y += GravityFall;
+		// Slow as bottom of mattress is approached
+		if (jumping_monkey->y > 130)
+		{
+			if(jumping_monkey->velocity_y > fp32(0.75))
+				jumping_monkey->velocity_y += MattressFriction;
+		}
+		else
+		{
+			// Fall faster than ascent
+			jumping_monkey->velocity_y += GravityFall;
+		}
 	}
 	else
 	{
 		jumping_monkey->velocity_y += GravityAscend;
 	}
 
-	FP32 TerminalVelocity = jumping_monkey->y > 120 ? fp32(2.5) : fp32(5);
+	FP32 TerminalVelocity =  fp32(4);
 	if (jumping_monkey->velocity_y > TerminalVelocity)
 	{
 		jumping_monkey->velocity_y = TerminalVelocity;
@@ -2508,23 +2524,35 @@ void DrawBouncingScene() {
 		shake_frames_remaining--;
 	}
 	
-	if (jumping_monkey->y > 156)
+	if (jumping_monkey->bottomed_out)
 	{
+		jumping_monkey->bottomed_out = false;
 		jump_in_progress = jumping_enabled;
-		jumping_monkey->y = 156;
 		if (jumping_enabled)
 		{
+			auto lv = (standing_monkey->x.Round() + 2 + (wave_length / 4)) - sine_hpos;
+			auto vx = fp32(-1.25) * FP32(Sine[(uint8_t)((((lv % wave_length) * 256) / wave_length)).Round()], true);
+			auto vy = fp32(-7) + (fp32(-0.6) * FP32(Sine[(uint8_t)((((lv % wave_length) * 128) / wave_length)).Round()], true));
+
 			Monkey* temp = jumping_monkey;
 			jumping_monkey = standing_monkey;
 			standing_monkey = temp;
-			jumping_monkey->velocity_x = fp32(-2.0) * FP32(Sine[(uint8_t)((((sine_hpos % wave_length) * 256) / wave_length)).Round()], true);
-			//uncomment this to test max jump height jumping_monkey->y = 0x80;
-			jumping_monkey->velocity_y = fp32(-5) + (fp32(-2.75) * FP32(Sine[(uint8_t)((((sine_hpos % wave_length) * 128) / wave_length)).Round()], true));
+			jumping_monkey->velocity_x = vx;
+			jumping_monkey->velocity_y = vy;
 			jumping_monkey->state = Jumping;
 			standing_monkey->state = Standing;
 			init_audio_player(&sfx_player, 1, &SfxBounce);
 			sfx_frames_remaining = SfxBounce.percussions[0].length;
 		}
+		else
+		{
+			jumping_monkey->state = Standing;
+		}
+	}
+	else if (jumping_monkey->y > 158)
+	{
+		jumping_monkey->y = 158;
+		jumping_monkey->bottomed_out = true;
 	}
 	else if (jumping_monkey->y > 129 && jumping_monkey->velocity_y > 0)
 	{
@@ -2643,9 +2671,13 @@ void DrawBouncingScene() {
 
 	DrawMattress();
 
-	if (jumping_monkey->y > monkey_y_hwm)
+	if (standing_monkey->y > monkey_y_hwm)
 	{
-		monkey_y_hwm = jumping_monkey->y.Round();
+		monkey_y_hwm = standing_monkey->y.Round();
+	}
+	if (standing_monkey->y < monkey_y_lwm)
+	{
+		monkey_y_lwm = standing_monkey->y.Round();
 	}
 
 	DrawMonkeys();
@@ -2770,18 +2802,18 @@ void DrawMattress() {
 	}
 	if (jumping_monkey->state != Dead)
 	{
-		sine_frame+=6;
+		sine_frame += 4;
 		max_height = FP32(Sine[sine_frame], true) * fp32(15);
-		if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && jumping_enabled)
+		if (jumping_monkey->y > 129 && jumping_monkey->y < 0xa4 && jump_in_progress)
 		{
 			if (jumping_monkey->y > 142)
-		{
+			{
 				// Once below sine middle move wave to player
 				sine_hpos = jumping_monkey->x.Round() + 2 + (wave_length / 4);
-		}
+			}
 			// Adjust height down to player if needed
-			FP32 height_ratio = FP32(Sine[(uint8_t)(((((jumping_monkey->x.Round()+4) - sine_hpos) % wave_length) * 256) / wave_length).Round()], true);
-			while (((max_height * height_ratio) + 15)  > (159 - jumping_monkey->y.Round()))
+			FP32 height_ratio = FP32(Sine[(uint8_t)(((((jumping_monkey->x.Round() + 4) - sine_hpos) % wave_length) * 256) / wave_length).Round()], true);
+			while (((max_height * height_ratio) + 15) > (159 - jumping_monkey->y.Round()))
 			{
 				sine_frame++;
 				max_height = FP32(Sine[sine_frame], true) * fp32(15);
@@ -2789,7 +2821,7 @@ void DrawMattress() {
 		}
 		else
 		{
-	}
+		}
 	}
 
 	for (int i = bed_left; i < bed_right; i++)
@@ -2990,17 +3022,13 @@ void DrawScores() {
 		scoreText[10 + i] = 18;
 	}
 	// Used when debugging
-	//auto vx = fp32(-2.0) * FP32(Sine[(uint8_t)((((sine_hpos % wave_length) * 256) / wave_length)).Round()], true);
-	////uncomment this to test max jump height jumping_monkey->y = 0x80;
-	//auto vy = fp32(-7.75) * FP32(Sine[(uint8_t)((((sine_hpos % wave_length) * 128) / wave_length)).Round()], true);
-
 	//for (int i = 0; i < 8; i++)
 	//{
-	//	scoreText[i] = (char)((uint32_t)(vx.Value) >> ((7 - i) * 4)) & 0xf;
+	//	scoreText[i] = (char)((uint32_t)(jumping_monkey->y.Round()) >> ((7 - i) * 4)) & 0xf;
 	//}
 	//for (int i = 0; i < 8; i++)
 	//{
-	//	scoreText[i + 10] = (char)((uint32_t)(vy.Value) >> ((7 - i) * 4)) & 0xf;
+	//	scoreText[i + 10] = (char)((uint32_t)(monkey_y_hwm) >> ((7 - i) * 4)) & 0xf;
 	//}
 	PrintText(scoreText, 0);
 }

@@ -13,6 +13,8 @@ int shake_frames_remaining = 0;
 int monkey_y_lwm = 500;
 int monkey_y_hwm = 0;
 
+int bubble_index = 0;
+int bubble_offset = 0;
 uint8_t zoom_level = 0;
 
 static uint8_t InitialColuWall = 0x6a						;
@@ -384,6 +386,24 @@ public:
 	}
 };
 
+enum BubbleState {
+	LargeBubble,
+	MediumBubble,
+	SmallBubble,
+	Popping0,
+	Popping1,
+	Popping2,
+	PopppedPoints,
+	Popped,
+};
+
+struct Bubble {
+	int x;
+	BubbleState state;
+	int frames_remaining;
+};
+
+static Bubble bubbles[16];
 
 enum MonkeyState {
 	Standing,
@@ -727,9 +747,16 @@ void play_game(int player_count){
 			}
 			break;
 		case ZoomingIn:
-			if (zoom_level == 17)
+		{
+			if (zoom_level == 17) {
 				play_substate = Challenge;
+				for (int i = 0; i < 16; i++)
+				{
+					bubbles[i].state = Popped;
+				}
+			}
 			break;
+		}
 		case Challenge:
 			if (button_down_event)
 				play_substate = ZoomingOut;
@@ -1586,18 +1613,10 @@ static void init_7800()
 	}
 }
 
-enum BubbleState {
-	Unallocated,
-	Floating,
-	Popped,
-};
-struct Bubble {
-	BubbleState state;
-	int frames_remaining;
 
-};
 
 void DrawChallengeScreen() {
+	// Light
 	for (int i = 0; i < 4; i++)
 	{
 		for (int j = 0; j < 8; j++)
@@ -1612,6 +1631,7 @@ void DrawChallengeScreen() {
 		}
 	}
 
+	// Monkey Arms
 	for (int i = 4*8*5; i < 136*5; i++)
 	{
 		playfieldBuffer[i] = 0;
@@ -1626,22 +1646,52 @@ void DrawChallengeScreen() {
 		playfieldBuffer[(56 + i) * 5 + 4] = 0;
 	}
 
-
-
-	for (int i = 0; i < 192; )
+	// Top 3 lines empty because we are positioning the fly and setting up for the next display kernel
+	for (int i = 0; i < 3; i++)
 	{
-		int x = randint() & 0x7f;
+		grp1Buffer[i] = 0;
+	}
+	// Move the bubbles up a line
+	// 
+	bubble_offset++;
+	if (bubble_offset >= 16)
+	{
+		bubble_offset = 0;
+		bubbles[bubble_index].x = (randint() & 0x7f) + 12;
+		bubbles[bubble_index].state = (BubbleState)((int)randint() % 3);
+		bubble_index++;
+		if (bubble_index >= 16)
+		{
+			bubble_index = 0;
+		}
+	}
+	int bi = bubble_index;
+	// Top bubble may start in middle so position it ahead of time
+	colupfBuffer[0] = bubbles[bi].x + 8; 
+	// Bubbles
+	int j = bubble_offset;
+	for (int i = 3; i < 192; )
+	{
+		for (; j < 15 && i < 192; j++)
+		{
+			int b = (int)bubbles[bi].state;
+			colupfBuffer[i] = 0;
+			grp1Buffer[i] = 0;
+			if (b < 7)
+			{
+				grp1Buffer[i] = BubbleGraphics[b][j];
+				colup1Buffer[i] = BubbleColu[b][j];
+			}
+			i++;
+		}
+		j = 0;
+		bi++;
+		bi &= 0xf;
+		// Position next bubble
+		int x = bubbles[bi].x;
 		grp1Buffer[i] = 0;
 		colupfBuffer[i] = ((-(x % 15) << 4) + 0x70) + (x / 15) + 1;
 		i++;
-		int b = randint() & 0x7;
-		b = b == 7 ? 0 : b;
-		for (int j = 0; j < 15; j++)
-		{
-			grp1Buffer[i] = BubbleGraphics[b][j];
-			colup1Buffer[i] = BubbleColu[b][j];
-			i++;
-		}
 	}
 
 	for (int i = 0; i < 192; i++)
@@ -1657,112 +1707,114 @@ void DrawChallengeScreen() {
 	}
 }
 
-void RenderChallengeScreen(){
-			int line = 0;
-		vcsEndOverblank();
-		writeAudio30();
+void RenderChallengeScreen() {
+	int line = 0;
+	vcsEndOverblank();
+	writeAudio30();
 
 
-		vcsSta3(WSYNC);
-		PositionObject(line, 30, RESP0, HMP0);
-		PositionObject(line, 100, RESPONE, HMP1);
-		vcsSta3(HMOVE);
-		vcsWrite5(GRP1, grp1Buffer[0]);
-		vcsWrite5(COLUP0, 0);
-		vcsSta3(COLUP1);
-		vcsWrite5(PF0, ReverseByte[playfieldBuffer[0] >> 4]);
-		vcsWrite5(PF1, (playfieldBuffer[0] << 4) | (playfieldBuffer[1] >> 4));
-		vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[1] << 4) | (playfieldBuffer[2] >> 4))]);
-		vcsWrite5(VDELP0, 0);
-		vcsWrite5(VDELP1, 1);
-		vcsJmp3();
-		vcsSta3(HMCLR);
-		vcsNop2n(12);
-		vcsWrite5(VBLANK, 0);
+	vcsSta3(WSYNC);
+	vcsSta3(WSYNC);
+	vcsSta3(WSYNC);
+	vcsSta3(HMOVE);
+	vcsWrite5(GRP1, 0);
+	vcsWrite5(COLUP0, 0);
+	vcsSta3(COLUP1);
+	vcsWrite5(PF0, 0);
+	vcsWrite5(PF1, 0);
+	vcsWrite5(PF2, 0);
+	vcsWrite5(VDELP0, 0);
+	vcsWrite5(VDELP1, 1);
+	vcsJmp3();
+	vcsSta3(HMCLR);
+	vcsNop2n(12);
+	vcsWrite5(VBLANK, 0);
 
-		DisplayText(ColuScoreBackground, 1);
+	DisplayText(ColuScoreBackground, 1);
 
-		// Prep for rest of screen
-		PositionObject(line, 30, RESP0, HMP0);
-		PositionObject(line, 100, RESPONE, HMP1);
-		vcsSta3(HMOVE);
-		vcsWrite5(GRP1, grp1Buffer[0]);
-		vcsWrite5(COLUP0, 0);
-		vcsSta3(COLUP1);
-		vcsWrite5(PF0, ReverseByte[playfieldBuffer[0] >> 4]);
-		vcsWrite5(PF1, (playfieldBuffer[0] << 4) | (playfieldBuffer[1] >> 4));
-		vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[1] << 4) | (playfieldBuffer[2] >> 4))]);
-		vcsWrite5(VDELP0, 0);
-		vcsWrite5(VDELP1, 1);
-		vcsJmp3();
-		vcsSta3(HMCLR);
-		vcsNop2n(12);
-		vcsWrite5(COLUBK, InitialColuWall);
+	// Prep for rest of screen
+	PositionObject(line, 30, RESP0, HMP0);
+	PositionObject(line, colupfBuffer[0], RESPONE, HMP1);
+	vcsSta3(HMOVE);
+	vcsWrite5(GRP1, grp1Buffer[0]);
+	vcsWrite5(COLUP0, 0);
+	vcsSta3(COLUP1);
+	vcsWrite5(PF0, ReverseByte[playfieldBuffer[0] >> 4]);
+	vcsWrite5(PF1, (playfieldBuffer[0] << 4) | (playfieldBuffer[1] >> 4));
+	vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[1] << 4) | (playfieldBuffer[2] >> 4))]);
+	vcsWrite5(VDELP0, 0);
+	vcsWrite5(VDELP1, 1);
+	vcsJmp3();
+	vcsSta3(HMCLR);
+	vcsWrite5(NUSIZ0, 0);
+	vcsWrite5(NUSIZ1, 0);
+	vcsNop2n(7);
+	vcsWrite5(COLUBK, InitialColuWall);
 
-		for (int i = 0; i < 175; i++)
-		{
-			vcsSta3(HMOVE);							// 3
-			vcsJmp3();									// 6
-			vcsWrite5(GRP0, grp0Buffer[i]);		// 11
-			vcsWrite5(COLUP0, colup0Buffer[i]);	// 16
-			vcsWrite5(COLUP1, colup1Buffer[i]);	// 21
-			if ((colupfBuffer[i] & 0xf) == 1) {
-				vcsNop2();
-				vcsSta3(RESPONE);
-			}
-			vcsWrite5(COLUPF, i < 32 ? FanChasisColu[18] : InitialColuP0Monkey);		// 26 31
-			if ((colupfBuffer[i] & 0xf) == 2) {
-				vcsNop2();
-				vcsSta3(RESPONE);
-			}
-			vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[i * 5 + 1] << 4)
-				| (playfieldBuffer[i * 5 + 2] >> 4))]);								// 31	36
-			if ((colupfBuffer[i] & 0xf) == 3) {
-				vcsNop2();
-				vcsSta3(RESPONE);
-			}
-			vcsWrite5(PF0, ReverseByte[playfieldBuffer[i * 5 + 2]]);				// 36	41
-			if ((colupfBuffer[i] & 0xf) == 4) {
-				vcsNop2();
-				vcsSta3(RESPONE);
-			}
-			vcsWrite5(PF1, playfieldBuffer[i * 5 + 3]);								// 41	46
-			if ((colupfBuffer[i] & 0xf) == 5) {
-				vcsNop2();
-				vcsSta3(RESPONE);
-			}
-			vcsWrite5(COLUPF, i < 32 ? FanChasisColu[18] : InitialColuP1Monkey);		// 46	51
-			if ((colupfBuffer[i] & 0xf) == 6) {
-				vcsNop2();
-				vcsSta3(RESPONE);
-			}
-			vcsWrite5(PF2, ReverseByte[playfieldBuffer[i * 5 + 4]]);				// 51	56
-			if ((colupfBuffer[i] & 0xf) == 7) {
-				vcsNop2();
-				vcsSta3(RESPONE);
-			}
-			vcsWrite5(PF0, ReverseByte[playfieldBuffer[(i + 1) * 5] >> 4]);	// 56	61
-			if ((colupfBuffer[i] & 0xf) == 8) {
-				vcsNop2();
-				vcsSta3(RESPONE);
-			}
-			vcsWrite5(HMP1, colupfBuffer[i]);
-			if ((colupfBuffer[i] & 0xf) == 9) {
-				vcsNop2();
-				vcsSta3(RESPONE);
-			}
-			vcsWrite5(PF1, (playfieldBuffer[(i + 1) * 5] << 4)
-				| (playfieldBuffer[(i + 1) * 5 + 1] >> 4));							//	66	71
-			if ((colupfBuffer[i] & 0xf) > 9) {
-				vcsNop2();
-				vcsSta3(RESPONE);
-			}
-			vcsWrite5(GRP1, grp1Buffer[i + 1]);											// 71	76
-			if ((colupfBuffer[i] & 0xf) == 0) {
-				vcsWrite5(CXCLR, 0);
-			}
+	for (int i = line; i < room_height; i++)
+	{
+		vcsSta3(HMOVE);							// 3
+		vcsJmp3();									// 6
+		vcsWrite5(GRP0, grp0Buffer[i]);		// 11
+		vcsWrite5(COLUP0, colup0Buffer[i]);	// 16
+		vcsWrite5(COLUP1, colup1Buffer[i]);	// 21
+		if ((colupfBuffer[i] & 0xf) == 1) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(COLUPF, i < 32 ? FanChasisColu[18] : InitialColuP0Monkey);		// 26 31
+		if ((colupfBuffer[i] & 0xf) == 2) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[i * 5 + 1] << 4)
+			| (playfieldBuffer[i * 5 + 2] >> 4))]);								// 31	36
+		if ((colupfBuffer[i] & 0xf) == 3) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF0, ReverseByte[playfieldBuffer[i * 5 + 2]]);				// 36	41
+		if ((colupfBuffer[i] & 0xf) == 4) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF1, playfieldBuffer[i * 5 + 3]);								// 41	46
+		if ((colupfBuffer[i] & 0xf) == 5) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(COLUPF, i < 32 ? FanChasisColu[18] : InitialColuP1Monkey);		// 46	51
+		if ((colupfBuffer[i] & 0xf) == 6) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF2, ReverseByte[playfieldBuffer[i * 5 + 4]]);				// 51	56
+		if ((colupfBuffer[i] & 0xf) == 7) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF0, ReverseByte[playfieldBuffer[(i + 1) * 5] >> 4]);	// 56	61
+		if ((colupfBuffer[i] & 0xf) == 8) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(HMP1, colupfBuffer[i]);
+		if ((colupfBuffer[i] & 0xf) == 9) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF1, (playfieldBuffer[(i + 1) * 5] << 4)
+			| (playfieldBuffer[(i + 1) * 5 + 1] >> 4));							//	66	71
+		if ((colupfBuffer[i] & 0xf) > 9) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(GRP1, grp1Buffer[i + 1]);											// 71	76
+		if ((colupfBuffer[i] & 0xf) == 0) {
+			vcsWrite5(CXCLR, 0);
 		}
 	}
+}
 
 void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey) {
 	PositionObject(line, 132, RESPONE, HMP1);

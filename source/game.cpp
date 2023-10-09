@@ -724,7 +724,7 @@ void play_game(int player_count){
 		case Playing:
 		{
 			auto challenge_threshold = 5; // Challenge screen activates after each multiple of the threshold
-			auto hs = monkey_0.score > monkey_1.score ? monkey_0.score : monkey_1.score;
+			auto hs = monkey_0.score + monkey_1.score;
 			if (hs > challenge_threshold * (1 + (int)play_state))
 				play_substate = FlyExit;
 			break; 
@@ -2386,8 +2386,8 @@ void RenderZoomScreen(int& line, int line_limit) {
 	vcsSta3(VDELP1);
 	vcsSta3(RESP0); // 36 cycles before here
 	vcsSta3(RESPONE);
-	vcsWrite5(HMP0, 0xa0);
-	vcsWrite5(HMP1, 0xb0);
+	vcsWrite5(HMP0, 0xc0 - (zoom_level >> 3));
+	vcsWrite5(HMP1, 0xd0 - (zoom_level >> 3));
 	vcsWrite5(VDELP0, 0x01);
 	vcsWrite5(COLUPF, InitialColuWall);
 	vcsLdx2(bitmap[by + 4]);
@@ -2797,6 +2797,7 @@ static const uint8_t ZoomWallLookup[] =
 };
 
 void DrawZoomScene() {
+	// Had to move multiplications outside of loops to run on Cortex-M0+
 	// PF (wall)
 	int top = 19 - ((zoom_level * 19) / 17);
 	int bottom = 41 + ((zoom_level * 134) / 17);
@@ -2804,12 +2805,15 @@ void DrawZoomScene() {
 	{
 		playfieldBuffer[i] = 0;
 	}
+	int k = top * 5;
+	auto zwl = zoom_level * 5;
 	for (int i = top; i < bottom; i++)
 	{
 		for (int j = 0; j < 5; j++)
 		{
-			playfieldBuffer[i * 5 + j] = ZoomWallLookup[zoom_level * 5 + j];
+			playfieldBuffer[k + j] = ZoomWallLookup[zwl + j];
 		}
+		k += 5;
 	}
 	for (int i = bottom * 5; i < 175 * 5; i++)
 	{
@@ -2822,21 +2826,25 @@ void DrawZoomScene() {
 		bitmap[i] = 0;
 	}
 	int light_height = 1 + ((zoom_level * 7) / 17);
+	int lhi = 0;
 	for (int i = 0; i < 4; i++)
 	{
+		// Get graphics width
+		auto width = BitWidthLookup[FanChasisGraphics[16 + i] >> 4];
+		// Scale to zoom
+		width *= light_height;
+		auto os2 = width * 3;
+		auto os = (lhi + top) * 6;
 		for (int j = 0; j < light_height; j++)
 		{
-			// Get graphics width
-			auto width = BitWidthLookup[FanChasisGraphics[16 + i] >> 4];
-			// Scale to zoom
-			width *= light_height;
-			bitmap[(i * light_height + j + top) * 6 + 0] = BitWidthTo24PixelLookup[width * 3];
-			bitmap[(i * light_height + j + top) * 6 + 1] = BitWidthTo24PixelLookup[width * 3 + 1];
-			bitmap[(i * light_height + j + top) * 6 + 2] = BitWidthTo24PixelLookup[width * 3 + 2];
-			bitmap[(i * light_height + j + top) * 6 + 3] = ReverseByte[BitWidthTo24PixelLookup[width * 3 + 2]];
-			bitmap[(i * light_height + j + top) * 6 + 4] = ReverseByte[BitWidthTo24PixelLookup[width * 3 + 1]];
-			bitmap[(i * light_height + j + top) * 6 + 5] = ReverseByte[BitWidthTo24PixelLookup[width * 3]];
+			bitmap[os++] = BitWidthTo24PixelLookup[os2];
+			bitmap[os++] = BitWidthTo24PixelLookup[os2 + 1];
+			bitmap[os++] = BitWidthTo24PixelLookup[os2 + 2];
+			bitmap[os++] = ReverseByte[BitWidthTo24PixelLookup[os2 + 2]];
+			bitmap[os++] = ReverseByte[BitWidthTo24PixelLookup[os2 + 1]];
+			bitmap[os++] = ReverseByte[BitWidthTo24PixelLookup[os2]];
 		}
+		lhi += light_height;
 	}
 	for (int i = (4 * light_height + top) * 6; i < 40*60; i++)
 	{

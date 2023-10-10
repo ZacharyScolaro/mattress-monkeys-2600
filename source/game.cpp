@@ -856,7 +856,7 @@ void play_game(int player_count){
 			{
 				room_height = 175;
 				// Shake screen for fan strikes
-				if (shake_frames_remaining)
+				if (shake_frames_remaining & 0x4)
 				{
 					for (int i = 0; i < 4; i++)
 					{
@@ -1376,13 +1376,15 @@ void move_monkey(uint8_t joy, Monkey* monkey)
 		monkey->face_left = false;
 		horizontal_input = true;
 	}
-	if (((joy & 0x1) == 0) && monkey->y > 4) {
-		// up
-		monkey->y -= 1;
-	}
-	if (((joy & 0x2) == 0) && monkey->y < 157) {
-		// down
-		monkey->y += 1;
+	if (monkey->y < 110) {
+		if (((joy & 0x1) == 0) && monkey->y > 4) {
+			// up
+			monkey->y -= 1;
+		}
+		if (((joy & 0x2) == 0) && monkey->y < 157) {
+			// down
+			monkey->y += 1;
+		}
 	}
 
 	if(monkey->state == Walking && !horizontal_input) {
@@ -2584,7 +2586,7 @@ void DrawBouncingScene() {
 		{
 			auto lv = (standing_monkey->x.Round() + 2 + (wave_length / 4)) - sine_hpos;
 			auto vx = fp32(-1.25) * FP32(Sine[(uint8_t)((((lv % wave_length) * 256) / wave_length)).Round()], true);
-			auto vy = fp32(-7) + (fp32(-0.6) * FP32(Sine[(uint8_t)((((lv % wave_length) * 128) / wave_length)).Round()], true));
+			auto vy = fp32(-7.5) + (fp32(-0.6) * FP32(Sine[(uint8_t)((((lv % wave_length) * 128) / wave_length)).Round()], true));
 
 			Monkey* temp = jumping_monkey;
 			jumping_monkey = standing_monkey;
@@ -2615,7 +2617,7 @@ void DrawBouncingScene() {
 	jumping_monkey->hit_box.Y = jumping_monkey->y;
 	if (jumping_monkey->hit_box.Intersects(fan_blade_hit_boxes[fanFrame]))
 	{
-		shake_frames_remaining = 2;
+		shake_frames_remaining = 15;
 		jumping_monkey->state = FanSmacked;
 		jumping_monkey->velocity_x = jumping_monkey->x < 0x4d ? -2 : 2;
 		jumping_monkey->velocity_y = 0;
@@ -2796,6 +2798,7 @@ static const uint8_t ZoomWallLookup[] =
 	0x3f, 0xff, 0xff, 0xff, 0xff,
 };
 
+__attribute__((long_call, section(".RamFunc")))
 void DrawZoomScene() {
 	// Had to move multiplications outside of loops to run on Cortex-M0+
 	// PF (wall)

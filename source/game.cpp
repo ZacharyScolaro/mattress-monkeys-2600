@@ -397,10 +397,16 @@ enum BubbleState {
 	Popped,
 };
 
+BoundingBox<FP32> LargeBubbleHitbox(0,0,0,8,0,14);
+BoundingBox<FP32> MediumBubbleHitbox(0,0,1,7,1,13);
+BoundingBox<FP32> SmallBubbleHitbox(0,0,2,6,2,12);
+BoundingBox<FP32>* BubbleHitBoxes[] = { &LargeBubbleHitbox, &MediumBubbleHitbox, &SmallBubbleHitbox };
+
 struct Bubble {
 	int x;
 	BubbleState state;
 	int frames_remaining;
+	BoundingBox<FP32>* hit_box;
 };
 
 static Bubble bubbles[16];
@@ -431,6 +437,17 @@ public:
 	int lives;
 	bool face_left;
 	bool bottomed_out;
+};
+
+class Fly {
+public:
+	BoundingBox<FP32> hit_box;
+	FP32 x;
+	FP32 y;
+	FP32 velocity_x;
+	FP32 velocity_y;
+	int score;
+	bool face_left;
 };
 
 __attribute__((section(".noinit")))
@@ -476,6 +493,7 @@ void ApplyGravity();
 void place_monkey_on_post();
 void writeAudio30();
 void next_audio_frame();
+void moveFly(uint8_t joy);
 
 #if 1
 // Gopher
@@ -673,6 +691,7 @@ auto render_bed = RenderWideBed;
 PlayState max_play_state_reached = Narrow; // TODO Wide;
 int room_height = 175;
 FP32 wave_length = 80;
+Fly fly = { .hit_box = BoundingBox<FP32>(0,0,0,8,4,10), .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .face_left = false };
 
 BoundingBox<FP32> fan_blade_hit_boxes[7] = {
 	BoundingBox<FP32>(60, 4, 0, 44, 0, 11),
@@ -951,8 +970,14 @@ void play_game(int player_count){
 		vcsNop2();
 		uint8_t but1 = vcsRead4(INPT5);
 		vcsStartOverblank();
-		move_monkey(joysticks >> 4, p0_monkey);
-		move_monkey(joysticks & 0xf, p1_monkey);
+		if (challenge_mode) {
+			moveFly(joysticks >> 4);
+		}
+		else
+		{
+			move_monkey(joysticks >> 4, p0_monkey);
+			move_monkey(joysticks & 0xf, p1_monkey);
+		}
 		button_down_event = (((but0 & 0x80) == 0) && (prev_but0 & 0x80));
 		prev_but0 = but0;
 	}
@@ -1618,6 +1643,14 @@ static void init_7800()
 
 
 void DrawChallengeScreen() {
+	// Move fly before collision detection
+	fly.x += fly.velocity_x;
+	if (fly.x.Round() < 8)
+		fly.x = 8;
+	if (fly.x.Round() > 152)
+		fly.x = 152;
+	auto fy = fly.y.Round();
+
 	// Light
 	for (int i = 0; i < 4; i++)
 	{
@@ -1660,7 +1693,9 @@ void DrawChallengeScreen() {
 	{
 		bubble_offset = 0;
 		bubbles[bubble_index].x = (randint() & 0x7f) + 12;
-		bubbles[bubble_index].state = (BubbleState)((int)randint() % 3);
+		auto size = (int)randint() % 3;
+		bubbles[bubble_index].hit_box = BubbleHitBoxes[size];
+		bubbles[bubble_index].state = (BubbleState)size;
 		bubble_index++;
 		if (bubble_index >= 16)
 		{
@@ -1668,15 +1703,31 @@ void DrawChallengeScreen() {
 		}
 	}
 	int bi = bubble_index;
+	// Check for collision with bubble in row above and below fly's Y position.
+	int bit = ((fy >> 4) + bi) & 0xf;
+	int bib = (bit + 1) & 0xf;
+	fly.hit_box.X = fly.x.Round() - 8;
+	fly.hit_box.Y = (fy & 0xf) + bubble_offset;
+	(*bubbles[bit].hit_box).X = bubbles[bit].x;
+	if ((int)bubbles[bit].state < 3 && fly.hit_box.Intersects(*bubbles[bit].hit_box))
+	{
+		bubbles[bit].state = Popping0;
+	}
+	fly.hit_box.Y -= 16;
+	(*bubbles[bib].hit_box).X = bubbles[bib].x;
+	if ((int)bubbles[bib].state < 3 && fly.hit_box.Intersects(*bubbles[bib].hit_box))
+	{
+		bubbles[bib].state = Popping0;
+	}
 	// Top bubble may start in middle so position it ahead of time
 	colupfBuffer[0] = bubbles[bi].x + 8; 
 	// Bubbles
 	int j = bubble_offset;
 	for (int i = 3; i < 192; )
 	{
+		int b = (int)bubbles[bi].state;
 		for (; j < 15 && i < 192; j++)
 		{
-			int b = (int)bubbles[bi].state;
 			colupfBuffer[i] = 0;
 			grp1Buffer[i] = 0;
 			if (b < 7)
@@ -1704,8 +1755,8 @@ void DrawChallengeScreen() {
 	// Blit fly
 	for (int i = 0; i < 11; i++)
 	{
-		grp0Buffer[40 + i] = FlyGraphics[(frame >> 4) & 1][i];
-		colup0Buffer[40 + i] = FlyColu[(frame >> 4) & 1][i];
+		grp0Buffer[fy + i] = FlyGraphics[(frame >> 4) & 1][i];
+		colup0Buffer[fy + i] = FlyColu[(frame >> 4) & 1][i];
 	}
 }
 
@@ -1735,7 +1786,7 @@ void RenderChallengeScreen() {
 	DisplayText(ColuScoreBackground, 1);
 
 	// Prep for rest of screen
-	PositionObject(line, 30, RESP0, HMP0);
+	PositionObject(line, fly.x.Round(), RESP0, HMP0);
 	PositionObject(line, colupfBuffer[0], RESPONE, HMP1);
 	vcsSta3(HMOVE);
 	vcsWrite5(GRP1, grp1Buffer[0]);
@@ -3133,4 +3184,40 @@ void next_audio_frame() {
 	{
 		chan1_player = &audio_player1; // point channel 1 to music
 	}
+}
+
+const FP32 MaxFlyVelocityX = fp32(2.5);
+const FP32 MaxFlyVelocityXMinus = MaxFlyVelocityX * fp32(-1.0);
+const FP32 FlyAccelX = fp32(0.125);
+
+void moveFly(uint8_t joy)
+{
+	if (((joy & 0x4) == 0) && fly.x > 8) {
+		// left
+		fly.velocity_x -= FlyAccelX;
+		if (fly.velocity_x < MaxFlyVelocityXMinus)
+		{
+			fly.velocity_x = MaxFlyVelocityXMinus;
+		}
+		fly.face_left = true;
+	}
+	if (((joy & 0x8) == 0) && fly.x < 152) {
+		// right
+		fly.velocity_x += FlyAccelX;
+		if (fly.velocity_x > MaxFlyVelocityX)
+		{
+			fly.velocity_x = MaxFlyVelocityX;
+		}
+		fly.face_left = false;
+	}
+	//if (monkey->y < 110) {
+	//	if (((joy & 0x1) == 0) && monkey->y > 4) {
+	//		// up
+	//		monkey->y -= 1;
+	//	}
+	//	if (((joy & 0x2) == 0) && monkey->y < 157) {
+	//		// down
+	//		monkey->y += 1;
+	//	}
+	//}
 }

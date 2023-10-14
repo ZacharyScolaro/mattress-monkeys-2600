@@ -6,6 +6,18 @@
 #include "boundingBox.hpp"
 #include <cstddef>
 
+const FP32 MaxFlyVelocityX = fp32(1.5);
+const FP32 MaxFlyVelocityXMinus = MaxFlyVelocityX * fp32(-1.0);
+const FP32 FlyAccelX = fp32(0.125);
+const FP32 FlyAscentVelocity = fp32(-1.5);
+const FP32 FlyGravity = fp32(0.03125);
+const FP32 FlyTerminalVelocity = fp32(4.0);
+const FP32 FlyTerminalVelocityUp = fp32(-2.5);
+const int BubblePopFrames = 3;
+const int BubbleScoreFrames = 45;
+const int ChallengeFrames = 60*20;
+
+int challenge_frames_remaining = 0;
 int min_monkey_x = 16;
 int max_monkey_x = 140;
 int shake_frames_remaining = 0;
@@ -393,7 +405,7 @@ enum BubbleState {
 	Popping0,
 	Popping1,
 	Popping2,
-	PopppedPoints,
+	PoppedPoints,
 	Popped,
 };
 
@@ -493,7 +505,7 @@ void ApplyGravity();
 void place_monkey_on_post();
 void writeAudio30();
 void next_audio_frame();
-void moveFly(uint8_t joy);
+void moveFly(uint8_t joy, bool button_event);
 
 #if 1
 // Gopher
@@ -769,6 +781,7 @@ void play_game(int player_count){
 		{
 			if (zoom_level == 17) {
 				play_substate = Challenge;
+				challenge_frames_remaining = ChallengeFrames;
 				for (int i = 0; i < 16; i++)
 				{
 					bubbles[i].state = Popped;
@@ -777,8 +790,18 @@ void play_game(int player_count){
 			break;
 		}
 		case Challenge:
-			if (button_down_event)
+		{
+			challenge_frames_remaining--;
+			if (challenge_frames_remaining <= 0)
+			{
 				play_substate = ZoomingOut;
+			}
+			else
+			{
+				moveFly(joysticks >> 4, button_down_event);
+			}
+			break;
+		}
 		case ZoomingOut:
 			if (zoom_level == 0)
 			{
@@ -793,12 +816,14 @@ void play_game(int player_count){
 				standing_monkey->x = 88;
 				standing_monkey->state = Standing;
 			}
+			break;
 		case FadingIn:
 			if (fade_level == 16)
 			{
 				play_substate = Playing;
 				fly_top_spawned = fly_bot_spawned = true;
 			}
+			break;
 		}
 
 		SetVariablesFromState();
@@ -970,10 +995,7 @@ void play_game(int player_count){
 		vcsNop2();
 		uint8_t but1 = vcsRead4(INPT5);
 		vcsStartOverblank();
-		if (challenge_mode) {
-			moveFly(joysticks >> 4);
-		}
-		else
+		if (!challenge_mode)
 		{
 			move_monkey(joysticks >> 4, p0_monkey);
 			move_monkey(joysticks & 0xf, p1_monkey);
@@ -1649,6 +1671,11 @@ void DrawChallengeScreen() {
 		fly.x = 8;
 	if (fly.x.Round() > 152)
 		fly.x = 152;
+	fly.y += fly.velocity_y;
+	if (fly.y.Round() < 2)
+		fly.y = 2;
+	if (fly.y.Round() > 175)
+		fly.y = 175;
 	auto fy = fly.y.Round();
 
 	// Light
@@ -1686,6 +1713,53 @@ void DrawChallengeScreen() {
 	{
 		grp1Buffer[i] = 0;
 	}
+	// Animate bubbles
+	for (int i = 0; i < 16; i++)
+	{
+		switch (bubbles[i].state)
+		{
+		case Popping0: {
+			bubbles[i].frames_remaining--;
+			if (bubbles[i].frames_remaining <= 0)
+			{
+				bubbles[i].state = Popping1;
+				bubbles[i].frames_remaining = BubblePopFrames;
+			}
+			break;
+		}
+		case Popping1: {
+			bubbles[i].frames_remaining--;
+			if (bubbles[i].frames_remaining <= 0)
+			{
+				bubbles[i].state = Popping2;
+				bubbles[i].frames_remaining = BubblePopFrames;
+			}
+			break;
+		}
+		case Popping2: {
+			bubbles[i].frames_remaining--;
+			if (bubbles[i].frames_remaining <= 0)
+			{
+				bubbles[i].state = PoppedPoints;
+				bubbles[i].frames_remaining = BubbleScoreFrames;
+			}
+			break;
+		}
+		case PoppedPoints: {
+			bubbles[i].frames_remaining--;
+			if (bubbles[i].frames_remaining <= 0)
+			{
+				bubbles[i].state = Popped;
+			}
+			break;
+		}
+		default: {
+			// No action required
+			break;
+		}
+		}
+	}
+
 	// Move the bubbles up a line
 	// 
 	bubble_offset++;
@@ -1704,21 +1778,26 @@ void DrawChallengeScreen() {
 	}
 	int bi = bubble_index;
 	// Check for collision with bubble in row above and below fly's Y position.
-	int bit = ((fy >> 4) + bi) & 0xf;
-	int bib = (bit + 1) & 0xf;
-	fly.hit_box.X = fly.x.Round() - 8;
-	fly.hit_box.Y = (fy & 0xf) + bubble_offset;
-	(*bubbles[bit].hit_box).X = bubbles[bit].x;
-	if ((int)bubbles[bit].state < 3 && fly.hit_box.Intersects(*bubbles[bit].hit_box))
+	if (fy < 175)
 	{
-		bubbles[bit].state = Popping0;
-	}
-	fly.hit_box.Y -= 16;
-	(*bubbles[bib].hit_box).X = bubbles[bib].x;
-	if ((int)bubbles[bib].state < 3 && fly.hit_box.Intersects(*bubbles[bib].hit_box))
-	{
-		bubbles[bib].state = Popping0;
-	}
+		int bit = ((fy >> 4) + bi) & 0xf;
+		int bib = (bit + 1) & 0xf;
+		fly.hit_box.X = fly.x.Round() - 8;
+		fly.hit_box.Y = (fy & 0xf) + bubble_offset;
+		(*bubbles[bit].hit_box).X = bubbles[bit].x;
+		if ((int)bubbles[bit].state < 3 && fly.hit_box.Intersects(*bubbles[bit].hit_box))
+		{
+			bubbles[bit].state = Popping0;
+			bubbles[bit].frames_remaining = BubblePopFrames;
+		}
+		fly.hit_box.Y -= 16;
+		(*bubbles[bib].hit_box).X = bubbles[bib].x;
+		if ((int)bubbles[bib].state < 3 && fly.hit_box.Intersects(*bubbles[bib].hit_box))
+		{
+			bubbles[bib].state = Popping0;
+			bubbles[bib].frames_remaining = BubblePopFrames;
+		}
+	}	
 	// Top bubble may start in middle so position it ahead of time
 	colupfBuffer[0] = bubbles[bi].x + 8; 
 	// Bubbles
@@ -3186,11 +3265,7 @@ void next_audio_frame() {
 	}
 }
 
-const FP32 MaxFlyVelocityX = fp32(2.5);
-const FP32 MaxFlyVelocityXMinus = MaxFlyVelocityX * fp32(-1.0);
-const FP32 FlyAccelX = fp32(0.125);
-
-void moveFly(uint8_t joy)
+void moveFly(uint8_t joy, bool button_event)
 {
 	if (((joy & 0x4) == 0) && fly.x > 8) {
 		// left
@@ -3210,14 +3285,17 @@ void moveFly(uint8_t joy)
 		}
 		fly.face_left = false;
 	}
-	//if (monkey->y < 110) {
-	//	if (((joy & 0x1) == 0) && monkey->y > 4) {
-	//		// up
-	//		monkey->y -= 1;
-	//	}
-	//	if (((joy & 0x2) == 0) && monkey->y < 157) {
-	//		// down
-	//		monkey->y += 1;
-	//	}
-	//}
+	fly.velocity_y += FlyGravity;
+	if (button_down_event)
+	{
+		fly.velocity_y += FlyAscentVelocity;
+	}
+	if (fly.velocity_y > FlyTerminalVelocity)
+	{
+		fly.velocity_y = FlyTerminalVelocity;
+	}
+	if (fly.velocity_y < FlyTerminalVelocityUp)
+	{
+		fly.velocity_y = FlyTerminalVelocityUp;
+	}
 }

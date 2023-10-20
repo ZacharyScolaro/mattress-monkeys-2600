@@ -13,6 +13,7 @@ const FP32 FlyAscentVelocity = fp32(-1.5);
 const FP32 FlyGravity = fp32(0.03125);
 const FP32 FlyTerminalVelocity = fp32(4.0);
 const FP32 FlyTerminalVelocityUp = fp32(-2.5);
+const FP32 ArmVelocity = fp32(1.5);
 const int BubblePopFrames = 3;
 const int BubbleScoreFrames = 45;
 const int ChallengeFrames = 60*20;
@@ -462,6 +463,15 @@ public:
 	bool face_left;
 };
 
+class MonkeyArm {
+public:
+	BoundingBox<FP32> hit_box;
+	FP32 y;
+	int frames_remaining;
+	bool rising;
+	bool closed;
+};
+
 __attribute__((section(".noinit")))
 static uint8_t bitmap[192 * 80];
 
@@ -704,6 +714,8 @@ PlayState max_play_state_reached = Narrow; // TODO Wide;
 int room_height = 175;
 FP32 wave_length = 80;
 Fly fly = { .hit_box = BoundingBox<FP32>(0,0,0,8,4,10), .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .face_left = false };
+MonkeyArm left_arm = { .hit_box = BoundingBox<FP32>(32,39,10,20,16+32,44+32), .y = 0, .frames_remaining = 0, .rising = false, .closed = true };
+MonkeyArm right_arm = { .hit_box = BoundingBox<FP32>(96,39,10,20,16+32,44+32), .y = 0, .frames_remaining = 0, .rising = false, .closed = true };
 
 BoundingBox<FP32> fan_blade_hit_boxes[7] = {
 	BoundingBox<FP32>(60, 4, 0, 44, 0, 11),
@@ -786,6 +798,14 @@ void play_game(int player_count){
 				{
 					bubbles[i].state = Popped;
 				}
+				left_arm.y = 136;
+				left_arm.frames_remaining = 0;
+				left_arm.rising = true;
+				left_arm.closed = false;
+				right_arm.y = 136;
+				right_arm.frames_remaining = 136;
+				right_arm.rising = true;
+				right_arm.closed = false;
 			}
 			break;
 		}
@@ -1662,7 +1682,42 @@ static void init_7800()
 	}
 }
 
-
+void DrawMonkeyArm(MonkeyArm& arm, int offset) {
+	arm.hit_box.Y = arm.y;
+	if (fly.hit_box.Intersects(arm.hit_box))
+	{
+		arm.closed = true;
+	}
+	if (arm.frames_remaining > 0) {
+		arm.frames_remaining--;
+	}
+	else
+	{
+		if (arm.rising) {
+			arm.y -= ArmVelocity;
+			if (arm.y.Round() <= 0) {
+				arm.y = 0;
+				arm.rising = false;
+			}
+		}
+		else {
+			arm.y += ArmVelocity;
+			if (arm.y.Round() >= 136) {
+				arm.rising = true;
+				arm.frames_remaining = 60;
+				arm.y = 136;
+			}
+		}
+	}
+	const uint8_t* pArmGraphics = arm.closed ? &MonkeyHandClosedGraphics[0] : &MonkeyHandOpenGraphics[0];
+	auto ix = (39 + arm.y.Round()) * 5 + offset;
+	for (; ix < 175 * 5;)
+	{
+		playfieldBuffer[ix] = *pArmGraphics;
+		ix += 5;
+		pArmGraphics++;
+	}
+}
 
 void DrawChallengeScreen() {
 	// Move fly before collision detection
@@ -1694,19 +1749,14 @@ void DrawChallengeScreen() {
 	}
 
 	// Monkey Arms
-	for (int i = 4*8*5; i < 136*5; i++)
+	for (int i = 4*8*5; i < 175*5; i++)
 	{
 		playfieldBuffer[i] = 0;
 	}
-
-	for (int i = 0; i < 136; i++)
-	{
-		playfieldBuffer[(56 + i) * 5 + 0] = 0;
-		playfieldBuffer[(56 + i) * 5 + 1] = MonkeyHandOpenGraphics[i];
-		playfieldBuffer[(56 + i) * 5 + 2] = 0;
-		playfieldBuffer[(56 + i) * 5 + 3] = MonkeyHandOpenGraphics[i];
-		playfieldBuffer[(56 + i) * 5 + 4] = 0;
-	}
+	fly.hit_box.X = fly.x;
+	fly.hit_box.Y = fly.y;
+	DrawMonkeyArm(left_arm, 1);
+	DrawMonkeyArm(right_arm, 3);
 
 	// Top 3 lines empty because we are positioning the fly and setting up for the next display kernel
 	for (int i = 0; i < 3; i++)

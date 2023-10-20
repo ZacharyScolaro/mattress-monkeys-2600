@@ -399,6 +399,7 @@ parse_sprite_strip(f_header, f_source, 'headboard-king.png', 'HeadBoardWide', 40
 parse_sprite_strip(f_header, f_source, 'headboard-full.png', 'HeadBoardMedium', 40, 40, 1, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'headboard-twin.png', 'HeadBoardNarrow', 40, 40, 1, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'challenge-monkey-hand-open.png', 'MonkeyHandOpen', 8, 136, 1, 1, 1, 0, 0, None)
+parse_sprite_strip(f_header, f_source, 'challenge-monkey-hand-closed.png', 'MonkeyHandClosed', 8, 136, 1, 1, 1, 0, 0, None)
 parse_sprite_strip(f_header, f_source, 'challenge-bubbles-sprites.png', 'Bubble', 8, 15, 7, 1, 1, 1, 0, None, 1)
 parse_sprite_strip(f_header, f_source, 'challenge-fly-2cycle.png', 'Fly', 8, 11, 2, 1, 1, 0, 0, None)
 

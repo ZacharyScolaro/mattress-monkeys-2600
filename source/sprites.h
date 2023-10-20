@@ -47,6 +47,10 @@ extern const uint8_t MonkeyHandOpenGraphics[136];
 
 extern const uint8_t MonkeyHandOpenColu[136];
 
+extern const uint8_t MonkeyHandClosedGraphics[136];
+
+extern const uint8_t MonkeyHandClosedColu[136];
+
 extern const uint8_t BubbleGraphics[7][15];
 
 extern const uint8_t BubbleColu[7][15];

@@ -1,0 +1,30 @@
+{
+    "envelopeLength": 6,
+    "frequencies": [
+        1,
+        30,
+        17,
+        10,
+        5,
+        1
+    ],
+    "name": "Fly Squish",
+    "overlay": false,
+    "version": 1,
+    "volumes": [
+        10,
+        10,
+        10,
+        10,
+        10,
+        10
+    ],
+    "waveforms": [
+        8,
+        8,
+        8,
+        8,
+        8,
+        8
+    ]
+}

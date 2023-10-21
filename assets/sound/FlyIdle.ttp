@@ -1,0 +1,36 @@
+{
+    "envelopeLength": 8,
+    "frequencies": [
+        9,
+        9,
+        7,
+        7,
+        9,
+        9,
+        7,
+        7
+    ],
+    "name": "Fly Idle percussion",
+    "overlay": false,
+    "version": 1,
+    "volumes": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+    ],
+    "waveforms": [
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7
+    ]
+}

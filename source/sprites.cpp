@@ -800,7 +800,7 @@ const track_t SfxBonus =
 };
 
 
-const track_t SfxFly =
+const track_t SfxFlyCaught =
 {
 	.channels = { {0}, {(sequence_t[]){ { .goto_index=-1, .pattern_index=0 } }} },
 	.instruments = (instrument_t[]){0},
@@ -835,6 +835,46 @@ const track_t SfxFan =
    // SFX
    .even_speed = 16,
    .odd_speed = 16,
+   .notes = (uint8_t[]) { 0x11, 0x00 }
+}}
+};
+
+
+const track_t SfxFlyIdle =
+{
+	.channels = { {0}, {(sequence_t[]){ { .goto_index=-1, .pattern_index=0 } }} },
+	.instruments = (instrument_t[]){0},
+	.percussions = (percussion_t[]){   {
+   // Fly Idle percussion
+   .frequencies = (uint8_t[]) { 9, 9, 7, 7, 9, 9, 7, 7 },
+   .volumes = (uint8_t[]) { 1, 1, 1, 1, 1, 1, 1, 1 },
+   .waveforms = (uint8_t[]) { 7, 7, 7, 7, 7, 7, 7, 7 },
+   .length = 8
+}},
+	.patterns = (pattern_t[]){   {
+   // SFX
+   .even_speed = 8,
+   .odd_speed = 8,
+   .notes = (uint8_t[]) { 0x11, 0x00 }
+}}
+};
+
+
+const track_t SfxFlySquish =
+{
+	.channels = { {0}, {(sequence_t[]){ { .goto_index=-1, .pattern_index=0 } }} },
+	.instruments = (instrument_t[]){0},
+	.percussions = (percussion_t[]){   {
+   // Fly Squish
+   .frequencies = (uint8_t[]) { 1, 30, 17, 10, 5, 1 },
+   .volumes = (uint8_t[]) { 10, 10, 10, 10, 10, 10 },
+   .waveforms = (uint8_t[]) { 8, 8, 8, 8, 8, 8 },
+   .length = 6
+}},
+	.patterns = (pattern_t[]){   {
+   // SFX
+   .even_speed = 6,
+   .odd_speed = 6,
    .notes = (uint8_t[]) { 0x11, 0x00 }
 }}
 };

@@ -412,8 +412,11 @@ parse_ttt(f_header, f_source, 'MONKEYS.ttt', 'SongMonkeys', True, True)
 # Sound Effects
 parse_ttp(f_header, f_source, 'BedBounce.ttp', 'SfxBounce')
 parse_ttp(f_header, f_source, 'BananaBonus.ttp', 'SfxBonus')
-parse_ttp(f_header, f_source, 'FlyCaught.ttp', 'SfxFly')
+parse_ttp(f_header, f_source, 'FlyCaught.ttp', 'SfxFlyCaught')
 parse_ttp(f_header, f_source, 'FanWhack.ttp', 'SfxFan')
+# SFX for Challenge mode
+parse_ttp(f_header, f_source, 'FlyIdle.ttp', 'SfxFlyIdle')
+parse_ttp(f_header, f_source, 'FlySquish.ttp', 'SfxFlySquish')
 
 make_sine_lookup_table(f_header, f_source, 'Sine', 256);
 

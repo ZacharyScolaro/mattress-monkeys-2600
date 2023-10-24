@@ -6,18 +6,17 @@
 #include "boundingBox.hpp"
 #include <cstddef>
 
-const FP32 MaxFlyVelocityX = fp32(1.5);
-const FP32 MaxFlyVelocityXMinus = MaxFlyVelocityX * fp32(-1.0);
-const FP32 FlyAccelX = fp32(0.125);
-const FP32 FlyAscentVelocity = fp32(-.5);
-const FP32 FlyGravity = fp32(0.03125);
-const FP32 FlyTerminalVelocity = fp32(4.0);
-const FP32 FlyTerminalVelocityUp = fp32(-2.5);
+const FP32 MaxFlyVelocity = fp32(2.5);
+const FP32 MaxFlyVelocityMinus = MaxFlyVelocity * fp32(-1.0);
+const FP32 FlyAccel = fp32(0.75);
+const FP32 FlyAccelMinus = FlyAccel * fp32(-1.0);
+const uint8_t FlyBuzzVolAdd = 1;
 const FP32 ArmVelocity = fp32(1.5);
 const int FlyAscentDuration = 32;
 const int BubblePopFrames = 3;
 const int BubbleScoreFrames = 45;
 const int ChallengeFrames = 60*20;
+const uint8_t ColuRedWall = 0x42;
 
 int challenge_frames_remaining = 0;
 int min_monkey_x = 16;
@@ -518,7 +517,7 @@ void ApplyGravity();
 void place_monkey_on_post();
 void writeAudio30();
 void next_audio_frame();
-void moveFly(uint8_t joy, bool button_event);
+void moveFly(uint8_t joy);
 
 #if 1
 // Gopher
@@ -633,7 +632,7 @@ void fade_color(uint8_t& faded_color, uint8_t original_color, uint8_t level)
 void fade_palette(uint8_t fade_level) {
 	// Do fading first so it takes effect everywhere this frame
 	fade_color(ColuCeiling, InitialColuCeiling, fade_level);
-	fade_color(ColuWall, shake_frames_remaining ? 0x42 : InitialColuWall, fade_level);
+	fade_color(ColuWall, shake_frames_remaining ? ColuRedWall : InitialColuWall, fade_level);
 	fade_color(ColuFloor, InitialColuFloor, fade_level);
 	fade_color(ColuSheet, InitialColuSheet, fade_level);
 	fade_color(ColuMattress, InitialColuMattress, fade_level);
@@ -822,7 +821,7 @@ void play_game(int player_count){
 			}
 			else
 			{
-				moveFly(joysticks >> 4, button_down_event);
+				moveFly(joysticks >> 4);
 			}
 			break;
 		}
@@ -1688,10 +1687,13 @@ static void init_7800()
 
 void DrawMonkeyArm(MonkeyArm& arm, int offset) {
 	arm.hit_box.Y = arm.y;
-	if (fly.hit_box.Intersects(arm.hit_box))
+	if (!arm.closed && fly.hit_box.Intersects(arm.hit_box))
 	{
+		shake_frames_remaining = 15;
 		arm.closed = true;
 		fly.is_alive = false;
+		init_audio_player(&sfx_player, 1, &SfxFlySquish);
+		sfx_frames_remaining = SfxFlySquish.percussions[0].length;
 	}
 	if (arm.frames_remaining > 0) {
 		arm.frames_remaining--;
@@ -1942,7 +1944,13 @@ void RenderChallengeScreen() {
 	vcsWrite5(NUSIZ0, 0);
 	vcsWrite5(NUSIZ1, 0);
 	vcsNop2n(7);
-	vcsWrite5(COLUBK, InitialColuWall);
+	uint8_t colubk = InitialColuWall;
+	if (shake_frames_remaining > 0)
+	{
+		shake_frames_remaining--;
+		colubk = ColuRedWall;
+	}
+	vcsWrite5(COLUBK, colubk);
 
 	for (int i = line; i < room_height; i++)
 	{
@@ -2944,8 +2952,8 @@ void DrawBouncingScene() {
 			fly_top_spawned = fly_spawn_enabled;
 			fly_top_x = 4;
 			jumping_monkey->score += 1;
-			init_audio_player(&sfx_player, 1, &SfxFly);
-			sfx_frames_remaining = SfxFly.percussions[0].length;
+			init_audio_player(&sfx_player, 1, &SfxFlyCaught);
+			sfx_frames_remaining = SfxFlyCaught.percussions[0].length;
 		}
 
 		fly_bot_hit_box.X = fly_bot_x;
@@ -2954,8 +2962,8 @@ void DrawBouncingScene() {
 			fly_bot_spawned = fly_spawn_enabled;
 			fly_bot_x = 4;
 			jumping_monkey->score += 1;
-			init_audio_player(&sfx_player, 1, &SfxFly);
-			sfx_frames_remaining = SfxFly.percussions[0].length;
+			init_audio_player(&sfx_player, 1, &SfxFlyCaught);
+			sfx_frames_remaining = SfxFlyCaught.percussions[0].length;
 		}
 		if (banana_shown && jumping_monkey->hit_box.Intersects(banana_hit_box))
 		{
@@ -3314,11 +3322,18 @@ void next_audio_frame() {
 	next_audio_frame(&audio_player0);
 	next_audio_frame(&audio_player1);
 	// If SFX is playing, move it to the next frame
+	if (challenge_mode && sfx_frames_remaining == 0 && fly.is_alive) {
+		init_audio_player(&sfx_player, 1, &SfxFlyIdle);
+		sfx_frames_remaining = SfxFlyIdle.percussions[0].length;
+	}
 	if (sfx_frames_remaining > 0)
 	{
 		sfx_frames_remaining--;
 		next_audio_frame(&sfx_player);
 		chan1_player = &sfx_player; // point channel 1 to SFX
+		if (challenge_mode && (fly.velocity_x != 0 || fly.velocity_y != 0)) {
+			sfx_player.volume += FlyBuzzVolAdd;
+		}
 	}
 	else
 	{
@@ -3326,41 +3341,80 @@ void next_audio_frame() {
 	}
 }
 
-void moveFly(uint8_t joy, bool button_event)
+void moveFly(uint8_t joy)
 {
-	if (((joy & 0x4) == 0) && fly.x > 8) {
-		// left
-		fly.velocity_x -= FlyAccelX;
-		if (fly.velocity_x < MaxFlyVelocityXMinus)
-		{
-			fly.velocity_x = MaxFlyVelocityXMinus;
+	if (!fly.is_alive)
+	{
+		fly.velocity_x = 0;
+		fly.velocity_y = 0;
+		return;
+	}
+
+	if ((joy & 0x4) == 0) {
+		if (fly.x > 8) {
+			// left
+			fly.velocity_x -= FlyAccel;
+			if (fly.velocity_x < MaxFlyVelocityMinus)
+			{
+				fly.velocity_x = MaxFlyVelocityMinus;
+			}
+			fly.face_left = true;
 		}
-		fly.face_left = true;
 	}
-	if (((joy & 0x8) == 0) && fly.x < 152) {
-		// right
-		fly.velocity_x += FlyAccelX;
-		if (fly.velocity_x > MaxFlyVelocityX)
-		{
-			fly.velocity_x = MaxFlyVelocityX;
+	else if ((joy & 0x8) == 0) {
+		if (fly.x < 152) {
+			// right
+			fly.velocity_x += FlyAccel;
+			if (fly.velocity_x > MaxFlyVelocity)
+			{
+				fly.velocity_x = MaxFlyVelocity;
+			}
+			fly.face_left = false;
 		}
-		fly.face_left = false;
 	}
-	fly.velocity_y += FlyGravity;
-	if (button_down_event) {
-		fly.frames_remaining = FlyAscentDuration;
+	else {
+		// Fly should coast to stop
+		if (fly.velocity_x > FlyAccel) {
+			fly.velocity_x -= FlyAccel;
+		}
+		else if (fly.velocity_x < FlyAccelMinus){
+			fly.velocity_x += FlyAccel;
+		}
+		else {
+			fly.velocity_x = 0;
+		}
 	}
-	if(fly.frames_remaining > 0)
-	{
-		fly.frames_remaining--;
-		fly.velocity_y = FlyAscentVelocity;
+
+	if ((joy & 0x1) == 0) {
+		if (fly.y > 2) {
+			// up
+			fly.velocity_y -= FlyAccel;
+			if (fly.velocity_y < MaxFlyVelocityMinus)
+			{
+				fly.velocity_y = MaxFlyVelocityMinus;
+			}
+		}
 	}
-	if (fly.velocity_y > FlyTerminalVelocity)
-	{
-		fly.velocity_y = FlyTerminalVelocity;
+	else if ((joy & 0x2) == 0) {
+		if (fly.y < 175) {
+			// down
+			fly.velocity_y += FlyAccel;
+			if (fly.velocity_y > MaxFlyVelocity)
+			{
+				fly.velocity_y = MaxFlyVelocity;
+			}
+		}
 	}
-	if (fly.velocity_y < FlyTerminalVelocityUp)
-	{
-		fly.velocity_y = FlyTerminalVelocityUp;
+	else {
+		// Fly should coast to stop
+		if (fly.velocity_y > FlyAccel) {
+			fly.velocity_y -= FlyAccel;
+		}
+		else if (fly.velocity_y < FlyAccelMinus) {
+			fly.velocity_y += FlyAccel;
+		}
+		else {
+			fly.velocity_y = 0;
+		}
 	}
 }

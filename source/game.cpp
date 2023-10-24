@@ -10,6 +10,7 @@ const FP32 MaxFlyVelocity = fp32(2.5);
 const FP32 MaxFlyVelocityMinus = MaxFlyVelocity * fp32(-1.0);
 const FP32 FlyAccel = fp32(0.75);
 const FP32 FlyAccelMinus = FlyAccel * fp32(-1.0);
+const uint8_t FlyBuzzVolAdd = 1;
 const FP32 ArmVelocity = fp32(1.5);
 const int FlyAscentDuration = 32;
 const int BubblePopFrames = 3;
@@ -1691,6 +1692,8 @@ void DrawMonkeyArm(MonkeyArm& arm, int offset) {
 		shake_frames_remaining = 15;
 		arm.closed = true;
 		fly.is_alive = false;
+		init_audio_player(&sfx_player, 1, &SfxFlySquish);
+		sfx_frames_remaining = SfxFlySquish.percussions[0].length;
 	}
 	if (arm.frames_remaining > 0) {
 		arm.frames_remaining--;
@@ -2949,8 +2952,8 @@ void DrawBouncingScene() {
 			fly_top_spawned = fly_spawn_enabled;
 			fly_top_x = 4;
 			jumping_monkey->score += 1;
-			init_audio_player(&sfx_player, 1, &SfxFly);
-			sfx_frames_remaining = SfxFly.percussions[0].length;
+			init_audio_player(&sfx_player, 1, &SfxFlyCaught);
+			sfx_frames_remaining = SfxFlyCaught.percussions[0].length;
 		}
 
 		fly_bot_hit_box.X = fly_bot_x;
@@ -2959,8 +2962,8 @@ void DrawBouncingScene() {
 			fly_bot_spawned = fly_spawn_enabled;
 			fly_bot_x = 4;
 			jumping_monkey->score += 1;
-			init_audio_player(&sfx_player, 1, &SfxFly);
-			sfx_frames_remaining = SfxFly.percussions[0].length;
+			init_audio_player(&sfx_player, 1, &SfxFlyCaught);
+			sfx_frames_remaining = SfxFlyCaught.percussions[0].length;
 		}
 		if (banana_shown && jumping_monkey->hit_box.Intersects(banana_hit_box))
 		{
@@ -3319,11 +3322,18 @@ void next_audio_frame() {
 	next_audio_frame(&audio_player0);
 	next_audio_frame(&audio_player1);
 	// If SFX is playing, move it to the next frame
+	if (challenge_mode && sfx_frames_remaining == 0 && fly.is_alive) {
+		init_audio_player(&sfx_player, 1, &SfxFlyIdle);
+		sfx_frames_remaining = SfxFlyIdle.percussions[0].length;
+	}
 	if (sfx_frames_remaining > 0)
 	{
 		sfx_frames_remaining--;
 		next_audio_frame(&sfx_player);
 		chan1_player = &sfx_player; // point channel 1 to SFX
+		if (challenge_mode && (fly.velocity_x != 0 || fly.velocity_y != 0)) {
+			sfx_player.volume += FlyBuzzVolAdd;
+		}
 	}
 	else
 	{
@@ -3333,6 +3343,13 @@ void next_audio_frame() {
 
 void moveFly(uint8_t joy)
 {
+	if (!fly.is_alive)
+	{
+		fly.velocity_x = 0;
+		fly.velocity_y = 0;
+		return;
+	}
+
 	if ((joy & 0x4) == 0) {
 		if (fly.x > 8) {
 			// left

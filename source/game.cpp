@@ -420,6 +420,7 @@ struct Bubble {
 	BubbleState state;
 	int frames_remaining;
 	BoundingBox<FP32>* hit_box;
+	bool points_awarded;
 };
 
 static Bubble bubbles[16];
@@ -1799,7 +1800,7 @@ void DrawChallengeScreen() {
 			bubbles[i].frames_remaining--;
 			if (bubbles[i].frames_remaining <= 0)
 			{
-				bubbles[i].state = PoppedPoints;
+				bubbles[i].state = bubbles[i].points_awarded ? PoppedPoints : Popped;
 				bubbles[i].frames_remaining = BubbleScoreFrames;
 			}
 			break;
@@ -1829,6 +1830,7 @@ void DrawChallengeScreen() {
 		auto size = (int)randint() % 3;
 		bubbles[bubble_index].hit_box = BubbleHitBoxes[size];
 		bubbles[bubble_index].state = (BubbleState)size;
+		bubbles[bubble_index].points_awarded = false;
 		bubble_index++;
 		if (bubble_index >= 16)
 		{
@@ -1848,6 +1850,7 @@ void DrawChallengeScreen() {
 		{
 			bubbles[bit].state = Popping0;
 			bubbles[bit].frames_remaining = BubblePopFrames;
+			bubbles[bit].points_awarded = true;
 		}
 		fly.hit_box.Y -= 16;
 		(*bubbles[bib].hit_box).X = bubbles[bib].x;
@@ -1855,8 +1858,15 @@ void DrawChallengeScreen() {
 		{
 			bubbles[bib].state = Popping0;
 			bubbles[bib].frames_remaining = BubblePopFrames;
+			bubbles[bib].points_awarded = true;
 		}
 	}	
+	// Pop bubbles towards top of screen to force fly into danger zone to pick up points
+	int bip = (bi + 3) & 0xf;
+	if ((int)bubbles[bip].state < 3) {
+		bubbles[bip].state = Popping0;
+		bubbles[bip].frames_remaining = BubblePopFrames;
+	}
 	// Top bubble may start in middle so position it ahead of time
 	colupfBuffer[0] = bubbles[bi].x + 8; 
 	// Bubbles

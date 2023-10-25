@@ -801,12 +801,12 @@ void play_game(int player_count){
 					bubbles[i].state = Popped;
 				}
 				fly.is_alive = true;
-				left_arm.y = 136;
+				left_arm.y = 0;
 				left_arm.frames_remaining = 0;
 				left_arm.rising = true;
 				left_arm.closed = false;
-				right_arm.y = 136;
-				right_arm.frames_remaining = 136;
+				right_arm.y = 0;
+				right_arm.frames_remaining = 64;
 				right_arm.rising = true;
 				right_arm.closed = false;
 			}
@@ -1686,7 +1686,6 @@ static void init_7800()
 }
 
 void DrawMonkeyArm(MonkeyArm& arm, int offset) {
-	arm.hit_box.Y = arm.y;
 	if (!arm.closed && fly.hit_box.Intersects(arm.hit_box))
 	{
 		shake_frames_remaining = 15;
@@ -1700,26 +1699,25 @@ void DrawMonkeyArm(MonkeyArm& arm, int offset) {
 	}
 	else
 	{
+		arm.y += ArmVelocity;
 		if (arm.rising) {
-			arm.y -= ArmVelocity;
-			if (arm.y.Round() <= 0) {
-				arm.y = 0;
+			if (arm.y.Round() >= 64) {
 				arm.rising = false;
 				arm.closed = true;
 			}
 		}
 		else {
-			arm.y += ArmVelocity;
-			if (arm.y.Round() >= 136) {
+			if (arm.y.Round() >= 128) {
 				arm.rising = true;
 				arm.closed = !fly.is_alive;
-				arm.frames_remaining = 60;
-				arm.y = 136;
+				arm.frames_remaining = 64;
+				arm.y = 0;
 			}
 		}
 	}
 	const uint8_t* pArmGraphics = arm.closed ? &MonkeyHandClosedGraphics[0] : &MonkeyHandOpenGraphics[0];
-	auto ix = (39 + arm.y.Round()) * 5 + offset;
+	arm.hit_box.Y = 136 - (FP32(Sine[arm.y.Round()], true) * 136);
+	auto ix = (39 + arm.hit_box.Y.Round()) * 5 + offset;
 	for (; ix < 175 * 5;)
 	{
 		playfieldBuffer[ix] = *pArmGraphics;

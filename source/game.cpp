@@ -1774,6 +1774,7 @@ void DrawChallengeScreen() {
 		grp1Buffer[i] = 0;
 	}
 	// Animate bubbles
+	int r = ((frame & 3) == 0) ? randint() : 0xffffffff;
 	for (int i = 0; i < 16; i++)
 	{
 		switch (bubbles[i].state)
@@ -1814,7 +1815,9 @@ void DrawChallengeScreen() {
 			break;
 		}
 		default: {
-			// No action required
+			// Wiggle
+			bubbles[i].x += (r & 1) ? 0 : (r & 2 ? -1 : 1);
+			r >>= 2;
 			break;
 		}
 		}

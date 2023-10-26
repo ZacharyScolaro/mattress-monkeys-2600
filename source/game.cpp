@@ -3314,19 +3314,33 @@ void DrawScores() {
 		scoreText[3 - i] = (left_score % 10) & 0xf;
 		left_score /= 10;
 	}
-	for (int i = 0; i < monkey_0.lives; i++)
-	{
-		scoreText[5 + i] = 18;
-	}
 	int right_score = monkey_1.score;
 	for (int i = 0; i < 4; i++)
 	{
 		scoreText[17 - i] = (right_score % 10) & 0xf;
 		right_score /= 10;
 	}
-	for (int i = 0; i < monkey_1.lives; i++)
+
+	if (challenge_mode) {
+		if (fly.is_alive) {
+			int seconds_remaining = challenge_frames_remaining / 60;
+			for (int i = 0; i < 2; i++)
+			{
+				scoreText[9 - i] = (seconds_remaining % 10) & 0xf;
+				seconds_remaining /= 10;
+			}
+		}
+	}
+	else
 	{
-		scoreText[10 + i] = 18;
+		for (int i = 0; i < monkey_0.lives; i++)
+		{
+			scoreText[5 + i] = 18;
+		}
+		for (int i = 0; i < monkey_1.lives; i++)
+		{
+			scoreText[10 + i] = 18;
+		}
 	}
 	// Used when debugging
 	//for (int i = 0; i < 8; i++)

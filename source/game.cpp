@@ -822,6 +822,8 @@ void play_game(int player_count){
 					bubbles[i].state = Popped;
 				}
 				fly.is_alive = true;
+				fly.x = 80;
+				fly.y = 80;
 				left_arm.y = 0;
 				left_arm.frames_remaining = 0;
 				left_arm.rising = true;
@@ -2604,6 +2606,7 @@ void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey)
 	}
 }
 
+static const uint8_t zoom_hmp[] = { 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xb0, 0xb0, 0xb0, 0xb0, 0xb0, 0xb0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0 };
 void RenderZoomScreen(int& line, int line_limit) {
 	int by = line * 6;
 	vcsWrite5(GRP0, 0);
@@ -2618,8 +2621,8 @@ void RenderZoomScreen(int& line, int line_limit) {
 	vcsSta3(VDELP1);
 	vcsSta3(RESP0); // 36 cycles before here
 	vcsSta3(RESPONE);
-	vcsWrite5(HMP0, 0xc0 - (zoom_level >> 3));
-	vcsWrite5(HMP1, 0xd0 - (zoom_level >> 3));
+	vcsWrite5(HMP0, zoom_hmp[zoom_level]);
+	vcsWrite5(HMP1, zoom_hmp[zoom_level] + 0x10);
 	vcsWrite5(VDELP0, 0x01);
 	vcsWrite5(COLUPF, (play_substate == ZoomingOut) ? ColuRedWall : InitialColuWall);
 	vcsLdx2(bitmap[by + 4]);
@@ -3039,12 +3042,11 @@ void DrawZoomScene() {
 		{
 			bitmap[os++] = CountdownGraphics[countdown_index][j];
 		}
-
 		return;
 	}
 	// Had to move multiplications outside of loops to run on Cortex-M0+
 	// PF (wall)
-	int top = 19 - ((zoom_level * 19) / 17);
+	int top = 21 - ((zoom_level * 19) / 17);
 	int bottom = 41 + ((zoom_level * 134) / 17);
 	for (int i = 0; i < top * 5; i++)
 	{

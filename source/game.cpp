@@ -1772,11 +1772,11 @@ void DrawChallengeScreen() {
 		{
 			auto left = DoubleWideLookup[FanChasisGraphics[16 + i] >> 4];
 			auto right = DoubleWideLookup[FanChasisGraphics[16 + i] & 0xf];
-			playfieldBuffer[(i * 8 + j) * 5 + 0] = 0;
-			playfieldBuffer[(i * 8 + j) * 5 + 1] = left >> 5;
-			playfieldBuffer[(i * 8 + j) * 5 + 2] = left << 3 | right >> 5;
-			playfieldBuffer[(i * 8 + j) * 5 + 3] = right << 3;
-			playfieldBuffer[(i * 8 + j) * 5 + 4] = 0;
+			playfieldBuffer[(i * 8 + j + 2) * 5 + 0] = 0;
+			playfieldBuffer[(i * 8 + j + 2) * 5 + 1] = left >> 5;
+			playfieldBuffer[(i * 8 + j + 2) * 5 + 2] = left << 3 | right >> 5;
+			playfieldBuffer[(i * 8 + j + 2) * 5 + 3] = right << 3;
+			playfieldBuffer[(i * 8 + j + 2) * 5 + 4] = 0;
 		}
 	}
 
@@ -1996,7 +1996,7 @@ void RenderChallengeScreen() {
 			vcsNop2();
 			vcsSta3(RESPONE);
 		}
-		vcsWrite5(COLUPF, i < 32 ? FanChasisColu[18] : InitialColuP0Monkey);		// 26 31
+		vcsWrite5(COLUPF, i < 34 ? FanChasisColu[18] : InitialColuP0Monkey);		// 26 31
 		if ((colupfBuffer[i] & 0xf) == 2) {
 			vcsNop2();
 			vcsSta3(RESPONE);
@@ -2017,7 +2017,7 @@ void RenderChallengeScreen() {
 			vcsNop2();
 			vcsSta3(RESPONE);
 		}
-		vcsWrite5(COLUPF, i < 32 ? FanChasisColu[18] : InitialColuP1Monkey);		// 46	51
+		vcsWrite5(COLUPF, i < 34 ? FanChasisColu[18] : InitialColuP1Monkey);		// 46	51
 		if ((colupfBuffer[i] & 0xf) == 6) {
 			vcsNop2();
 			vcsSta3(RESPONE);
@@ -3046,7 +3046,7 @@ void DrawZoomScene() {
 	}
 	// Had to move multiplications outside of loops to run on Cortex-M0+
 	// PF (wall)
-	int top = 21 - ((zoom_level * 19) / 17);
+	int top = 19 - zoom_level; // ((zoom_level * 17) / 17);
 	int bottom = 41 + ((zoom_level * 134) / 17);
 	for (int i = 0; i < top * 5; i++)
 	{

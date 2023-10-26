@@ -18,6 +18,9 @@ const int BubbleScoreFrames = 45;
 const int ChallengeFrames = 60*20;
 const uint8_t ColuRedWall = 0x42;
 
+int countdown_frames_remaining = 0;
+int countdown_index = 0;
+
 int challenge_frames_remaining = 0;
 int min_monkey_x = 16;
 int max_monkey_x = 140;
@@ -661,6 +664,7 @@ enum PlaySubState {
 	MonkeyLanding,
 	FadingOut,
 	ZoomingIn,
+	CountingDown,
 	Challenge,
 	ZoomingOut,
 	FadingIn,
@@ -790,11 +794,27 @@ void play_game(int player_count){
 			{
 				play_substate = ZoomingIn;
 				zoom_level = 0;
+				countdown_frames_remaining = 0;
 			}
 			break;
 		case ZoomingIn:
 		{
 			if (zoom_level == 17) {
+				play_substate = CountingDown;
+				countdown_frames_remaining = 60 * 3;
+				countdown_index = 0;
+			}
+		}
+		case CountingDown:
+		{
+			countdown_frames_remaining--;
+			if (countdown_frames_remaining == 60 * 2) {
+				countdown_index = 1;
+			}
+			else if (countdown_frames_remaining == 60) {
+				countdown_index = 2;
+			}
+			else if (countdown_frames_remaining == 0) {
 				play_substate = Challenge;
 				challenge_frames_remaining = ChallengeFrames;
 				for (int i = 0; i < 16; i++)
@@ -1689,7 +1709,7 @@ static void init_7800()
 void DrawMonkeyArm(MonkeyArm& arm, int offset) {
 	if (!arm.closed && fly.hit_box.Intersects(arm.hit_box))
 	{
-		shake_frames_remaining = 15;
+		challenge_frames_remaining = shake_frames_remaining = 30;
 		arm.closed = true;
 		fly.is_alive = false;
 		init_audio_player(&sfx_player, 1, &SfxFlySquish);
@@ -2601,7 +2621,7 @@ void RenderZoomScreen(int& line, int line_limit) {
 	vcsWrite5(HMP0, 0xc0 - (zoom_level >> 3));
 	vcsWrite5(HMP1, 0xd0 - (zoom_level >> 3));
 	vcsWrite5(VDELP0, 0x01);
-	vcsWrite5(COLUPF, InitialColuWall);
+	vcsWrite5(COLUPF, (play_substate == ZoomingOut) ? ColuRedWall : InitialColuWall);
 	vcsLdx2(bitmap[by + 4]);
 	vcsLdy2(bitmap[by + 5]);
 	vcsWrite5(GRP0, bitmap[by + 0]);
@@ -3010,6 +3030,18 @@ static const uint8_t ZoomWallLookup[] =
 
 __attribute__((long_call, section(".RamFunc")))
 void DrawZoomScene() {
+	// Countdown is drawn with zoom kernel, if countdown has begun add the sprite and skip the rest,
+	// the rest of the scene was already drawn last frame
+	if (countdown_frames_remaining > 0)
+	{
+		auto os = 80 * 6;
+		for (int j = 0; j < (int)sizeof(CountdownGraphics[countdown_index]); j++)
+		{
+			bitmap[os++] = CountdownGraphics[countdown_index][j];
+		}
+
+		return;
+	}
 	// Had to move multiplications outside of loops to run on Cortex-M0+
 	// PF (wall)
 	int top = 19 - ((zoom_level * 19) / 17);
@@ -3241,6 +3273,8 @@ void SetVariablesFromState() {
 		fly_spawn_enabled = false;
 		show_zoom_screen = true;
 		challenge_mode = false;
+		break;
+	case CountingDown:
 		break;
 	case Challenge:
 		challenge_mode = true;

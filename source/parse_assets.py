@@ -402,6 +402,7 @@ parse_sprite_strip(f_header, f_source, 'challenge-monkey-hand-open.png', 'Monkey
 parse_sprite_strip(f_header, f_source, 'challenge-monkey-hand-closed.png', 'MonkeyHandClosed', 8, 136, 1, 1, 1, 0, 0, None)
 parse_sprite_strip(f_header, f_source, 'challenge-bubbles-sprites.png', 'Bubble', 8, 15, 7, 1, 1, 1, 0, None, 1)
 parse_sprite_strip(f_header, f_source, 'challenge-fly-2cycle.png', 'Fly', 8, 11, 2, 1, 1, 0, 0, None)
+parse_sprite_strip(f_header, f_source, 'challenge-countdown-sprites_1px_gap+48px_sprite.png', 'Countdown', 48, 24, 3, 1, 1, 0, 0, None)
 
 # TODO DEPRECATE THIS FUCNTION generate_sine_tables(f_header, f_source)
 

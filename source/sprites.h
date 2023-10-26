@@ -59,6 +59,10 @@ extern const uint8_t FlyGraphics[2][11];
 
 extern const uint8_t FlyColu[2][11];
 
+extern const uint8_t CountdownGraphics[3][144];
+
+extern const uint8_t CountdownColu[3][144];
+
 extern const uint8_t kernel_7800[549];
 
 

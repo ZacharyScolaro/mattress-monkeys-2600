@@ -21,6 +21,7 @@ const uint8_t ColuRedWall = 0x42;
 int countdown_frames_remaining = 0;
 int countdown_index = 0;
 
+int challenge_player = 0;
 int challenge_frames_remaining = 0;
 int min_monkey_x = 16;
 int max_monkey_x = 140;
@@ -795,6 +796,7 @@ void play_game(int player_count){
 				play_substate = ZoomingIn;
 				zoom_level = 0;
 				countdown_frames_remaining = 0;
+				challenge_player = 0;
 			}
 			break;
 		case ZoomingIn:
@@ -840,11 +842,17 @@ void play_game(int player_count){
 			challenge_frames_remaining--;
 			if (challenge_frames_remaining <= 0)
 			{
-				play_substate = ZoomingOut;
+				if(player_count < 2 || challenge_player > 0)
+					play_substate = ZoomingOut;
+				else {
+					challenge_player = 1;
+					zoom_level = 16;
+					play_substate = ZoomingIn;
+				}
 			}
 			else
 			{
-				moveFly(joysticks >> 4);
+				moveFly((challenge_player > 0) ? joysticks & 0xf : joysticks >> 4);
 			}
 			break;
 		}
@@ -1876,6 +1884,12 @@ void DrawChallengeScreen() {
 			bubbles[bit].state = Popping0;
 			bubbles[bit].frames_remaining = BubblePopFrames;
 			bubbles[bit].points_awarded = true;
+			init_audio_player(&sfx_player, 1, &SfxBubblePop);
+			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
+			if (challenge_player == 0)
+				monkey_0.score += 50;
+			else
+				monkey_1.score += 50;
 		}
 		fly.hit_box.Y -= 16;
 		(*bubbles[bib].hit_box).X = bubbles[bib].x;
@@ -1884,6 +1898,12 @@ void DrawChallengeScreen() {
 			bubbles[bib].state = Popping0;
 			bubbles[bib].frames_remaining = BubblePopFrames;
 			bubbles[bib].points_awarded = true;
+			init_audio_player(&sfx_player, 1, &SfxBubblePop);
+			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
+			if (challenge_player == 0)
+				monkey_0.score += 50;
+			else
+				monkey_1.score += 50;
 		}
 	}	
 	// Pop bubbles towards top of screen to force fly into danger zone to pick up points
@@ -3038,9 +3058,17 @@ void DrawZoomScene() {
 	if (countdown_frames_remaining > 0)
 	{
 		auto os = 80 * 6;
-		for (int j = 0; j < (int)sizeof(CountdownGraphics[countdown_index]); j++)
+		for (int i = 0; i < (int)sizeof(CountdownGraphics[countdown_index]); i++)
 		{
-			bitmap[os++] = CountdownGraphics[countdown_index][j];
+			bitmap[os++] = CountdownGraphics[countdown_index][i];
+		}
+		if (challenge_player > 0) {
+			os = (80 * 6) + 4;
+			for (int i = 0; i < (int)sizeof(CountdownP2Graphics); i++)
+			{
+				bitmap[os] = CountdownP2Graphics[i];
+				os += 6;
+			}
 		}
 		return;
 	}
@@ -3277,6 +3305,8 @@ void SetVariablesFromState() {
 		challenge_mode = false;
 		break;
 	case CountingDown:
+		show_zoom_screen = true;
+		challenge_mode = false;
 		break;
 	case Challenge:
 		challenge_mode = true;

@@ -402,7 +402,8 @@ parse_sprite_strip(f_header, f_source, 'challenge-monkey-hand-open.png', 'Monkey
 parse_sprite_strip(f_header, f_source, 'challenge-monkey-hand-closed.png', 'MonkeyHandClosed', 8, 136, 1, 1, 1, 0, 0, None)
 parse_sprite_strip(f_header, f_source, 'challenge-bubbles-sprites.png', 'Bubble', 8, 15, 7, 1, 1, 1, 0, None, 1)
 parse_sprite_strip(f_header, f_source, 'challenge-fly-2cycle.png', 'Fly', 8, 11, 2, 1, 1, 0, 0, None)
-parse_sprite_strip(f_header, f_source, 'challenge-countdown-sprites_1px_gap+48px_sprite.png', 'Countdown', 48, 24, 3, 1, 1, 0, 0, None)
+parse_sprite_strip(f_header, f_source, 'player-1-challenge-countdown_1px_gap+48px_sprite.png', 'Countdown', 48, 31, 3, 1, 1, 0, 0, None, 1)
+parse_sprite_strip(f_header, f_source, 'player-2-challenge-countdown_1px_gap+48px_sprite.png', 'CountdownP2', 8, 5, 1, 1, 1, 32, 0, None, 41)
 
 # TODO DEPRECATE THIS FUCNTION generate_sine_tables(f_header, f_source)
 
@@ -418,6 +419,7 @@ parse_ttp(f_header, f_source, 'FanWhack.ttp', 'SfxFan')
 # SFX for Challenge mode
 parse_ttp(f_header, f_source, 'FlyIdle.ttp', 'SfxFlyIdle')
 parse_ttp(f_header, f_source, 'FlySquish.ttp', 'SfxFlySquish')
+parse_ttp(f_header, f_source, 'BubblePop.ttp', 'SfxBubblePop')
 
 make_sine_lookup_table(f_header, f_source, 'Sine', 256);
 

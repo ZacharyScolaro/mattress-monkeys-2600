@@ -59,9 +59,13 @@ extern const uint8_t FlyGraphics[2][11];
 
 extern const uint8_t FlyColu[2][11];
 
-extern const uint8_t CountdownGraphics[3][144];
+extern const uint8_t CountdownGraphics[3][186];
 
-extern const uint8_t CountdownColu[3][144];
+extern const uint8_t CountdownColu[3][186];
+
+extern const uint8_t CountdownP2Graphics[5];
+
+extern const uint8_t CountdownP2Colu[5];
 
 extern const uint8_t kernel_7800[549];
 
@@ -106,6 +110,7 @@ extern const track_t SfxFlyCaught;
 extern const track_t SfxFan;
 extern const track_t SfxFlyIdle;
 extern const track_t SfxFlySquish;
+extern const track_t SfxBubblePop;
 extern const int32_t Sine[256];
 
 

@@ -16,13 +16,17 @@ const int FlyAscentDuration = 32;
 const int BubblePopFrames = 3;
 const int BubbleScoreFrames = 45;
 const int ChallengeFrames = 60*20;
+const int ChallengeThreshold = 100;
 const uint8_t ColuRedWall = 0x42;
+const int BubblePopValue = 10;
+const int BubbleStartPositions[16] = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 10, 20, 30, 40, 50, 60 };
 
 int countdown_frames_remaining = 0;
 int countdown_index = 0;
 
 int challenge_player = 0;
 int challenge_frames_remaining = 0;
+int next_challenge_score = 0;
 int min_monkey_x = 16;
 int max_monkey_x = 140;
 int shake_frames_remaining = 0;
@@ -33,6 +37,7 @@ int monkey_y_hwm = 0;
 int bubble_index = 0;
 int bubble_offset = 0;
 uint8_t zoom_level = 0;
+bool zoom_out_red_wall;
 
 static uint8_t InitialColuWall = 0x6a						;
 static uint8_t InitialColuFloor = 0x1d						;
@@ -754,6 +759,7 @@ LiveConfig live_config = { .count = (int)(sizeof(config_entries) / sizeof(config
 
 
 void play_game(int player_count){
+	next_challenge_score = ChallengeThreshold;
 	button_down_event = false;
 	but0 = 0;
 	prev_but0 = 0;
@@ -774,9 +780,8 @@ void play_game(int player_count){
 			break;
 		case Playing:
 		{
-			auto challenge_threshold = 5; // Challenge screen activates after each multiple of the threshold
 			auto hs = monkey_0.score + monkey_1.score;
-			if (hs > challenge_threshold * (1 + (int)play_state))
+			if (hs > next_challenge_score)
 				play_substate = FlyExit;
 			break; 
 		}
@@ -822,6 +827,8 @@ void play_game(int player_count){
 				for (int i = 0; i < 16; i++)
 				{
 					bubbles[i].state = Popped;
+					bubbles[i].x = BubbleStartPositions[i];
+					bubbles[i].points_awarded = false;
 				}
 				fly.is_alive = true;
 				fly.x = 80;
@@ -859,6 +866,8 @@ void play_game(int player_count){
 		case ZoomingOut:
 			if (zoom_level == 0)
 			{
+				next_challenge_score = monkey_0.score + monkey_1.score + ChallengeThreshold;
+
 				play_substate = FadingIn;
 				fade_level = 0;
 				if (play_state == Wide)
@@ -1803,6 +1812,17 @@ void DrawChallengeScreen() {
 	{
 		grp1Buffer[i] = 0;
 	}
+	// See if player popped them all
+	bool zoom_out_red_wall = false;
+	for (int i = 0; i < 16; i++)
+	{
+		if (bubbles[i].points_awarded == false)
+			zoom_out_red_wall = true;
+	}
+	if (!zoom_out_red_wall)
+	{
+		challenge_frames_remaining = 1;
+	}
 	// Animate bubbles
 	int r = ((frame & 3) == 0) ? randint() : 0xffffffff;
 	for (int i = 0; i < 16; i++)
@@ -1847,6 +1867,13 @@ void DrawChallengeScreen() {
 		default: {
 			// Wiggle
 			bubbles[i].x += (r & 1) ? 0 : (r & 2 ? -1 : 1);
+			if (bubbles[i].x < 5) {
+				bubbles[i].x = 5;
+			}
+			if (bubbles[i].x > 139)
+			{
+				bubbles[i].x = 139;
+			}
 			r >>= 2;
 			break;
 		}
@@ -1859,11 +1886,11 @@ void DrawChallengeScreen() {
 	if (bubble_offset >= 16)
 	{
 		bubble_offset = 0;
-		bubbles[bubble_index].x = (randint() & 0x7f) + 12;
-		auto size = (int)randint() % 3;
-		bubbles[bubble_index].hit_box = BubbleHitBoxes[size];
-		bubbles[bubble_index].state = (BubbleState)size;
-		bubbles[bubble_index].points_awarded = false;
+		if (!bubbles[bubble_index].points_awarded) {
+			auto size = ((int)randint() % 3) + 1;
+			bubbles[bubble_index].hit_box = BubbleHitBoxes[size];
+			bubbles[bubble_index].state = (BubbleState)size;
+		}
 		bubble_index++;
 		if (bubble_index >= 16)
 		{
@@ -1887,9 +1914,9 @@ void DrawChallengeScreen() {
 			init_audio_player(&sfx_player, 1, &SfxBubblePop);
 			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
 			if (challenge_player == 0)
-				monkey_0.score += 50;
+				monkey_0.score += BubblePopValue;
 			else
-				monkey_1.score += 50;
+				monkey_1.score += BubblePopValue;
 		}
 		fly.hit_box.Y -= 16;
 		(*bubbles[bib].hit_box).X = bubbles[bib].x;
@@ -1901,9 +1928,9 @@ void DrawChallengeScreen() {
 			init_audio_player(&sfx_player, 1, &SfxBubblePop);
 			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
 			if (challenge_player == 0)
-				monkey_0.score += 50;
+				monkey_0.score += BubblePopValue;
 			else
-				monkey_1.score += 50;
+				monkey_1.score += BubblePopValue;
 		}
 	}	
 	// Pop bubbles towards top of screen to force fly into danger zone to pick up points
@@ -2644,7 +2671,7 @@ void RenderZoomScreen(int& line, int line_limit) {
 	vcsWrite5(HMP0, zoom_hmp[zoom_level]);
 	vcsWrite5(HMP1, zoom_hmp[zoom_level] + 0x10);
 	vcsWrite5(VDELP0, 0x01);
-	vcsWrite5(COLUPF, (play_substate == ZoomingOut) ? ColuRedWall : InitialColuWall);
+	vcsWrite5(COLUPF, zoom_out_red_wall ? ColuRedWall : InitialColuWall);
 	vcsLdx2(bitmap[by + 4]);
 	vcsLdy2(bitmap[by + 5]);
 	vcsWrite5(GRP0, bitmap[by + 0]);

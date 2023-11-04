@@ -11,7 +11,7 @@ const FP32 MaxFlyVelocityMinus = MaxFlyVelocity * fp32(-1.0);
 const FP32 FlyAccel = fp32(0.75);
 const FP32 FlyAccelMinus = FlyAccel * fp32(-1.0);
 const uint8_t FlyBuzzVolAdd = 1;
-const FP32 ArmVelocity = fp32(1.5);
+const FP32 ArmVelocity = fp32(16);
 const int FlyAscentDuration = 32;
 const int BubblePopFrames = 3;
 const int BubbleScoreFrames = 45;
@@ -19,7 +19,8 @@ const int ChallengeFrames = 60*20;
 const int ChallengeThreshold = 100;
 const uint8_t ColuRedWall = 0x42;
 const int BubblePopValue = 10;
-const int BubbleStartPositions[16] = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 10, 20, 30, 40, 50, 60 };
+const int BubbleStartPositions[16] = { 30, 20, 30, 40, 50, 60, 70, 80, 90, 100, 90, 80, 70, 60, 50, 40 };
+const FP32 BubbleVelocity = fp32(0.04);
 
 int countdown_frames_remaining = 0;
 int countdown_index = 0;
@@ -34,6 +35,7 @@ int shake_frames_remaining = 0;
 int monkey_y_lwm = 500;
 int monkey_y_hwm = 0;
 
+FP32 bubbleDistance = 0;
 int bubble_index = 0;
 int bubble_offset = 0;
 uint8_t zoom_level = 0;
@@ -824,9 +826,23 @@ void play_game(int player_count){
 			else if (countdown_frames_remaining == 0) {
 				play_substate = Challenge;
 				challenge_frames_remaining = ChallengeFrames;
+				bubbleDistance = 0;
+				bubble_index = 0;
+				bubble_offset = 5;
 				for (int i = 0; i < 16; i++)
 				{
-					bubbles[i].state = Popped;
+					if (i > 10)
+					{
+						auto size = randint() & 3;
+						if (size > 2)
+							size = 0;
+						bubbles[i].state = (BubbleState)size;
+						bubbles[i].hit_box = BubbleHitBoxes[size];
+					}
+					else
+					{
+						bubbles[i].state = Popped;
+					}
 					bubbles[i].x = BubbleStartPositions[i];
 					bubbles[i].points_awarded = false;
 				}
@@ -1776,9 +1792,8 @@ void DrawChallengeScreen() {
 	fly.y += fly.velocity_y;
 	if (fly.y.Round() < 2)
 		fly.y = 2;
-	if (fly.y.Round() > 175) {
-		fly.y = 175;
-		fly.is_alive = false;
+	if (fly.y.Round() > 164) {
+		fly.y = 164;
 	}
 	auto fy = fly.y.Round();
 
@@ -1881,25 +1896,31 @@ void DrawChallengeScreen() {
 	}
 
 	// Move the bubbles up a line
-	// 
-	bubble_offset++;
-	if (bubble_offset >= 16)
+	bubbleDistance += BubbleVelocity;
+	if (bubbleDistance > 1)
 	{
-		bubble_offset = 0;
-		if (!bubbles[bubble_index].points_awarded) {
-			auto size = ((int)randint() % 3) + 1;
-			bubbles[bubble_index].hit_box = BubbleHitBoxes[size];
-			bubbles[bubble_index].state = (BubbleState)size;
-		}
-		bubble_index++;
-		if (bubble_index >= 16)
+		bubbleDistance -= 1;
+		bubble_offset++;
+		if (bubble_offset >= 16)
 		{
-			bubble_index = 0;
+			bubble_offset = 0;
+			if (!bubbles[bubble_index].points_awarded) {
+				auto size = randint() & 3;
+				if (size > 2)
+					size = 0;
+				bubbles[bubble_index].hit_box = BubbleHitBoxes[size];
+				bubbles[bubble_index].state = (BubbleState)size;
+			}
+			bubble_index++;
+			if (bubble_index >= 16)
+			{
+				bubble_index = 0;
+			}
 		}
 	}
 	int bi = bubble_index;
 	// Check for collision with bubble in row above and below fly's Y position.
-	if (fy < 175 && fly.is_alive)
+	if (fly.is_alive)
 	{
 		int bit = ((fy >> 4) + bi) & 0xf;
 		int bib = (bit + 1) & 0xf;

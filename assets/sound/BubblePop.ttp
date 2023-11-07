@@ -1,21 +1,33 @@
 {
-    "envelopeLength": 3,
+    "envelopeLength": 7,
     "frequencies": [
-        19,
-        17,
-        19
+        10,
+        22,
+        10,
+        22,
+        10,
+        10,
+        10
     ],
-    "name": "BubblePop",
+    "name": "bubble-pop-2",
     "overlay": false,
     "version": 1,
     "volumes": [
         12,
-        7,
-        2
+        12,
+        6,
+        3,
+        2,
+        1,
+        0
     ],
     "waveforms": [
+        8,
         12,
+        8,
         12,
-        12
+        8,
+        8,
+        8
     ]
 }

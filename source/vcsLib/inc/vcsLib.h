@@ -122,7 +122,7 @@ void vcsLibInit(int initBusStuffing);
 extern const uint8_t ColorLookup[256];
 extern const uint8_t ReverseByte[256]; // Reverses the order of the bits. 7..0 becomes 0..7. Useful for PF0, PF2, and reflecting sprites in software.
 
-uint32_t randint();
+int randint();
 void vcsJmp3();
 void vcsLda2(uint8_t data);
 void vcsSta3(uint8_t zeroPage);

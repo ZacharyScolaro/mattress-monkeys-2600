@@ -6,6 +6,11 @@
 #include "boundingBox.hpp"
 #include <cstddef>
 
+const int BonusShownFramesMax = 10 * 60;
+const int BonusShownFramesMin = 4 * 60;
+const int BonusHiddenFramesMax = 30 * 60;
+const int BonusHiddenFramesMin = 15 * 60;
+
 const FP32 MaxFlyVelocity = fp32(2.5);
 const FP32 MaxFlyVelocityMinus = MaxFlyVelocity * fp32(-1.0);
 const FP32 FlyAccel = fp32(0.75);
@@ -474,6 +479,7 @@ public:
 	int frames_remaining;
 	int score;
 	bool face_left;
+	bool face_down;
 	bool is_alive;
 };
 
@@ -1995,10 +2001,28 @@ void DrawChallengeScreen() {
 
 	// Blit fly
 	if (fly.is_alive) {
-		for (int i = 0; i < 11; i++)
+		int index = fy + 0;
+		int increment = 1;
+		if (fly.face_down) {
+			index += 10;
+			increment = -1;
+		}
+		if (fly.face_left)
 		{
-			grp0Buffer[fy + i] = FlyGraphics[(frame >> 4) & 1][i];
-			colup0Buffer[fy + i] = FlyColu[(frame >> 4) & 1][i];
+			for (int i = 0; i < 11; i++)
+			{
+				grp0Buffer[index] = ReverseByte[FlyGraphics[(frame >> 4) & 1][i]];
+				colup0Buffer[index] = FlyColu[(frame >> 4) & 1][i];
+				index += increment;
+			}
+		}
+		else {
+			for (int i = 0; i < 11; i++)
+			{
+				grp0Buffer[index] = FlyGraphics[(frame >> 4) & 1][i];
+				colup0Buffer[index] = FlyColu[(frame >> 4) & 1][i];
+				index += increment;
+			}
 		}
 	}
 }
@@ -3021,7 +3045,13 @@ void DrawBouncingScene() {
 	if (banana_cooldown <= 0)
 	{
 		banana_shown = !banana_shown;
-		banana_cooldown = banana_shown ? 4 * 60 : 7 * 60;
+		if (banana_shown) {
+			banana_cooldown = (randint() % (BonusShownFramesMax - BonusShownFramesMin)) + BonusShownFramesMin;
+		}
+		else
+		{
+			banana_cooldown = (randint() % (BonusHiddenFramesMax - BonusHiddenFramesMin)) + BonusHiddenFramesMin;
+		}
 	}
 
 	DrawMattress();
@@ -3046,7 +3076,7 @@ void DrawBouncingScene() {
 		max = standing_monkey->y.Round();
 	}
 
-	if (jumping_monkey->state != FanSmacked) {
+	if (jumping_monkey->state != FanSmacked && jumping_monkey->state != Dead) {
 
 		fly_top_hit_box.X = fly_top_x;
 		if (jumping_monkey->hit_box.Intersects(fly_top_hit_box))
@@ -3482,6 +3512,7 @@ void next_audio_frame() {
 
 void moveFly(uint8_t joy)
 {
+	fly.face_down = false;
 	if (!fly.is_alive)
 	{
 		fly.velocity_x = 0;
@@ -3537,6 +3568,7 @@ void moveFly(uint8_t joy)
 	else if ((joy & 0x2) == 0) {
 		if (fly.y < 175) {
 			// down
+			fly.face_down = true;
 			fly.velocity_y += FlyAccel;
 			if (fly.velocity_y > MaxFlyVelocity)
 			{

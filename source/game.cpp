@@ -45,6 +45,7 @@ int bubble_index = 0;
 int bubble_offset = 0;
 uint8_t zoom_level = 0;
 bool zoom_out_red_wall;
+uint8_t joystick = 0xff;
 
 static uint8_t InitialColuWall = 0x6a						;
 static uint8_t InitialColuFloor = 0x1d						;
@@ -452,6 +453,7 @@ enum MonkeyState {
 	Dead,
 };
 
+
 class Monkey {
 public:
 	BoundingBox<FP32> hit_box;
@@ -468,7 +470,9 @@ public:
 	bool face_left;
 	bool bottomed_out;
 };
-
+Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false, .bottomed_out = false };
+Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0,.animation = 0, .lives = 3, .face_left = true, .bottomed_out = false };
+const Monkey* monkeys[] = { &monkey_0, &monkey_1 };
 class Fly {
 public:
 	BoundingBox<FP32> hit_box;
@@ -491,6 +495,52 @@ public:
 	bool rising;
 	bool closed;
 };
+
+class Masquerader {
+public:
+	virtual uint8_t GetMove() = 0;
+};
+
+class Human : public Masquerader {
+private:
+	uint8_t _rightShift;
+public:
+	Human(uint8_t rightShift) 
+		: _rightShift(rightShift)
+	{
+
+	}
+	uint8_t GetMove() {
+		return (joystick >> _rightShift) & 0x0f;
+	}
+};
+
+const uint8_t JoyRight = 0x7;
+const uint8_t JoyLeft = 0xb;
+class AI : public Masquerader {
+private:
+	const Monkey* _monkey;
+public:
+	AI(int index) : _monkey(monkeys[index])
+	{
+	}
+	uint8_t GetMove() {
+		uint8_t joystick = 0xf;
+		if (_monkey->y > 130) {
+			if (_monkey->x < 65)
+				joystick &= JoyRight;
+			if (_monkey->x > 95)
+				joystick &= JoyLeft;
+		}
+		return joystick;
+	}
+};
+Human human0(4);
+Human human1(0);
+
+
+AI ai0(0);
+AI ai1(1);
 
 __attribute__((section(".noinit")))
 static uint8_t bitmap[192 * 80];
@@ -517,7 +567,7 @@ int title_screen();
 void game_over_screen();
 void show_credits();
 void show_previews();
-void play_game(int player_count);
+void play_game(int player_count, Masquerader& masq0, Masquerader& masq1);
 void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
 void RenderMediumBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
 void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
@@ -612,9 +662,9 @@ extern "C" int elf_main(uint32_t * args)
 		switch (menu_selection)
 		{
 		case 0:
-		case 1:
+			play_game(0, ai0, ai1);
 		case 2:
-			play_game(menu_selection);
+			play_game(2, human0, human1);
 			break;
 		case 3:
 			show_credits();
@@ -623,8 +673,9 @@ extern "C" int elf_main(uint32_t * args)
 			show_previews();
 			break;
 
+		case 1:
 		default:
-			play_game(1);
+			play_game(1, human0, ai1);
 		}
 	}
 }
@@ -710,8 +761,6 @@ track_player* chan1_player;
 int sfx_frames_remaining = 0;
 uint8_t sine_frame = 0;
 FP32 sine_hpos = 20;
-Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false, .bottomed_out = false };
-Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0,.animation = 0, .lives = 3, .face_left = true, .bottomed_out = false };
 Monkey* jumping_monkey = &monkey_0;
 Monkey* standing_monkey = &monkey_1;
 Monkey* p0_monkey = &monkey_0;
@@ -729,7 +778,6 @@ bool button_down_event = false;
 uint8_t but0 = 0, prev_but0 = 0;
 PlayState play_state = Wide;
 PlaySubState play_substate = Playing;
-uint8_t joysticks = 0;
 auto render_bed = RenderWideBed;
 PlayState max_play_state_reached = Narrow; // TODO Wide;
 int room_height = 175;
@@ -766,13 +814,12 @@ ConfigEntry config_entries[] = {
 LiveConfig live_config = { .count = (int)(sizeof(config_entries) / sizeof(config_entries[0])), .entries = config_entries };
 
 
-void play_game(int player_count){
+void play_game(int player_count, Masquerader& masq0, Masquerader& masq1){
 	next_challenge_score = ChallengeThreshold;
 	button_down_event = false;
 	but0 = 0;
 	prev_but0 = 0;
-	play_substate = ZoomingIn;
-	joysticks = 0;
+	play_substate = Playing;
 	monkey_0.lives = 3;
 	monkey_0.score = 0;
 	monkey_1.lives = 3;
@@ -881,7 +928,7 @@ void play_game(int player_count){
 			}
 			else
 			{
-				moveFly((challenge_player > 0) ? joysticks & 0xf : joysticks >> 4);
+				moveFly((challenge_player > 0) ? masq1.GetMove() : masq0.GetMove());
 			}
 			break;
 		}
@@ -1074,7 +1121,7 @@ void play_game(int player_count){
 		}
 
 		vcsWrite5(VBLANK, 2);
-		joysticks = vcsRead4(SWCHA);
+		joystick = vcsRead4(SWCHA);
 		vcsNop2();
 		but0 = vcsRead4(INPT4);
 		vcsNop2();
@@ -1082,8 +1129,8 @@ void play_game(int player_count){
 		vcsStartOverblank();
 		if (!challenge_mode)
 		{
-			move_monkey(joysticks >> 4, p0_monkey);
-			move_monkey(joysticks & 0xf, p1_monkey);
+			move_monkey(masq0.GetMove(), p0_monkey);
+			move_monkey(masq1.GetMove(), p1_monkey);
 		}
 		button_down_event = (((but0 & 0x80) == 0) && (prev_but0 & 0x80));
 		prev_but0 = but0;
@@ -1114,7 +1161,7 @@ int bitmap_screen(bool is_title_screen) {
 	{
 		bitmap[i] = 0;
 	}
-	joysticks = 0;
+	uint8_t joysticks = 0;
 	uint8_t prev_joy = 0;
 	while (true)
 	{

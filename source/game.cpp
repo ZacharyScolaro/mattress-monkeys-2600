@@ -11,6 +11,9 @@ const int BonusShownFramesMin = 4 * 60;
 const int BonusHiddenFramesMax = 30 * 60;
 const int BonusHiddenFramesMin = 15 * 60;
 
+const int FlyValues[] = {1, 2, 5};
+const int BananaValues[] = {5, 10, 25};
+
 const FP32 MaxFlyVelocity = fp32(2.5);
 const FP32 MaxFlyVelocityMinus = MaxFlyVelocity * fp32(-1.0);
 const FP32 FlyAccel = fp32(0.75);
@@ -21,7 +24,7 @@ const int FlyAscentDuration = 32;
 const int BubblePopFrames = 3;
 const int BubbleScoreFrames = 45;
 const int ChallengeFrames = 60*20;
-const int ChallengeThreshold = 100;
+const int ChallengeThresholds[] = { 25, 100, 200 };
 const uint8_t ColuRedWall = 0x42;
 const int BubblePopValue = 10;
 const int BubbleStartPositions[16] = { 70, 60, 110, 120, 90, 100, 80, 70, 30, 40, 50, 70, 80, 40, 30, 20 }; // originally 30, 20, 30, 40, 50, 60, 70, 80, 90, 100, 90, 80, 70, 60, 50, 40
@@ -815,7 +818,7 @@ LiveConfig live_config = { .count = (int)(sizeof(config_entries) / sizeof(config
 
 
 void play_game(int player_count, Masquerader& masq0, Masquerader& masq1){
-	next_challenge_score = ChallengeThreshold;
+	next_challenge_score = ChallengeThresholds[(int)play_state];
 	button_down_event = false;
 	but0 = 0;
 	prev_but0 = 0;
@@ -935,7 +938,7 @@ void play_game(int player_count, Masquerader& masq0, Masquerader& masq1){
 		case ZoomingOut:
 			if (zoom_level == 0)
 			{
-				next_challenge_score = monkey_0.score + monkey_1.score + ChallengeThreshold;
+				next_challenge_score = monkey_0.score + monkey_1.score + ChallengeThresholds[(int)play_state];
 
 				play_substate = FadingIn;
 				fade_level = 0;
@@ -1161,7 +1164,6 @@ int bitmap_screen(bool is_title_screen) {
 	{
 		bitmap[i] = 0;
 	}
-	uint8_t joysticks = 0;
 	uint8_t prev_joy = 0;
 	while (true)
 	{
@@ -3130,7 +3132,7 @@ void DrawBouncingScene() {
 		{
 			fly_top_spawned = fly_spawn_enabled;
 			fly_top_x = 4;
-			jumping_monkey->score += 1;
+			jumping_monkey->score += FlyValues[(int)play_state];
 			init_audio_player(&sfx_player, 1, &SfxFlyCaught);
 			sfx_frames_remaining = SfxFlyCaught.percussions[0].length;
 		}
@@ -3140,14 +3142,14 @@ void DrawBouncingScene() {
 		{
 			fly_bot_spawned = fly_spawn_enabled;
 			fly_bot_x = 4;
-			jumping_monkey->score += 1;
+			jumping_monkey->score += FlyValues[(int)play_state];
 			init_audio_player(&sfx_player, 1, &SfxFlyCaught);
 			sfx_frames_remaining = SfxFlyCaught.percussions[0].length;
 		}
 		if (banana_shown && jumping_monkey->hit_box.Intersects(banana_hit_box))
 		{
 			banana_shown = false;
-			jumping_monkey->score += 5;
+			jumping_monkey->score += BananaValues[(int)play_state];
 			init_audio_player(&sfx_player, 1, &SfxBonus);
 			sfx_frames_remaining = SfxBonus.percussions[0].length;
 		}
@@ -3615,7 +3617,7 @@ void moveFly(uint8_t joy)
 	else if ((joy & 0x2) == 0) {
 		if (fly.y < 175) {
 			// down
-			fly.face_down = true;
+			// :( fly.face_down = true;
 			fly.velocity_y += FlyAccel;
 			if (fly.velocity_y > MaxFlyVelocity)
 			{

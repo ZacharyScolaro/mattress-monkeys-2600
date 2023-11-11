@@ -520,6 +520,7 @@ public:
 
 const uint8_t JoyRight = 0x7;
 const uint8_t JoyLeft = 0xb;
+const uint8_t JoyUp = 0xe;
 class AI : public Masquerader {
 private:
 	const Monkey* _monkey;
@@ -529,11 +530,41 @@ public:
 	}
 	uint8_t GetMove() {
 		uint8_t joystick = 0xf;
-		if (_monkey->y > 130) {
-			if (_monkey->x < 65)
+		if (_monkey->state != Jumping) {
+			if (_monkey->x < 75)
 				joystick &= JoyRight;
-			if (_monkey->x > 95)
+			if (_monkey->x > 85)
 				joystick &= JoyLeft;
+		}
+		else
+		{
+			if (_monkey->lives > 0)
+				joystick &= JoyUp;
+		}
+		return joystick;
+	}
+};
+
+class AI2 : public Masquerader {
+private:
+	const Monkey* _monkey;
+	const Monkey* _other_monkey;
+public:
+	AI2(int index) : _monkey(monkeys[index]), _other_monkey(monkeys[(index+1)&1])
+	{
+	}
+	uint8_t GetMove() {
+		uint8_t joystick = 0xf;
+		if (_monkey->state != Jumping) {
+			if (_monkey->x < _other_monkey->x)
+				joystick &= JoyRight;
+			if (_monkey->x > _other_monkey->y)
+				joystick &= JoyLeft;
+		}
+		else
+		{
+			if (_monkey->lives > 0 && _monkey->y < 80)
+				joystick &= JoyUp;
 		}
 		return joystick;
 	}
@@ -543,7 +574,7 @@ Human human1(0);
 
 
 AI ai0(0);
-AI ai1(1);
+AI2 ai1(1);
 
 __attribute__((section(".noinit")))
 static uint8_t bitmap[192 * 80];
@@ -866,17 +897,17 @@ void play_game(int player_count, Masquerader& masq0, Masquerader& masq1){
 		{
 			if (zoom_level == 17) {
 				play_substate = CountingDown;
-				countdown_frames_remaining = 60 * 3;
+				countdown_frames_remaining = 30 * 3;
 				countdown_index = 0;
 			}
 		}
 		case CountingDown:
 		{
 			countdown_frames_remaining--;
-			if (countdown_frames_remaining == 60 * 2) {
+			if (countdown_frames_remaining == 30 * 2) {
 				countdown_index = 1;
 			}
-			else if (countdown_frames_remaining == 60) {
+			else if (countdown_frames_remaining == 30) {
 				countdown_index = 2;
 			}
 			else if (countdown_frames_remaining == 0) {
@@ -1852,25 +1883,13 @@ void DrawChallengeScreen() {
 	}
 	auto fy = fly.y.Round();
 
-	// Light
-	for (int i = 0; i < 4; i++)
-	{
-		for (int j = 0; j < 8; j++)
-		{
-			auto left = DoubleWideLookup[FanChasisGraphics[16 + i] >> 4];
-			auto right = DoubleWideLookup[FanChasisGraphics[16 + i] & 0xf];
-			playfieldBuffer[(i * 8 + j + 2) * 5 + 0] = 0;
-			playfieldBuffer[(i * 8 + j + 2) * 5 + 1] = left >> 5;
-			playfieldBuffer[(i * 8 + j + 2) * 5 + 2] = left << 3 | right >> 5;
-			playfieldBuffer[(i * 8 + j + 2) * 5 + 3] = right << 3;
-			playfieldBuffer[(i * 8 + j + 2) * 5 + 4] = 0;
-		}
-	}
-
 	// Monkey Arms
-	for (int i = 4*8*5; i < 175*5; i++)
+	for (int i = 4*8*5+1; i < 175*5; )
 	{
 		playfieldBuffer[i] = 0;
+		i += 2;
+		playfieldBuffer[i] = 0;
+		i += 3;
 	}
 	fly.hit_box.X = fly.x;
 	fly.hit_box.Y = fly.y;
@@ -2076,13 +2095,12 @@ void DrawChallengeScreen() {
 	}
 }
 
+__attribute__((long_call, section(".RamFunc")))
 void RenderChallengeScreen() {
 	int line = 0;
 	vcsEndOverblank();
-	writeAudio30();
-
-
 	vcsSta3(WSYNC);
+	writeAudio30();
 	vcsSta3(WSYNC);
 	vcsSta3(WSYNC);
 	vcsSta3(HMOVE);
@@ -2101,16 +2119,17 @@ void RenderChallengeScreen() {
 
 	DisplayText(ColuScoreBackground, 1);
 
+
 	// Prep for rest of screen
-	PositionObject(line, fly.x.Round(), RESP0, HMP0);
 	PositionObject(line, colupfBuffer[0], RESPONE, HMP1);
+	PositionObject(line, fly.x.Round(), RESP0, HMP0); // Do this after other position() because Round() is too slow to do immediately after DisplayText()
 	vcsSta3(HMOVE);
 	vcsWrite5(GRP1, grp1Buffer[0]);
 	vcsWrite5(COLUP0, 0);
 	vcsSta3(COLUP1);
-	vcsWrite5(PF0, ReverseByte[playfieldBuffer[0] >> 4]);
-	vcsWrite5(PF1, (playfieldBuffer[0] << 4) | (playfieldBuffer[1] >> 4));
-	vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[1] << 4) | (playfieldBuffer[2] >> 4))]);
+	vcsWrite5(PF0, ChallengeLightPlayfield[0]);
+	vcsWrite5(PF1, ChallengeLightPlayfield[1]);
+	vcsWrite5(PF2, ChallengeLightPlayfield[2]);
 	vcsWrite5(VDELP0, 0);
 	vcsWrite5(VDELP1, 1);
 	vcsJmp3();
@@ -2125,6 +2144,69 @@ void RenderChallengeScreen() {
 		colubk = ColuRedWall;
 	}
 	vcsWrite5(COLUBK, colubk);
+
+	for (int i = 2; i < 198; )
+	{
+		vcsSta3(HMOVE);							// 3
+		vcsJmp3();									// 6
+		vcsWrite5(GRP0, grp0Buffer[line]);		// 11
+		vcsWrite5(COLUP0, colup0Buffer[line]);	// 16
+		vcsWrite5(COLUP1, colup1Buffer[line]);	// 21
+		if ((colupfBuffer[line] & 0xf) == 1) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(COLUPF, FanChasisColu[18]);		// 26 31
+		if ((colupfBuffer[line] & 0xf) == 2) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF2, ChallengeLightPlayfield[i++]);								// 31	36
+		if ((colupfBuffer[line] & 0xf) == 3) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF0, ChallengeLightPlayfield[i++]);				// 36	41
+		if ((colupfBuffer[line] & 0xf) == 4) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF1, ChallengeLightPlayfield[i++]);								// 41	46
+		if ((colupfBuffer[line] & 0xf) == 5) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(COLUPF, FanChasisColu[18]);		// 46	51
+		if ((colupfBuffer[line] & 0xf) == 6) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF2, ChallengeLightPlayfield[i++]);				// 51	56
+		if ((colupfBuffer[line] & 0xf) == 7) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF0, ChallengeLightPlayfield[i++]);	// 56	61
+		if ((colupfBuffer[line] & 0xf) == 8) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(HMP1, colupfBuffer[line]);
+		if ((colupfBuffer[line] & 0xf) == 9) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(PF1, ChallengeLightPlayfield[i++]);							//	66	71
+		if ((colupfBuffer[line] & 0xf) > 9) {
+			vcsNop2();
+			vcsSta3(RESPONE);
+		}
+		vcsWrite5(GRP1, grp1Buffer[line + 1]);											// 71	76
+		if ((colupfBuffer[line] & 0xf) == 0) {
+			vcsWrite5(CXCLR, 0);
+		}
+		line++;
+	}
 
 	for (int i = line; i < room_height; i++)
 	{
@@ -2142,13 +2224,12 @@ void RenderChallengeScreen() {
 			vcsNop2();
 			vcsSta3(RESPONE);
 		}
-		vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[i * 5 + 1] << 4)
-			| (playfieldBuffer[i * 5 + 2] >> 4))]);								// 31	36
+		vcsWrite5(PF2, ReverseByte[(uint8_t)(playfieldBuffer[i * 5 + 1] << 4)]);								// 31	36
 		if ((colupfBuffer[i] & 0xf) == 3) {
 			vcsNop2();
 			vcsSta3(RESPONE);
 		}
-		vcsWrite5(PF0, ReverseByte[playfieldBuffer[i * 5 + 2]]);				// 36	41
+		vcsWrite5(PF0, 0);				// 36	41
 		if ((colupfBuffer[i] & 0xf) == 4) {
 			vcsNop2();
 			vcsSta3(RESPONE);
@@ -2163,12 +2244,12 @@ void RenderChallengeScreen() {
 			vcsNop2();
 			vcsSta3(RESPONE);
 		}
-		vcsWrite5(PF2, ReverseByte[playfieldBuffer[i * 5 + 4]]);				// 51	56
+		vcsWrite5(PF2, 0);				// 51	56
 		if ((colupfBuffer[i] & 0xf) == 7) {
 			vcsNop2();
 			vcsSta3(RESPONE);
 		}
-		vcsWrite5(PF0, ReverseByte[playfieldBuffer[(i + 1) * 5] >> 4]);	// 56	61
+		vcsWrite5(PF0,0);	// 56	61
 		if ((colupfBuffer[i] & 0xf) == 8) {
 			vcsNop2();
 			vcsSta3(RESPONE);
@@ -2178,8 +2259,7 @@ void RenderChallengeScreen() {
 			vcsNop2();
 			vcsSta3(RESPONE);
 		}
-		vcsWrite5(PF1, (playfieldBuffer[(i + 1) * 5] << 4)
-			| (playfieldBuffer[(i + 1) * 5 + 1] >> 4));							//	66	71
+		vcsWrite5(PF1, playfieldBuffer[(i + 1) * 5 + 1] >> 4);							//	66	71
 		if ((colupfBuffer[i] & 0xf) > 9) {
 			vcsNop2();
 			vcsSta3(RESPONE);
@@ -2749,9 +2829,9 @@ void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey)
 
 static const uint8_t zoom_hmp[] = { 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xb0, 0xb0, 0xb0, 0xb0, 0xb0, 0xb0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0 };
 void RenderZoomScreen(int& line, int line_limit) {
-	int by = line * 6;
-	vcsWrite5(GRP0, 0);
+	vcsWrite5(GRP0, 0); // Do this first because we're racing the 6502
 	vcsSta3(GRP1);
+	int by = line * 6; 
 	vcsSta3(PF0);
 	vcsSta3(PF1);
 	vcsSta3(PF2);

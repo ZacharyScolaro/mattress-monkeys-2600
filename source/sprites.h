@@ -67,6 +67,8 @@ extern const uint8_t CountdownP2Graphics[5];
 
 extern const uint8_t CountdownP2Colu[5];
 
+extern const uint8_t ChallengeLightPlayfield[204];
+
 extern const uint8_t kernel_7800[549];
 
 

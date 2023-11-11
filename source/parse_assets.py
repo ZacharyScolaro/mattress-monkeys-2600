@@ -3,6 +3,21 @@ import math
 from typing import Sequence
 import png
 
+reverse_byte_lookup = []
+for x in range(0, 256):
+	reverse_byte_lookup.append( \
+		((x >> 7) & 1) | \
+		((x >> 5) & 2) | \
+		((x >> 3) & 4) | \
+		((x >> 1) & 8) | \
+		((x << 1) & 16) | \
+		((x << 3) & 32) | \
+		((x << 5) & 64) | \
+		((x << 7) & 128))
+
+def reverse_byte(b):
+	return reverse_byte_lookup[b & 0xff]
+
 init_ttt_typedefs_called = False
 palette = []
 
@@ -40,7 +55,7 @@ def rgb_to_colu(rgb):
 	return closest * 2
 
 
-def parse_png(png_name, pixel_width, pixel_height, item_x, item_y, item_width, item_height, alpha_color):
+def parse_png(png_name, pixel_width, pixel_height, item_x, item_y, item_width, item_height, alpha_color, stringify = True):
 	global y
 	y = 0
 
@@ -68,12 +83,12 @@ def parse_png(png_name, pixel_width, pixel_height, item_x, item_y, item_width, i
 						colu = rgb_to_colu(color)
 					mask = mask >> 1
 					if mask == 0:
-						graphic_bytes.append('0x{:02x}'.format(b))
+						graphic_bytes.append('0x{:02x}'.format(b) if stringify else b)
 						b = 0
 						mask = 0x80
 				if mask != 0x80:
-					graphic_bytes.append('0x{:02x}'.format(b))
-				color_bytes.append('0x{:02x}'.format(colu))
+					graphic_bytes.append('0x{:02x}'.format(b) if stringify else b)
+				color_bytes.append('0x{:02x}'.format(colu) if stringify else b)
 			pixel_y = pixel_y + 1
 			if pixel_y >= item_y + item_height:
 				break
@@ -107,6 +122,25 @@ def parse_sprite_strip(f_header, f_source, png_name, item_name, item_width, item
 		f_source.write(', '.join(colu_bytes))
 		if item_count > 1:
 			f_source.write(' }' + ('' if x == item_count-1 else ',') +'\n')
+	f_source.write(' };\n')
+
+
+def parse_playfield(f_header, f_source, png_name, item_name, item_height, pixel_width, pixel_height, item_x, item_y, alpha_color):
+	pf_bytes = []
+	item_width = 40;
+	item_size = 6 * item_height # figure out how many bytes to hold it all
+	f_header.write('\nextern const uint8_t ' + item_name + 'Playfield' + '[' + str(item_size) + '];\n')
+	f_source.write('\nconst uint8_t ' + item_name + 'Playfield' + '[' + str(item_size) + '] = { ')
+	graphic_bytes, colu_bytes = parse_png(png_name, pixel_width, pixel_height, item_x, item_y, item_width, item_height, alpha_color, False)
+	for i in range(0, item_height):
+		gi = i * 5
+		pf_bytes.append('0x{:02x}'.format(reverse_byte(graphic_bytes[gi] >> 4)))
+		pf_bytes.append('0x{:02x}'.format(0xff & ((graphic_bytes[gi] << 4) | (graphic_bytes[gi+1] >> 4))))
+		pf_bytes.append('0x{:02x}'.format(reverse_byte((graphic_bytes[gi+1] << 4) | (graphic_bytes[gi+2] >> 4))))
+		pf_bytes.append('0x{:02x}'.format(reverse_byte(graphic_bytes[gi+2])))
+		pf_bytes.append('0x{:02x}'.format(graphic_bytes[gi+3]))
+		pf_bytes.append('0x{:02x}'.format(reverse_byte(graphic_bytes[gi+4])))
+	f_source.write(', '.join(pf_bytes))
 	f_source.write(' };\n')
 
 
@@ -404,6 +438,8 @@ parse_sprite_strip(f_header, f_source, 'challenge-bubbles-sprites.png', 'Bubble'
 parse_sprite_strip(f_header, f_source, 'challenge-fly-2cycle.png', 'Fly', 8, 11, 2, 1, 1, 0, 0, None)
 parse_sprite_strip(f_header, f_source, 'player-1-challenge-countdown_1px_gap+48px_sprite.png', 'Countdown', 48, 31, 3, 1, 1, 0, 0, None, 1)
 parse_sprite_strip(f_header, f_source, 'player-2-challenge-countdown_1px_gap+48px_sprite.png', 'CountdownP2', 8, 5, 1, 1, 1, 32, 0, None, 41)
+
+parse_playfield(f_header, f_source, 'challenge-light.png', 'ChallengeLight', 34, 4, 1, 0, 0, (0,0,0))
 
 # TODO DEPRECATE THIS FUCNTION generate_sine_tables(f_header, f_source)
 

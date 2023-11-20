@@ -30,6 +30,240 @@ const int BubblePopValue = 10;
 const int BubbleStartPositions[16] = { 70, 60, 110, 120, 90, 100, 80, 70, 30, 40, 50, 70, 80, 40, 30, 20 }; // originally 30, 20, 30, 40, 50, 60, 70, 80, 90, 100, 90, 80, 70, 60, 50, 40
 const FP32 BubbleVelocity = fp32(.40);
 
+// helper classes
+enum PlayState {
+	Wide,
+	Medium,
+	Narrow,
+};
+
+enum PlaySubState {
+	NotPlaying, // Hold monkeys in place for title screen and level transitions
+	Playing,
+	FlyExit,
+	MonkeyLanding,
+	FadingOut,
+	ZoomingIn,
+	CountingDown,
+	Challenge,
+	ZoomingOut,
+	FadingIn,
+};
+
+class ConfigEntry {
+public:
+	char* name;
+	const uint8_t initial;
+	uint8_t* current;
+	ConfigEntry(char* n, uint8_t i, uint8_t* c) : name(n), initial(i), current(c) {}
+};
+class LiveConfig {
+public:
+	int count;
+	ConfigEntry* entries;
+	uint8_t prev_joystick = 0;
+	int entry_index = 0;
+	int digit_index = 0;
+	char line[18] = { 0 };
+	int frame_count = 0;
+	void HandleInput(uint8_t joystick) {
+		if ((joystick & 0x8) == 0 && (prev_joystick & 0x8)) {
+			// right
+			digit_index++;
+			if (digit_index > 1)
+			{
+				digit_index = 0;
+				entry_index++;
+				if (entry_index >= count)
+				{
+					entry_index = 0;
+				}
+			}
+		}
+		else if ((joystick & 0x4) == 0 && (prev_joystick & 0x4)) {
+			// left
+			digit_index--;
+			if (digit_index < 0)
+			{
+				digit_index = 1;
+				entry_index--;
+				if (entry_index < 0)
+				{
+					entry_index = count - 1;
+				}
+			}
+		}
+		else if ((joystick & 0x1) == 0 && (prev_joystick & 0x1)) {
+			// up
+			int shift = 4 * (1 - digit_index);
+			//uint8_t mask = 0xf << shift;
+			uint8_t inc = 1 << shift;
+			uint8_t cur = *entries[entry_index].current;
+			*entries[entry_index].current = cur + inc; // (cur & ~mask) | (((cur & mask) + inc) & mask);
+		}
+		else if ((joystick & 0x2) == 0 && (prev_joystick & 0x2)) {
+			int shift = 4 * (1 - digit_index);
+			// down
+			//uint8_t mask = 0xf << shift;
+			uint8_t inc = 0x1 << shift;
+			uint8_t cur = *entries[entry_index].current;
+			*entries[entry_index].current = cur - inc; // (cur & ~mask) | (((cur & mask) + inc) & mask);
+		}
+		prev_joystick = joystick;
+
+		for (int i = 0; i < (int)(sizeof(line) / sizeof(line[0])); i++)
+		{
+			line[i] = ' ';
+		}
+
+		int ix = 0;
+		while (true) {
+			char c = entries[entry_index].name[ix];
+			line[ix++] = c;
+			if ((c == ' ') || (ix >= 14))
+			{
+				break;
+			}
+		}
+		for (int i = 0; i < 2; i++)
+		{
+			int shift = 4 * (1 - i);
+			line[ix++] = ((*entries[entry_index].current >> shift) & 0xf);
+		}
+
+		PrintText(line, 0);
+		if (frame_count < 30) {
+			InvertCharacter(0, ix - 2 + digit_index);
+		}
+		frame_count--;
+		if (frame_count < 0)
+		{
+			frame_count = 60;
+		}
+	}
+};
+enum BubbleState {
+	LargeBubble,
+	MediumBubble,
+	SmallBubble,
+	Popping0,
+	Popping1,
+	Popping2,
+	PoppedPoints,
+	Popped,
+};
+struct Bubble {
+	int x;
+	BubbleState state;
+	int frames_remaining;
+	BoundingBox<FP32>* hit_box;
+	bool points_awarded;
+};
+enum MonkeyState {
+	Standing,
+	Walking,
+	Jumping,
+	FanSmacked,
+	HoppingOntoPost,
+	WalkingToEdge,
+	HoppingOntoMattress,
+	Dead,
+};
+class Monkey {
+public:
+	BoundingBox<FP32> hit_box;
+	uint8_t color;
+	FP32 x;
+	FP32 y;
+	FP32 velocity_x;
+	FP32 velocity_y;
+	int score;
+	MonkeyState state;
+	int frame;
+	int animation;
+	int lives;
+	bool face_left;
+	bool bottomed_out;
+};
+class Fly {
+public:
+	BoundingBox<FP32> hit_box;
+	FP32 x;
+	FP32 y;
+	FP32 velocity_x;
+	FP32 velocity_y;
+	int frames_remaining;
+	int score;
+	bool face_left;
+	bool face_down;
+	bool is_alive;
+};
+class MonkeyArm {
+public:
+	BoundingBox<FP32> hit_box;
+	FP32 y;
+	int frames_remaining;
+	bool rising;
+	bool closed;
+};
+class Masquerader {
+public:
+	virtual uint8_t GetMove() = 0;
+};
+const uint8_t JoyRight = 0x7;
+const uint8_t JoyLeft = 0xb;
+const uint8_t JoyUp = 0xe;
+class Human : public Masquerader {
+private:
+	uint8_t _rightShift;
+public:
+	Human(uint8_t rightShift);
+	uint8_t GetMove();
+};
+
+class AI : public Masquerader {
+private:
+	const Monkey* _monkey;
+public:
+	AI(int index);
+	uint8_t GetMove();
+};
+
+class AI2 : public Masquerader {
+private:
+	const Monkey* _monkey;
+	const Monkey* _other_monkey;
+public:
+	AI2(int index);
+	uint8_t GetMove();;
+};
+
+// functions
+void init_game_state();
+void update_game_state();
+void enter_title_frame();
+void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
+void RenderMediumBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
+void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
+void render_48pixel_sprite(int& line, const uint8_t* data, int height);
+
+// title vars
+int menu_selection;
+
+BoundingBox<FP32> LargeBubbleHitbox(0, 0, 0, 8, 0, 14);
+BoundingBox<FP32> MediumBubbleHitbox(0, 0, 1, 7, 1, 13);
+BoundingBox<FP32> SmallBubbleHitbox(0, 0, 2, 6, 2, 12);
+BoundingBox<FP32>* BubbleHitBoxes[] = { &LargeBubbleHitbox, &MediumBubbleHitbox, &SmallBubbleHitbox };
+static Bubble bubbles[16];
+
+Human human0(4);
+Human human1(0);
+
+
+AI ai0(0);
+AI2 ai1(1);
+
+
 int countdown_frames_remaining = 0;
 int countdown_index = 0;
 
@@ -80,6 +314,72 @@ static uint8_t ColuFanBlade = InitialColuFanBlade;
 static uint8_t ColuP0Monkey = InitialColuP0Monkey;
 static uint8_t ColuP1Monkey = InitialColuP1Monkey;
 static uint8_t ColuFloor = InitialColuFloor;
+
+Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false, .bottomed_out = false };
+Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0,.animation = 0, .lives = 3, .face_left = true, .bottomed_out = false };
+const Monkey* monkeys[] = { &monkey_0, &monkey_1 };
+
+bool challenge_mode = false;
+bool show_zoom_screen = false;
+bool jump_in_progress = true;
+bool show_challenge_wall = false;
+bool bonus_enabled = true;
+bool jumping_enabled = true;
+bool fly_spawn_enabled = true;
+bool banana_shown = false;
+int banana_cooldown = 5 * 60;
+int min = 500;
+int max = 0;
+bool fly_top_spawned = true;
+bool fly_bot_spawned = true;
+int fly_top_x = 20;
+int fly_top_y = 2;
+size_t fly_top_index = 0;
+int fly_bot_x = 8;
+int fly_bot_y = 20;
+int frame = 0;
+int fanFrame = 0;
+size_t fly_loop_index = 0;
+track_player sfx_player;
+track_player* chan1_player;
+int sfx_frames_remaining = 0;
+uint8_t sine_frame = 0;
+FP32 sine_hpos = 20;
+Monkey* jumping_monkey = &monkey_0;
+Monkey* standing_monkey = &monkey_1;
+Monkey* p0_monkey = &monkey_0;
+Monkey* p1_monkey = &monkey_1;
+FP32 GravityAscend = fp32(0.29); // originally 0.24
+FP32 GravityFall = fp32(0.5); // originally 0.5
+FP32 MattressFriction = fp32(-0.3);
+BoundingBox<FP32> fly_top_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
+BoundingBox<FP32> fly_bot_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
+BoundingBox<FP32> banana_hit_box = BoundingBox<FP32>(77, 33, 0, 7, 0, 13);
+uint8_t fade_level = 16;
+int bed_left = 40;
+int bed_right = 124;
+bool button_down_event = false;
+uint8_t but0 = 0, prev_but0 = 0;
+PlayState play_state = Wide;
+PlaySubState play_substate = Playing;
+auto render_bed = RenderWideBed;
+PlayState max_play_state_reached = Narrow; // TODO Wide;
+int room_height = 175;
+FP32 wave_length = 80;
+Fly fly = { .hit_box = BoundingBox<FP32>(0,0,0,8,4,10), .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .face_left = false, .is_alive = true };
+MonkeyArm left_arm = { .hit_box = BoundingBox<FP32>(32,39,10,20,16 + 32,44 + 32), .y = 0, .frames_remaining = 0, .rising = false, .closed = true };
+MonkeyArm right_arm = { .hit_box = BoundingBox<FP32>(96,39,10,20,16 + 32,44 + 32), .y = 0, .frames_remaining = 0, .rising = false, .closed = true };
+
+BoundingBox<FP32> fan_blade_hit_boxes[7] = {
+	BoundingBox<FP32>(60, 4, 0, 44, 0, 11),
+	BoundingBox<FP32>(60, 4, 8, 36, 0, 11),
+	BoundingBox<FP32>(60, 4, 12, 32, 0, 11),
+	BoundingBox<FP32>(60, 4, 16, 28, 0, 11),
+	BoundingBox<FP32>(60, 4, 12, 32, 0, 11),
+	BoundingBox<FP32>(60, 4, 8, 36, 0, 11),
+	BoundingBox<FP32>(60, 4, 0, 44, 0, 11),
+};
+
 
 const uint8_t BitWidthLookup[16] = { 0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4 };
 
@@ -325,256 +625,14 @@ const char OctopusherTitleScreen2600Graphics[192 * 9] = {
 0x0, 0x0, 0x0,0x0,0x0,0x0,0x0,0x0,0x0
 };
 
-class ConfigEntry {
-public:
-	char * name;
-	const uint8_t initial;
-	uint8_t* current;
-	ConfigEntry(char* n, uint8_t i, uint8_t* c) : name(n), initial(i), current(c) {}
-};
-
-class LiveConfig {
-public:
-	int count;
-	ConfigEntry* entries;
-	uint8_t prev_joystick = 0;
-	int entry_index = 0;
-	int digit_index = 0;
-	char line[18] = { 0 };
-	int frame_count = 0;
-	void HandleInput(uint8_t joystick) {
-		if ((joystick & 0x8)==0 && (prev_joystick & 0x8)) {
-			// right
-			digit_index++;
-			if (digit_index > 1)
-			{
-				digit_index = 0;
-				entry_index++;
-				if (entry_index >= count)
-				{
-					entry_index = 0;
-				}
-			}
-		}
-		else if ((joystick & 0x4) == 0 && (prev_joystick & 0x4)) {
-			// left
-			digit_index--;
-			if (digit_index < 0)
-			{
-				digit_index = 1;
-				entry_index--;
-				if (entry_index < 0)
-				{
-					entry_index = count - 1;
-				}
-			}
-		}
-		else if ((joystick & 0x1) == 0 && (prev_joystick & 0x1)) {
-			// up
-			int shift = 4 * (1 - digit_index);
-			//uint8_t mask = 0xf << shift;
-			uint8_t inc = 1 << shift;
-			uint8_t cur = *entries[entry_index].current;
-			*entries[entry_index].current = cur + inc; // (cur & ~mask) | (((cur & mask) + inc) & mask);
-		}
-		else if ((joystick & 0x2) == 0 && (prev_joystick & 0x2)) {
-			int shift = 4 * (1 - digit_index);
-			// down
-			//uint8_t mask = 0xf << shift;
-			uint8_t inc = 0x1 << shift;
-			uint8_t cur = *entries[entry_index].current;
-			*entries[entry_index].current = cur - inc; // (cur & ~mask) | (((cur & mask) + inc) & mask);
-		}
-		prev_joystick = joystick;
-
-		for (int i = 0; i < (int)(sizeof(line)/sizeof(line[0])); i++)
-		{
-			line[i] = ' ';
-		}
-
-		int ix = 0;
-		while (true) {
-			char c = entries[entry_index].name[ix];
-			line[ix++] = c;
-			if ((c == ' ') || (ix >= 14))
-			{
-				break;
-			}
-		}
-		for (int i = 0; i < 2; i++)
-		{
-			int shift = 4 * (1 - i);
-			line[ix++] = ((*entries[entry_index].current >> shift) & 0xf);
-		}
-
-		PrintText(line, 0);
-		if (frame_count < 30) {
-			InvertCharacter(0, ix - 2 + digit_index);
-		}
-		frame_count--;
-		if (frame_count < 0)
-		{
-			frame_count = 60;
-		}
-	}
-};
-
-enum BubbleState {
-	LargeBubble,
-	MediumBubble,
-	SmallBubble,
-	Popping0,
-	Popping1,
-	Popping2,
-	PoppedPoints,
-	Popped,
-};
-
-BoundingBox<FP32> LargeBubbleHitbox(0,0,0,8,0,14);
-BoundingBox<FP32> MediumBubbleHitbox(0,0,1,7,1,13);
-BoundingBox<FP32> SmallBubbleHitbox(0,0,2,6,2,12);
-BoundingBox<FP32>* BubbleHitBoxes[] = { &LargeBubbleHitbox, &MediumBubbleHitbox, &SmallBubbleHitbox };
-
-struct Bubble {
-	int x;
-	BubbleState state;
-	int frames_remaining;
-	BoundingBox<FP32>* hit_box;
-	bool points_awarded;
-};
-
-static Bubble bubbles[16];
-
-enum MonkeyState {
-	Standing,
-	Walking,
-	Jumping,
-	FanSmacked,
-	HoppingOntoPost,
-	WalkingToEdge,
-	HoppingOntoMattress,
-	Dead,
-};
 
 
-class Monkey {
-public:
-	BoundingBox<FP32> hit_box;
-	uint8_t color;
-	FP32 x;
-	FP32 y;
-	FP32 velocity_x;
-	FP32 velocity_y;
-	int score;
-	MonkeyState state;
-	int frame;
-	int animation;
-	int lives;
-	bool face_left;
-	bool bottomed_out;
-};
-Monkey monkey_0 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false, .bottomed_out = false };
-Monkey monkey_1 = { .hit_box = BoundingBox<FP32>(0,0,0,8,0,12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0,.animation = 0, .lives = 3, .face_left = true, .bottomed_out = false };
-const Monkey* monkeys[] = { &monkey_0, &monkey_1 };
-class Fly {
-public:
-	BoundingBox<FP32> hit_box;
-	FP32 x;
-	FP32 y;
-	FP32 velocity_x;
-	FP32 velocity_y;
-	int frames_remaining;
-	int score;
-	bool face_left;
-	bool face_down;
-	bool is_alive;
-};
-
-class MonkeyArm {
-public:
-	BoundingBox<FP32> hit_box;
-	FP32 y;
-	int frames_remaining;
-	bool rising;
-	bool closed;
-};
-
-class Masquerader {
-public:
-	virtual uint8_t GetMove() = 0;
-};
-
-class Human : public Masquerader {
-private:
-	uint8_t _rightShift;
-public:
-	Human(uint8_t rightShift) 
-		: _rightShift(rightShift)
-	{
-
-	}
-	uint8_t GetMove() {
-		return (joystick >> _rightShift) & 0x0f;
-	}
-};
-
-const uint8_t JoyRight = 0x7;
-const uint8_t JoyLeft = 0xb;
-const uint8_t JoyUp = 0xe;
-class AI : public Masquerader {
-private:
-	const Monkey* _monkey;
-public:
-	AI(int index) : _monkey(monkeys[index])
-	{
-	}
-	uint8_t GetMove() {
-		uint8_t joystick = 0xf;
-		if (_monkey->state != Jumping) {
-			if (_monkey->x < 75)
-				joystick &= JoyRight;
-			if (_monkey->x > 85)
-				joystick &= JoyLeft;
-		}
-		else
-		{
-			if (_monkey->lives > 0)
-				joystick &= JoyUp;
-		}
-		return joystick;
-	}
-};
-
-class AI2 : public Masquerader {
-private:
-	const Monkey* _monkey;
-	const Monkey* _other_monkey;
-public:
-	AI2(int index) : _monkey(monkeys[index]), _other_monkey(monkeys[(index+1)&1])
-	{
-	}
-	uint8_t GetMove() {
-		uint8_t joystick = 0xf;
-		if (_monkey->state != Jumping) {
-			if (_monkey->x < _other_monkey->x)
-				joystick &= JoyRight;
-			if (_monkey->x > _other_monkey->y)
-				joystick &= JoyLeft;
-		}
-		else
-		{
-			if (_monkey->lives > 0 && _monkey->y < 80)
-				joystick &= JoyUp;
-		}
-		return joystick;
-	}
-};
-Human human0(4);
-Human human1(0);
 
 
-AI ai0(0);
-AI2 ai1(1);
+
+
+
+
 
 __attribute__((section(".noinit")))
 static uint8_t bitmap[192 * 80];
@@ -602,9 +660,6 @@ void game_over_screen();
 void show_credits();
 void show_previews();
 void play_game(int player_count, Masquerader& masq0, Masquerader& masq1);
-void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
-void RenderMediumBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
-void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
 void fade_palette(uint8_t fade_level);
 void RenderZoomScreen(int& line, int line_limit);
 void DrawBouncingScene();
@@ -655,24 +710,46 @@ static track_player audio_player0;
 static track_player audio_player1;
 static int high_score = 0;
 
+enum FrameTypeEnum {
+	Title,
+	Count
+};
+FrameTypeEnum current_frame = FrameTypeEnum::Title;
+
+// init_system functions
+void init_ntsc_2600();
+void init_ntsc_7800();
+static void (*init_system[5])() = {
+	init_ntsc_2600, // ST_NTSC_2600
+	init_ntsc_2600, // ST_PAL_2600
+	init_ntsc_2600, // ST_PAL60_2600
+	init_ntsc_7800, // ST_NTSC_7800
+	init_ntsc_7800, // ST_PAL_7800
+};
+// draw_frame functions
+static void (*draw_frame[(int)FrameTypeEnum::Count])();
+void draw_title_frame_2600();
+
+// render_frame functions
+static void (*render_frame[(int)FrameTypeEnum::Count])();
+void render_title_frame_2600();
+
+// draw functions
+void draw_high_score_2600();
+
 extern "C" int elf_main(uint32_t * args)
 {
-	if (args[MP_SYSTEM_TYPE] == ST_NTSC_7800)
+	init_system[args[MP_SYSTEM_TYPE]]();
+
+	init_game_state();
+
+	enter_title_frame();
+	while (true)
 	{
-		init_7800();
+		update_game_state();
+		draw_frame[current_frame]();
+		render_frame[current_frame]();
 	}
-
-	// Always reset PC first, cause it's going to be close to the end of the 6507 address space
-	vcsJmp3();
-
-	// Init TIA and RIOT RAM
-	vcsLda2(0);
-	for (int i = 0; i < 256; i++) {
-		vcsSta3((unsigned char)i);
-	}
-	vcsCopyOverblankToRiotRam();
-
-	vcsStartOverblank();
 
 	// Init stuff here while RIOT RAM keeps 6502 busy
 	for (size_t i = 0; i < sizeof(playfieldBuffer) / sizeof(playfieldBuffer[0]); i++)
@@ -687,8 +764,6 @@ extern "C" int elf_main(uint32_t * args)
 		grp1Buffer[i] = 0;
 	}
 
-	init_audio_player(&audio_player0, 0, &SongMonkeys);
-	init_audio_player(&audio_player1, 1, &SongMonkeys);
 
 
 	while (true) {
@@ -712,6 +787,162 @@ extern "C" int elf_main(uint32_t * args)
 			play_game(1, human0, ai1);
 		}
 	}
+}
+
+void init_game_state() {
+	init_audio_player(&audio_player0, 0, &SongMonkeys);
+	init_audio_player(&audio_player1, 1, &SongMonkeys);
+}
+
+void update_game_state() {
+	frame++;
+}
+
+
+void init_ntsc_2600() {
+	// initialize draw and render functions for this system
+	draw_frame[FrameTypeEnum::Title] = draw_title_frame_2600;
+	render_frame[FrameTypeEnum::Title] = render_title_frame_2600;
+
+	// Always reset PC, cause it's going to at the end of the 6507 address space
+	vcsJmp3();
+
+	// Init TIA and RIOT RAM
+	vcsLda2(0);
+	for (int i = 0; i < 256; i++) {
+		vcsSta3((unsigned char)i);
+	}
+	vcsCopyOverblankToRiotRam();
+
+	vcsStartOverblank();
+}
+
+void draw_title_frame_2600() {
+	draw_high_score_2600();
+
+	// zero out graphics because position object will use these values
+	for (int i = 0; i < 3; i++) {
+		grp0Buffer[i] = 0;
+		grp1Buffer[i] = 0;
+	}
+
+
+}
+
+void render_title_frame_2600() {
+	int line = 0;
+	vcsEndOverblank();
+	writeAudio30();
+	vcsWrite5(COLUP0, 0);
+	vcsSta3(COLUP1);
+	vcsSta3(PF0);
+	vcsSta3(PF1);
+	vcsSta4(PF2);
+
+	vcsSta3(WSYNC);
+	vcsSta3(WSYNC);
+	vcsJmp3();
+	vcsNop2n(34);
+	vcsWrite5(VBLANK, 0);
+
+	// High Score
+	DisplayText(ColuScoreBackground, 1);
+	vcsSta3(WSYNC);
+
+	//Ceiling
+	vcsSta3(HMOVE);
+	vcsWrite5(COLUBK, ColuCeiling);
+	vcsSta3(WSYNC);
+	line++;
+
+	PositionObject(line, 58, RESP0, HMP0);
+	PositionObject(line, 66, RESPONE, HMP1);
+
+	vcsSta3(HMOVE);
+	vcsWrite5(COLUBK, ColuWall);
+	vcsWrite5(GRP0, 0);
+	vcsSta3(GRP1);
+	vcsSta3(PF0);
+	vcsSta3(PF1);
+	vcsSta3(PF2);
+	vcsWrite5(COLUP0, FanChasisColu[18]);
+	vcsSta3(COLUP1);
+	vcsWrite5(VDELP0, 1);
+	vcsSta3(VDELP1);
+	vcsSta3(HMCLR);
+	vcsSta3(WSYNC);
+	line++;
+
+	for (int i = 0; i < 16; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsSta3(WSYNC);
+		line++;
+	}
+	render_48pixel_sprite(line, TitleArtGraphics[(frame >> 3 & 1)], sizeof(TitleArtGraphics[0]) / 6);
+
+	for (int i = 0; i < 12; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsWrite5(GRP0, 0);
+		vcsSta3(GRP1);
+		vcsWrite5(GRP0, 0);
+		vcsSta3(COLUP0);
+		vcsSta3(COLUP1);
+		vcsSta3(WSYNC);
+		line++;
+	}
+	render_48pixel_sprite(line, MenuOptionsGraphics[menu_selection], sizeof(MenuOptionsGraphics[0]) / 6);
+
+	vcsSta3(HMOVE);
+	vcsJmp3();
+
+	vcsLda2(0);
+	vcsSta3(GRP0);
+	vcsSta3(GRP1);
+	vcsSta3(NUSIZ0);
+	vcsWrite5(COLUP0, jumping_monkey->color);
+	vcsWrite5(NUSIZ1, 0x30);
+	vcsWrite5(VDELP0, 0);
+	vcsWrite5(VDELP1, 0);
+	vcsSta3(WSYNC);
+	line++;
+
+	vcsSta3(HMOVE);
+	vcsSta3(WSYNC);
+	line++;
+
+	PositionObject(line, jumping_monkey->x.Round(), RESP0, HMP0);
+	render_bed(line, jumping_monkey, standing_monkey);
+	vcsWrite5(VBLANK, 2);
+	uint8_t joy = vcsRead4(SWCHA);
+	vcsNop2();
+	uint8_t but0 = vcsRead4(INPT4);
+	vcsStartOverblank();
+}
+
+void render_48pixel_sprite(int& line, const uint8_t* data, int height) {
+	for (int i = 0; i < height; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsWrite5(COLUBK, ColuWall);
+		vcsWrite5(GRP0, *data++);
+		vcsWrite5(GRP1, *data++);
+		vcsWrite5(GRP0, *data++);
+		vcsJmp3();
+		vcsJmp3();
+		vcsNop2n(4);
+		vcsLda2(*data++);
+		vcsLdx2(*data++);
+		vcsLdy2(*data++);
+		vcsSta3(GRP1);
+		vcsStx3(GRP0);
+		vcsSty3(GRP1);
+		vcsSty3(GRP0);
+		vcsSta3(WSYNC);
+		line++;
+	}
+
 }
 
 /// <summary>
@@ -750,85 +981,7 @@ void fade_palette(uint8_t fade_level) {
 
 }
 
-enum PlayState {
-Wide,
-Medium,
-Narrow,
-};
 
-enum PlaySubState {
-	NotPlaying, // Hold monkeys in place for title screen and level transitions
-	Playing,
-	FlyExit,
-	MonkeyLanding,
-	FadingOut,
-	ZoomingIn,
-	CountingDown,
-	Challenge,
-	ZoomingOut,
-	FadingIn,
-};
-
-bool challenge_mode = false;
-bool show_zoom_screen = false;
-bool jump_in_progress = true;
-bool show_challenge_wall = false;
-bool bonus_enabled = true;
-bool jumping_enabled = true;
-bool fly_spawn_enabled = true;
-bool banana_shown = false;
-int banana_cooldown = 5 * 60;
-int min = 500;
-int max = 0;
-bool fly_top_spawned = true;
-bool fly_bot_spawned = true;
-int fly_top_x = 20;
-int fly_top_y = 2;
-size_t fly_top_index = 0;
-int fly_bot_x = 8;
-int fly_bot_y = 20;
-int frame = 0;
-int fanFrame = 0;
-size_t fly_loop_index = 0;
-track_player sfx_player;
-track_player* chan1_player;
-int sfx_frames_remaining = 0;
-uint8_t sine_frame = 0;
-FP32 sine_hpos = 20;
-Monkey* jumping_monkey = &monkey_0;
-Monkey* standing_monkey = &monkey_1;
-Monkey* p0_monkey = &monkey_0;
-Monkey* p1_monkey = &monkey_1;
-FP32 GravityAscend = fp32(0.29); // originally 0.24
-FP32 GravityFall = fp32(0.5); // originally 0.5
-FP32 MattressFriction = fp32(-0.3);
-BoundingBox<FP32> fly_top_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
-BoundingBox<FP32> fly_bot_hit_box = BoundingBox<FP32>(1, 1, 0, 2, 0, 2);
-BoundingBox<FP32> banana_hit_box = BoundingBox<FP32>(77, 33, 0, 7, 0, 13);
-uint8_t fade_level = 16;
-int bed_left = 40; 
-int bed_right = 124;
-bool button_down_event = false;
-uint8_t but0 = 0, prev_but0 = 0;
-PlayState play_state = Wide;
-PlaySubState play_substate = Playing;
-auto render_bed = RenderWideBed;
-PlayState max_play_state_reached = Narrow; // TODO Wide;
-int room_height = 175;
-FP32 wave_length = 80;
-Fly fly = { .hit_box = BoundingBox<FP32>(0,0,0,8,4,10), .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .face_left = false, .is_alive = true };
-MonkeyArm left_arm = { .hit_box = BoundingBox<FP32>(32,39,10,20,16+32,44+32), .y = 0, .frames_remaining = 0, .rising = false, .closed = true };
-MonkeyArm right_arm = { .hit_box = BoundingBox<FP32>(96,39,10,20,16+32,44+32), .y = 0, .frames_remaining = 0, .rising = false, .closed = true };
-
-BoundingBox<FP32> fan_blade_hit_boxes[7] = {
-	BoundingBox<FP32>(60, 4, 0, 44, 0, 11),
-	BoundingBox<FP32>(60, 4, 8, 36, 0, 11),
-	BoundingBox<FP32>(60, 4, 12, 32, 0, 11),
-	BoundingBox<FP32>(60, 4, 16, 28, 0, 11),
-	BoundingBox<FP32>(60, 4, 12, 32, 0, 11),
-	BoundingBox<FP32>(60, 4, 8, 36, 0, 11),
-	BoundingBox<FP32>(60, 4, 0, 44, 0, 11),
-};
 
 // For tuning purposes only
 ConfigEntry config_entries[] = {
@@ -1173,6 +1326,19 @@ void play_game(int player_count, Masquerader& masq0, Masquerader& masq1){
 	game_over_screen();
 }
 
+void enter_title_frame() {
+	play_state = Wide;
+	play_substate = NotPlaying;
+	fade_palette(16);
+	jumping_monkey = &monkey_0;
+	standing_monkey = &monkey_1;
+	monkey_1.state = Standing;
+	monkey_1.face_left = true;
+	monkey_1.x = 100;
+	monkey_1.y = 145;
+	int menu_selection = 1;
+}
+
 int bitmap_screen(bool is_title_screen) {
 	int bitmap_frame = 0;
 	button_down_event = false;
@@ -1180,17 +1346,7 @@ int bitmap_screen(bool is_title_screen) {
 	prev_but0 = 0;
 
 	if (is_title_screen) {
-		play_state = Wide;
-		play_substate = NotPlaying;
-		fade_palette(16);
-		jumping_monkey = &monkey_0;
-		standing_monkey = &monkey_1;
-		monkey_1.state = Standing;
-		monkey_1.face_left = true;
-		monkey_1.x = 100;
-		monkey_1.y = 145;
 	}
-	int menu_selection = 1;
 	for (uint32_t i = 0; i < sizeof(bitmap) / sizeof(bitmap[0]); i++)
 	{
 		bitmap[i] = 0;
@@ -1242,14 +1398,7 @@ int bitmap_screen(bool is_title_screen) {
 		DrawBouncingScene();
 
 		if (is_title_screen || bitmap_frame & 0x40) {
-			char high_score_text[19] = "High Score:  00000";
-			int right_score = high_score;
-			for (int i = 0; i < 5; i++)
-			{
-				high_score_text[17 - i] = (right_score % 10) & 0xf;
-				right_score /= 10;
-			}
-			PrintText(high_score_text, 0);
+			draw_high_score_2600();
 		}
 		else {
 			DrawScores();
@@ -1703,7 +1852,7 @@ void DrawFlyRegion(int& line, int height, int fly_x, int fly_y, int fly_frame) {
 }
 
 __attribute__((long_call, section(".RamFunc")))
-static void init_7800()
+void init_ntsc_7800()
 {
 	for (size_t i = 0; i < sizeof(kernel_7800); i++) {
 		vcsWrite6((uint16_t)(0x1800 + i), kernel_7800[i]);
@@ -3717,4 +3866,65 @@ void moveFly(uint8_t joy)
 			fly.velocity_y = 0;
 		}
 	}
+}
+
+void draw_high_score_2600() {
+	char high_score_text[19] = "High Score:  00000";
+	int right_score = high_score;
+	for (int i = 0; i < 5; i++)
+	{
+		high_score_text[17 - i] = (right_score % 10) & 0xf;
+		right_score /= 10;
+	}
+	PrintText(high_score_text, 0);
+}
+
+Human::Human(uint8_t rightShift)
+	: _rightShift(rightShift)
+{
+
+}
+
+uint8_t Human::GetMove() {
+	return (joystick >> _rightShift) & 0x0f;
+}
+
+AI::AI(int index) : _monkey(monkeys[index])
+{
+}
+
+uint8_t AI::GetMove() {
+	uint8_t joystick = 0xf;
+	if (_monkey->state != Jumping) {
+		if (_monkey->x < 75)
+			joystick &= JoyRight;
+		if (_monkey->x > 85)
+			joystick &= JoyLeft;
+	}
+	else
+	{
+		if (_monkey->lives > 0)
+			joystick &= JoyUp;
+	}
+	return joystick;
+}
+
+AI2::AI2(int index) : _monkey(monkeys[index]), _other_monkey(monkeys[(index + 1) & 1])
+{
+}
+
+uint8_t AI2::GetMove() {
+	uint8_t joystick = 0xf;
+	if (_monkey->state != Jumping) {
+		if (_monkey->x < _other_monkey->x)
+			joystick &= JoyRight;
+		if (_monkey->x > _other_monkey->y)
+			joystick &= JoyLeft;
+	}
+	else
+	{
+		if (_monkey->lives > 0 && _monkey->y < 80)
+			joystick &= JoyUp;
+	}
+	return joystick;
 }

@@ -1,4 +1,4 @@
-  #include "sound.h"
+#include "sound.h"
 #include "sprites.h"
 #include "text.h"
 #include "vcsLib.h"
@@ -250,17 +250,24 @@ public:
 // game state
 void init_game_state();
 void update_game_state();
-void enter_gameplay_state();
+void enter_gameplay_state(int menu_choice);
 void update_title_state();
 void update_bouncing_state();
+void update_game_over_state();
+void enter_game_over_state();
+void play_game();
 // enter frames
 void enter_title_frame();
 void enter_bouncing_frame();
+void enter_game_over_frame();
 // draw functions
 void draw_title_2600();
+void draw_game_over_2600();
 void draw_bouncing_2600();
 void draw_high_score_2600();
 // render functions
+void render_title_text_2600(int& line);
+void render_game_over_text_2600(int& line);
 void render_title_2600();
 void render_bouncing_2600();
 void RenderWideBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
@@ -268,6 +275,7 @@ void RenderMediumBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey)
 void RenderNarrowBed(int& line, Monkey* jumping_monkey, Monkey* standing_monkey);
 void render_48pixel_sprite(int& line, const uint8_t* data, int height);
 
+auto render_text_2600 = render_title_text_2600;
 // title vars
 int menu_selection;
 
@@ -284,7 +292,12 @@ Human human1(0);
 AI ai0(0);
 AI2 ai1(1);
 
+Masquerader* masq0 = &ai0;
+Masquerader* masq1 = &ai1;
 
+bool show_high_score = false;
+uint8_t game_over_frame = 0;
+int player_count = 0;
 int countdown_frames_remaining = 0;
 int countdown_index = 0;
 
@@ -294,7 +307,6 @@ int next_challenge_score = 0;
 int min_monkey_x = 16;
 int max_monkey_x = 140;
 int shake_frames_remaining = 0;
-
 int monkey_y_lwm = 500;
 int monkey_y_hwm = 0;
 
@@ -681,7 +693,6 @@ void move_monkey(uint8_t joy, Monkey* monkey);
 void game_over_screen();
 void show_credits();
 void show_previews();
-void play_game(int player_count, Masquerader& masq0, Masquerader& masq1);
 void fade_palette(uint8_t fade_level);
 void RenderZoomScreen(int& line, int line_limit);
 void DrawBouncingScene();
@@ -733,6 +744,7 @@ static int high_score = 0;
 enum class FrameTypeEnum {
 	Title,
 	Bouncing,
+	GameOver,
 	Count
 };
 FrameTypeEnum current_frame;
@@ -759,6 +771,8 @@ extern "C" int elf_main(uint32_t * args)
 
 	init_game_state();
 
+	enter_game_over_state();
+
 	while (true)
 	{
 		update_game_state();
@@ -780,6 +794,7 @@ void init_game_state() {
 void update_game_state() {
 	button_down_event = (((but0 & 0x80) == 0) && (prev_but0 & 0x80));
 	frame++;
+	next_audio_frame();
 	switch (game_state)
 	{
 	case GameState::Title:
@@ -788,7 +803,7 @@ void update_game_state() {
 			case 0:
 			case 1:
 			case 2:
-				enter_gameplay_state();
+				enter_gameplay_state(menu_selection);
 				break;
 			}
 		}
@@ -798,6 +813,9 @@ void update_game_state() {
 	case GameState::Previews:
 		break;
 	case GameState::PlayingGame:
+		if (jumping_monkey->state == Dead){
+			enter_game_over_state();
+		}
 		break;
 	case GameState::GameOver:
 		break;
@@ -815,15 +833,17 @@ void update_game_state() {
 	case GameState::Previews:
 		break;
 	case GameState::PlayingGame:
+		play_game();
+		update_bouncing_state();
 		break;
 	case GameState::GameOver:
+		update_game_over_state();
 		break;
 	default:
 		break;
 	}
 
 	// do this last
-	next_audio_frame();
 	// no inputs should be processed after this
 	prev_joystick = joystick;
 	prev_but0 = but0;
@@ -836,6 +856,8 @@ void init_ntsc_2600() {
 	render_frame[(int)FrameTypeEnum::Title] = render_title_2600;
 	draw_frame[(int)FrameTypeEnum::Bouncing] = draw_bouncing_2600;
 	render_frame[(int)FrameTypeEnum::Bouncing] = render_bouncing_2600;
+	draw_frame[(int)FrameTypeEnum::GameOver] = draw_game_over_2600;
+	render_frame[(int)FrameTypeEnum::GameOver] = render_title_2600;
 
 	// Always reset PC, cause it's going to at the end of the 6507 address space
 	vcsJmp3();
@@ -851,6 +873,7 @@ void init_ntsc_2600() {
 }
 
 void draw_title_2600() {
+	render_text_2600 = render_title_text_2600;
 	draw_high_score_2600();
 
 	// preclear buffers
@@ -862,6 +885,84 @@ void draw_title_2600() {
 
 	DrawMattress();
 	DrawMonkeys();
+}
+
+void draw_game_over_2600() {
+	render_text_2600 = render_game_over_text_2600;
+
+	DrawBouncingScene();
+
+	if (show_high_score) {
+		draw_high_score_2600();
+	}
+	else {
+		DrawScores();
+	}
+
+	// preclear buffers
+	for (int i = 0; i < 192; i++)
+	{
+		grp0Buffer[i] = 0;
+		grp1Buffer[i] = 0;
+	}
+
+	DrawMattress();
+	DrawMonkeys();
+}
+
+void render_title_text_2600(int& line) {
+	for (int i = 0; i < 16; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsSta3(WSYNC);
+		line++;
+	}
+	render_48pixel_sprite(line, TitleArtGraphics[(frame >> 3 & 1)], sizeof(TitleArtGraphics[0]) / 6);
+
+	for (int i = 0; i < 12; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsWrite5(GRP0, 0);
+		vcsSta3(GRP1);
+		vcsSta3(GRP0);
+		vcsSta3(COLUP0);
+		vcsSta3(COLUP1);
+		vcsSta3(WSYNC);
+		line++;
+	}
+	render_48pixel_sprite(line, MenuOptionsGraphics[menu_selection], sizeof(MenuOptionsGraphics[0]) / 6);
+
+	for (int i = 0; i < 4; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsWrite5(GRP0, 0);
+		vcsSta3(GRP1);
+		vcsSta3(GRP0);
+		vcsSta3(WSYNC);
+		line++;
+	}
+}
+
+void render_game_over_text_2600(int& line) {
+	for (int i = 0; i < 20; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsWrite5(COLUP0, 0);
+		vcsSta3(COLUP1);
+		vcsSta3(WSYNC);
+		line++;
+	}
+	render_48pixel_sprite(line, GameOverGraphics, sizeof(GameOverGraphics) / 6);
+
+	for (int i = 0; i < 12; i++)
+	{
+		vcsSta3(HMOVE);
+		vcsWrite5(GRP0, 0);
+		vcsSta3(GRP1);
+		vcsSta3(GRP0);
+		vcsSta3(WSYNC);
+		line++;
+	}
 }
 
 void render_title_2600() {
@@ -908,38 +1009,7 @@ void render_title_2600() {
 	vcsSta3(WSYNC);
 	line++;
 
-	for (int i = 0; i < 16; i++)
-	{
-		vcsSta3(HMOVE);
-		vcsSta3(WSYNC);
-		line++;
-	}
-	render_48pixel_sprite(line, TitleArtGraphics[(frame >> 3 & 1)], sizeof(TitleArtGraphics[0]) / 6);
-
-	for (int i = 0; i < 12; i++)
-	{
-		vcsSta3(HMOVE);
-		vcsWrite5(GRP0, 0);
-		vcsSta3(GRP1);
-		vcsWrite5(GRP0, 0);
-		vcsSta3(COLUP0);
-		vcsSta3(COLUP1);
-		vcsSta3(WSYNC);
-		line++;
-	}
-	render_48pixel_sprite(line, MenuOptionsGraphics[menu_selection], sizeof(MenuOptionsGraphics[0]) / 6);
-
-	for (int i = 0; i < 4; i++)
-	{
-		vcsSta3(HMOVE);
-		vcsWrite5(GRP0, 0);
-		vcsSta3(GRP1);
-		vcsWrite5(GRP0, 0);
-		vcsSta3(COLUP0);
-		vcsSta3(COLUP1);
-		vcsSta3(WSYNC);
-		line++;
-	}
+	render_text_2600(line);
 
 	vcsSta3(HMOVE);
 	vcsJmp3();
@@ -1048,156 +1118,153 @@ ConfigEntry config_entries[] = {
 LiveConfig live_config = { .count = (int)(sizeof(config_entries) / sizeof(config_entries[0])), .entries = config_entries };
 
 
-void play_game(int player_count, Masquerader& masq0, Masquerader& masq1){
-	next_challenge_score = ChallengeThresholds[(int)bed_state];
-	button_down_event = false;
-	but0 = 0;
-	prev_but0 = 0;
-	play_substate = Playing;
-	monkey_0.lives = 3;
-	monkey_0.score = 0;
-	monkey_1.lives = 3;
-	monkey_1.score = 0;
-	// Render loop
-	while (true) {
-		frame++;
-		if (jumping_monkey->state == Dead)
-			break;
-		//Check for state changes
-		switch (play_substate) {
-		case NotPlaying:
-			break;
-		case Playing:
+void play_game() {
+	//Check for state changes
+	switch (play_substate) {
+	case NotPlaying:
+		break;
+	case Playing:
+	{
+		auto hs = monkey_0.score + monkey_1.score;
+		if (hs > next_challenge_score)
+			play_substate = FlyExit;
+		break;
+	}
+	case FlyExit:
+		if (!fly_top_spawned && !fly_bot_spawned)
 		{
-			auto hs = monkey_0.score + monkey_1.score;
-			if (hs > next_challenge_score)
-				play_substate = FlyExit;
-			break; 
+			play_substate = MonkeyLanding;
 		}
-		case FlyExit:
-			if (!fly_top_spawned && !fly_bot_spawned)
-			{
-				play_substate = MonkeyLanding;
-			}
-			break;
-		case MonkeyLanding:
-			if (!jump_in_progress)
-				play_substate = FadingOut;
-			break;
-		case FadingOut:
-			if (fade_level == 0)
-			{
-				play_substate = ZoomingIn;
-				zoom_level = 0;
-				countdown_frames_remaining = 0;
-				challenge_player = 0;
-			}
-			break;
-		case ZoomingIn:
+		break;
+	case MonkeyLanding:
+		if (!jump_in_progress)
+			play_substate = FadingOut;
+		break;
+	case FadingOut:
+		if (fade_level == 0)
 		{
-			if (zoom_level == 17) {
-				play_substate = CountingDown;
-				countdown_frames_remaining = 30 * 3;
-				countdown_index = 0;
-			}
+			play_substate = ZoomingIn;
+			zoom_level = 0;
+			countdown_frames_remaining = 0;
+			challenge_player = 0;
 		}
-		case CountingDown:
-		{
-			countdown_frames_remaining--;
-			if (countdown_frames_remaining == 30 * 2) {
-				countdown_index = 1;
-			}
-			else if (countdown_frames_remaining == 30) {
-				countdown_index = 2;
-			}
-			else if (countdown_frames_remaining == 0) {
-				play_substate = Challenge;
-				challenge_frames_remaining = ChallengeFrames;
-				bubbleDistance = 0;
-				bubble_index = 0;
-				bubble_offset = 5;
-				for (int i = 0; i < 16; i++)
+		break;
+	case ZoomingIn:
+	{
+		if (zoom_level == 17) {
+			play_substate = CountingDown;
+			countdown_frames_remaining = 30 * 3;
+			countdown_index = 0;
+		}
+	}
+	case CountingDown:
+	{
+		countdown_frames_remaining--;
+		if (countdown_frames_remaining == 30 * 2) {
+			countdown_index = 1;
+		}
+		else if (countdown_frames_remaining == 30) {
+			countdown_index = 2;
+		}
+		else if (countdown_frames_remaining == 0) {
+			play_substate = Challenge;
+			challenge_frames_remaining = ChallengeFrames;
+			bubbleDistance = 0;
+			bubble_index = 0;
+			bubble_offset = 5;
+			for (int i = 0; i < 16; i++)
+			{
+				if (i > 10)
 				{
-					if (i > 10)
-					{
-						auto size = randint() & 3;
-						if (size > 2)
-							size = 0;
-						bubbles[i].state = (BubbleState)size;
-						bubbles[i].hit_box = BubbleHitBoxes[size];
-					}
-					else
-					{
-						bubbles[i].state = Popped;
-					}
-					bubbles[i].x = BubbleStartPositions[i];
-					bubbles[i].points_awarded = false;
+					auto size = randint() & 3;
+					if (size > 2)
+						size = 0;
+					bubbles[i].state = (BubbleState)size;
+					bubbles[i].hit_box = BubbleHitBoxes[size];
 				}
-				fly.is_alive = true;
-				fly.x = 80;
-				fly.y = 80;
-				left_arm.y = 0;
-				left_arm.frames_remaining = 0;
-				left_arm.rising = true;
-				left_arm.closed = false;
-				right_arm.y = 0;
-				right_arm.frames_remaining = 64;
-				right_arm.rising = true;
-				right_arm.closed = false;
+				else
+				{
+					bubbles[i].state = Popped;
+				}
+				bubbles[i].x = BubbleStartPositions[i];
+				bubbles[i].points_awarded = false;
 			}
-			break;
+			fly.is_alive = true;
+			fly.x = 80;
+			fly.y = 80;
+			left_arm.y = 0;
+			left_arm.frames_remaining = 0;
+			left_arm.rising = true;
+			left_arm.closed = false;
+			right_arm.y = 0;
+			right_arm.frames_remaining = 64;
+			right_arm.rising = true;
+			right_arm.closed = false;
 		}
-		case Challenge:
+		break;
+	}
+	case Challenge:
+	{
+		challenge_frames_remaining--;
+		if (challenge_frames_remaining <= 0)
 		{
-			challenge_frames_remaining--;
-			if (challenge_frames_remaining <= 0)
-			{
-				if(player_count < 2 || challenge_player > 0)
-					play_substate = ZoomingOut;
-				else {
-					challenge_player = 1;
-					zoom_level = 16;
-					play_substate = ZoomingIn;
-				}
+			if (player_count < 2 || challenge_player > 0)
+				play_substate = ZoomingOut;
+			else {
+				challenge_player = 1;
+				zoom_level = 16;
+				play_substate = ZoomingIn;
 			}
-			else
-			{
-				moveFly((challenge_player > 0) ? masq1.GetMove() : masq0.GetMove());
-			}
-			break;
 		}
-		case ZoomingOut:
-			if (zoom_level == 0)
-			{
-				next_challenge_score = monkey_0.score + monkey_1.score + ChallengeThresholds[(int)bed_state];
-
-				play_substate = FadingIn;
-				fade_level = 0;
-				if (bed_state == Wide)
-					max_bed_state_reached = bed_state = Medium;
-				else if (bed_state == Medium)
-					max_bed_state_reached = bed_state = Narrow;
-				place_monkey_on_post();
-				standing_monkey->face_left = !jumping_monkey->face_left;
-				standing_monkey->x = 88;
-				standing_monkey->state = Standing;
-			}
-			break;
-		case FadingIn:
-			if (fade_level == 16)
-			{
-				play_substate = Playing;
-				fly_top_spawned = fly_bot_spawned = true;
-			}
-			break;
+		else
+		{
+			moveFly((challenge_player > 0) ? masq1->GetMove() : masq0->GetMove());
 		}
+		break;
+	}
+	case ZoomingOut:
+		if (zoom_level == 0)
+		{
+			next_challenge_score = monkey_0.score + monkey_1.score + ChallengeThresholds[(int)bed_state];
 
-		SetVariablesFromState();
+			play_substate = FadingIn;
+			fade_level = 0;
+			if (bed_state == Wide)
+				max_bed_state_reached = bed_state = Medium;
+			else if (bed_state == Medium)
+				max_bed_state_reached = bed_state = Narrow;
+			place_monkey_on_post();
+			standing_monkey->face_left = !jumping_monkey->face_left;
+			standing_monkey->x = 88;
+			standing_monkey->state = Standing;
+		}
+		break;
+	case FadingIn:
+		if (fade_level == 16)
+		{
+			play_substate = Playing;
+			fly_top_spawned = fly_bot_spawned = true;
+		}
+		break;
+	}
+
+	SetVariablesFromState();
 
 
-		fade_palette(fade_level);
+	fade_palette(fade_level);
 
-		next_audio_frame();
+	// Update High Score
+	if (high_score < monkey_0.score)
+	{
+		high_score = monkey_0.score;
+	}
+	if (high_score < monkey_1.score)
+	{
+		high_score = monkey_1.score;
+	}
+}
+
+void myfunc(){
 
 		if (challenge_mode) {
 			DrawChallengeScreen();
@@ -1211,15 +1278,6 @@ void play_game(int player_count, Masquerader& masq0, Masquerader& masq1){
 
 		DrawScores();
 
-		// Update High Score
-		if (high_score < monkey_0.score)
-		{
-			high_score = monkey_0.score;
-		}
-		if (high_score < monkey_1.score)
-		{
-			high_score = monkey_1.score;
-		}
 
 		// Render
 		if (challenge_mode)
@@ -1362,10 +1420,10 @@ void play_game(int player_count, Masquerader& masq0, Masquerader& masq1){
 		vcsStartOverblank();
 		if (!challenge_mode)
 		{
-			move_monkey(masq0.GetMove(), p0_monkey);
-			move_monkey(masq1.GetMove(), p1_monkey);
+			move_monkey(masq0->GetMove(), p0_monkey);
+			move_monkey(masq1->GetMove(), p1_monkey);
 		}
-	}
+	
 	
 	game_over_screen();
 }
@@ -1382,6 +1440,10 @@ void enter_title_frame() {
 	monkey_1.x = 100;
 	monkey_1.y = 145;
 	menu_selection = 1;
+}
+
+void enter_game_over_frame() {
+	current_frame = FrameTypeEnum::GameOver;
 }
 
 int bitmap_screen(bool is_title_screen) {
@@ -1427,7 +1489,6 @@ int bitmap_screen(bool is_title_screen) {
 			}
 		}
 
-		next_audio_frame();
 
 		SetVariablesFromState();
 		ColuWall = InitialColuWall;
@@ -1611,7 +1672,6 @@ void show_credits() {
 	uint8_t prev_but0 = 0;
 	while (true)
 	{
-		next_audio_frame();
 		int text_line = 0;
 		PrintText("Design            ", text_line++);
 		PrintText("  Mathew Halpern  ", text_line++);
@@ -1679,7 +1739,6 @@ void show_previews() {
 			frameCount = 0;
 			tenthCount++;
 		}
-		next_audio_frame();
 
 		vcsEndOverblank();
 		vcsSta3(WSYNC);
@@ -3107,7 +3166,11 @@ void DrawBouncingScene() {
 	DrawBS2();
 }
 void update_bouncing_state() {
-	
+	if (jumping_monkey->state != Dead) {
+		move_monkey(masq0->GetMove(), p0_monkey);
+		move_monkey(masq1->GetMove(), p1_monkey);
+	}
+
 	switch (jumping_monkey->state) {
 	case Standing:
 	case Walking:
@@ -4019,8 +4082,24 @@ void update_title_state() {
 	update_bouncing_state();
 }
 
-void enter_gameplay_state()
+void update_game_over_state() {
+	frame = 1;
+	show_high_score = game_over_frame++ & 0x40;
+	jumping_monkey->state = Dead;
+}
+
+void enter_gameplay_state(int menu_choice)
 {
+	player_count = menu_choice;
+	masq0 = &ai0;
+	masq1 = &ai1;
+	if (player_count > 0) {
+		masq0 = &human0;
+		if (player_count > 1) {
+			masq1 = &human1;
+		}
+	}
+
 	game_state = GameState::PlayingGame;
 	enter_bouncing_frame();
 	next_challenge_score = ChallengeThresholds[(int)bed_state];
@@ -4031,15 +4110,146 @@ void enter_gameplay_state()
 	monkey_1.score = 0;
 }
 
+void enter_game_over_state() {
+	game_state = GameState::GameOver;
+	enter_game_over_frame();
+}
+
 void enter_bouncing_frame() {
 	current_frame = FrameTypeEnum::Bouncing;
 	
 }
 
 void draw_bouncing_2600() {
-
+	DrawBS2();
+	DrawScores();
 }
 
 void render_bouncing_2600() {
+	vcsEndOverblank();
+	vcsSta3(WSYNC);
+	writeAudio30();
+	vcsSta3(WSYNC); vcsSta3(WSYNC);
 
+
+	vcsLda2(0);
+	vcsSta3(PF0);
+	vcsSta3(PF1);
+	vcsSta3(PF2);
+	vcsSta3(GRP0);
+	vcsSta3(GRP1);
+	vcsSta3(ENAM0);
+	vcsSta3(ENAM1);
+	vcsSta3(ENABL);
+	vcsSta3(NUSIZ0);
+	vcsLda2(ColuCeiling);
+	vcsSta3(COLUBK);
+	vcsLda2(ColuFanBlade);
+	vcsSta3(COLUPF);
+	vcsWrite5(COLUP0, jumping_monkey->color);
+	vcsSta3(RESPONE); // 42 cycles before this
+	vcsNop2n(7);
+	vcsWrite5(NUSIZ1, 0x30);
+	vcsWrite5(HMP1, 0x20);
+	vcsWrite5(VBLANK, 0);
+
+	DisplayText(ColuScoreBackground, 1);
+
+	int line = 0;
+
+	room_height = 175;
+	// Shake screen for fan strikes
+	if (shake_frames_remaining & 0x4)
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			vcsSta3(WSYNC);
+			room_height--;
+			vcsSta3(HMOVE);
+			vcsLda2(0);
+			vcsSta3(GRP0);
+			vcsSta3(GRP1);
+			vcsSta3(PF0);
+			vcsSta3(PF1);
+			vcsSta3(PF2);
+			vcsSta3(ENAM0);
+			vcsSta3(ENAM1);
+			vcsSta3(ENABL);
+			vcsSta3(COLUBK);
+		}
+	}
+
+	vcsSta3(WSYNC);
+
+	// Ceiling
+	vcsSta3(HMOVE);
+	vcsLda2(ColuCeiling);
+	vcsSta3(COLUBK);
+	vcsLda2(0);
+	vcsSta3(GRP0);
+	vcsSta3(GRP1);
+	vcsSta3(PF0);
+	vcsSta3(PF1);
+	vcsSta3(PF2);
+	vcsSta3(ENAM0);
+	vcsSta3(ENAM1);
+	vcsSta3(ENABL);
+	vcsSta3(NUSIZ0);
+	vcsLdy2(ColuFanBlade);
+	vcsWrite5(COLUP0, jumping_monkey->color);
+	vcsSta3(RESPONE); // 42 cycles before this
+	vcsSty3(COLUPF);
+	vcsNop2n(7);
+	vcsWrite5(NUSIZ1, 0x30);
+	vcsWrite5(HMP1, 0x00);
+	vcsNop2();
+	line++;
+	//
+	vcsSta3(HMOVE);
+	vcsWrite5(NUSIZ0, 0);
+	vcsNop2n(21);
+	vcsLdy2(ColuWall);
+	vcsSta4(HMCLR);
+	vcsSta3(WSYNC);
+	line++;
+	PositionObject(line, jumping_monkey->x.Round(), RESP0, HMP0);
+
+	// Fan region
+	while (line < (show_challenge_wall ? 29 + 38 : 29))
+	{
+		vcsSta3(HMOVE);
+		vcsSty3(COLUBK);
+		vcsWrite5(GRP1, grp1Buffer[line]);
+		vcsWrite5(GRP0, grp0Buffer[line]);
+		vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5] >> 4]);
+		vcsWrite5(PF1, (playfieldBuffer[line * 5] << 4) | (playfieldBuffer[line * 5 + 1] >> 4));
+		vcsWrite5(COLUP1, colup1Buffer[line]);
+		vcsWrite5(COLUPF, colupfBuffer[line]);
+		vcsWrite5(PF2, ReverseByte[(uint8_t)((playfieldBuffer[line * 5 + 1] << 4) | (playfieldBuffer[line * 5 + 2] >> 4))]);
+		vcsWrite5(PF0, ReverseByte[playfieldBuffer[line * 5 + 2]]);
+		vcsWrite5(PF1, playfieldBuffer[line * 5 + 3]);
+		vcsWrite5(PF2, ReverseByte[playfieldBuffer[line * 5 + 4]]);
+		vcsSta3(HMCLR);
+		vcsJmp3();
+		vcsSta3(WSYNC);
+		line++;
+	}
+
+	// Draw flies during normal play and when they're exiting, otherwise section above will fill this space
+	if (!show_challenge_wall) {
+		fly_top_hit_box.Y = fly_top_y + line;
+		DrawFlyRegion(line, 14, fly_top_x, fly_top_y, frame & 1);
+		fly_bot_hit_box.Y = fly_bot_y + line;
+		DrawFlyRegion(line, 24, fly_bot_x, fly_bot_y, frame & 1);
+	}
+
+	render_bed(line, jumping_monkey, standing_monkey);
+
+
+	vcsWrite5(VBLANK, 2);
+	joystick = vcsRead4(SWCHA);
+	vcsNop2();
+	but0 = vcsRead4(INPT4);
+	vcsNop2();
+	vcsStartOverblank();
 }

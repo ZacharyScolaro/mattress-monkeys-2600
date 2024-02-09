@@ -2722,39 +2722,42 @@ void update_bouncing_state()
 		shake_frames_remaining--;
 	}
 
-	if (jumping_monkey->bottomed_out)
+	if (jumping_monkey->state != WalkingToEdge)
 	{
-		jumping_monkey->bottomed_out = false;
-		jump_in_progress = jumping_enabled;
-		if (jumping_enabled)
+		if (jumping_monkey->bottomed_out)
 		{
-			auto lv = (standing_monkey->x.Round() + 2 + (wave_length / 4)) - sine_hpos;
-			auto vx = fp32(-1.25) * FP32(Sine[(uint8_t)((((lv % wave_length) * 256) / wave_length)).Round()], true);
-			auto vy = fp32(-7.5) + (fp32(-0.6) * FP32(Sine[(uint8_t)((((lv % wave_length) * 128) / wave_length)).Round()], true));
+			jumping_monkey->bottomed_out = false;
+			jump_in_progress = jumping_enabled;
+			if (jumping_enabled)
+			{
+				auto lv = (standing_monkey->x.Round() + 2 + (wave_length / 4)) - sine_hpos;
+				auto vx = fp32(-1.25) * FP32(Sine[(uint8_t)((((lv % wave_length) * 256) / wave_length)).Round()], true);
+				auto vy = fp32(-7.5) + (fp32(-0.6) * FP32(Sine[(uint8_t)((((lv % wave_length) * 128) / wave_length)).Round()], true));
 
-			Monkey *temp = jumping_monkey;
-			jumping_monkey = standing_monkey;
-			standing_monkey = temp;
-			jumping_monkey->velocity_x = vx;
-			jumping_monkey->velocity_y = vy;
-			jumping_monkey->state = Jumping;
-			standing_monkey->state = Standing;
-			init_audio_player(&sfx_player, 1, &SfxBounce);
-			sfx_frames_remaining = SfxBounce.percussions[0].length;
+				Monkey *temp = jumping_monkey;
+				jumping_monkey = standing_monkey;
+				standing_monkey = temp;
+				jumping_monkey->velocity_x = vx;
+				jumping_monkey->velocity_y = vy;
+				jumping_monkey->state = Jumping;
+				standing_monkey->state = Standing;
+				init_audio_player(&sfx_player, 1, &SfxBounce);
+				sfx_frames_remaining = SfxBounce.percussions[0].length;
+			}
+			else
+			{
+				jumping_monkey->state = Standing;
+			}
 		}
-		else
+		else if (jumping_monkey->y > 158)
 		{
-			jumping_monkey->state = Standing;
+			jumping_monkey->y = 158;
+			jumping_monkey->bottomed_out = true;
 		}
-	}
-	else if (jumping_monkey->y > 158)
-	{
-		jumping_monkey->y = 158;
-		jumping_monkey->bottomed_out = true;
-	}
-	else if (jumping_monkey->y > 129 && jumping_monkey->velocity_y > 0)
-	{
-		jumping_monkey->velocity_x = 0;
+		else if (jumping_monkey->y > 129 && jumping_monkey->velocity_y > 0)
+		{
+			jumping_monkey->velocity_x = 0;
+		}
 	}
 
 	jumping_monkey->hit_box.X = jumping_monkey->x;
@@ -4196,8 +4199,8 @@ void render_challenge_2600()
 
 	for (int i = line; i < room_height; i++)
 	{
-		vcsSta3(HMOVE);						// 3
-		vcsJmp3();							// 6
+		vcsSta3(HMOVE); // 3
+		vcsJmp3();		// 6
 
 		vcsWrite5(GRP0, grp0Buffer[i]);		// 11
 		vcsWrite5(COLUP0, colup0Buffer[i]); // 16

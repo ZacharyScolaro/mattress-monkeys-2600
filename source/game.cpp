@@ -1,3 +1,4 @@
+#include "logo.h"
 #include "sound.h"
 #include "sprites.h"
 #include "text.h"
@@ -905,6 +906,7 @@ void init_ntsc_2600()
 	vcsCopyOverblankToRiotRam();
 
 	vcsStartOverblank();
+	ShowLogo();
 }
 
 void draw_title_2600()
@@ -1089,8 +1091,7 @@ void render_48pixel_sprite(int &line, const uint8_t *data, int height)
 		vcsWrite5(GRP1, *data++);
 		vcsWrite5(GRP0, *data++);
 		vcsJmp3();
-		vcsJmp3();
-		vcsNop2n(4);
+		vcsNop2n(5);
 		vcsLda2(*data++);
 		vcsLdx2(*data++);
 		vcsLdy2(*data++);

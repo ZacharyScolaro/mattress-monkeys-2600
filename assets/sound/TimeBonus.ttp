@@ -1,0 +1,30 @@
+{
+    "envelopeLength": 6,
+    "frequencies": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+    ],
+    "name": "FH_time_points",
+    "overlay": false,
+    "version": 1,
+    "volumes": [
+        10,
+        10,
+        9,
+        7,
+        4,
+        0
+    ],
+    "waveforms": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+    ]
+}

@@ -33,7 +33,7 @@ const int FlyAscentDuration = 32;
 const int BubblePopFrames = 3;
 const int BubbleScoreFrames = 45;
 const int ChallengeFrames = 60 * 20 - 1;
-const int ChallengeThresholds[] = { 25, 100, 200 };
+const int ChallengeThresholds[] = {25, 100, 200};
 const uint8_t ColuRedWall = 0x42;
 const int BubblePopValue = 10;
 const int ChallengeTimeLeftValue = 25;
@@ -326,7 +326,7 @@ void render_zoom_2600();
 void render_countdown_2600();
 void render_challenge_2600();
 void render_challenge_results_2600();
-void render_challenge_text_2600(const uint8_t* data, int height);
+void render_challenge_text_2600(const uint8_t *data, int height);
 
 auto render_text_2600 = render_title_text_2600;
 // title vars
@@ -711,7 +711,6 @@ const char OctopusherTitleScreen2600Graphics[192 * 9] = {
 	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
-
 NO_INIT static uint8_t bitmap[192 * 80];
 
 NO_INIT static uint8_t playfieldBuffer[193 * 5]; // 00001111 11112222 22220000 11111111 22222222
@@ -883,7 +882,8 @@ void update_game_state()
 		{
 			update_challenge_state();
 		}
-		else if(play_substate == PlaySubState::ChallengeResults){
+		else if (play_substate == PlaySubState::ChallengeResults)
+		{
 			update_challenge_results_state();
 		}
 		else
@@ -2035,10 +2035,13 @@ void update_challenge_state()
 	challenge_seconds_remaining = (challenge_frames_remaining / 60) + 1;
 }
 
-void update_challenge_results_state() {
+void update_challenge_results_state()
+{
 	challenge_frames_remaining--;
-	if(challenge_frames_remaining == 0){
-		if(challenge_bubbles_popped){
+	if (challenge_frames_remaining == 0)
+	{
+		if (challenge_bubbles_popped)
+		{
 			challenge_frames_remaining = ChallengeResultsCountdownFrames;
 			challenge_bubbles_popped--;
 			if (challenge_player == 0)
@@ -2048,7 +2051,8 @@ void update_challenge_results_state() {
 			init_audio_player(&sfx_player, 1, &SfxBubblePop);
 			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
 		}
-		else if(challenge_perfect_score && challenge_seconds_remaining){
+		else if (challenge_perfect_score && challenge_seconds_remaining)
+		{
 			challenge_frames_remaining = ChallengeResultsCountdownFrames;
 			challenge_seconds_remaining--;
 			if (challenge_player == 0)
@@ -3357,16 +3361,18 @@ void place_monkey_on_post()
 
 void writeAudio30()
 {
-	if(aud0_muted) {
+	if (aud0_muted)
+	{
 		vcsWrite5(AUDV0, 0);
 	}
-	else{
+	else
+	{
 		vcsWrite5(AUDV0, audio_player0.volume);
 	}
 	vcsWrite5(AUDC0, audio_player0.control);
 	vcsWrite5(AUDF0, audio_player0.frequency);
 	// Channel 1 is either music or SFX
-	if(!aud0_muted || chan1_player == &sfx_player)
+	if (!aud0_muted || chan1_player == &sfx_player)
 	{
 		vcsWrite5(AUDV1, chan1_player->volume);
 	}
@@ -3868,7 +3874,10 @@ void draw_challenge_2600()
 		{
 			scoreText[9 - i] = (val % 10) & 0xf;
 			val /= 10;
-			if(val == 0){break;}
+			if (val == 0)
+			{
+				break;
+			}
 		}
 	}
 	PrintText(scoreText, 0);
@@ -3948,42 +3957,49 @@ void draw_challenge_results_2600()
 {
 	DrawScores();
 
-	for(int i = 0; i < 6 * 16 * 4; i++){
+	for (int i = 0; i < 6 * 16 * 4; i++)
+	{
 		bitmap[i] = 0;
 	}
 
-	if(challenge_player == 0){
+	if (challenge_player == 0)
+	{
 		Print48Small(bitmap, "  Player 1  ", 0);
-	}else{
-		Print48Small(bitmap, "  Player 2  ", 0);		
+	}
+	else
+	{
+		Print48Small(bitmap, "  Player 2  ", 0);
 	}
 
 	int val = challenge_bubbles_popped;
-	char bubblesText[13] = { " Bubbles  0 " };
+	char bubblesText[13] = {" Bubbles  0 "};
 	for (int i = 0; i < 2; i++)
 	{
 		bubblesText[10 - i] = '0' + ((val % 10) & 0xf);
 		val /= 10;
-		if(val == 0){
+		if (val == 0)
+		{
 			break;
 		}
 	}
-	Print48Small(bitmap, bubblesText, 1);	
+	Print48Small(bitmap, bubblesText, 1);
 
 	val = challenge_seconds_remaining;
-	char timeLeftText[13] = { "Time Left  0" };
+	char timeLeftText[13] = {"Time Left  0"};
 	for (int i = 0; i < 2; i++)
 	{
 		timeLeftText[11 - i] = '0' + ((val % 10) & 0xf);
 		val /= 10;
-		if(val == 0){
+		if (val == 0)
+		{
 			break;
 		}
 	}
 
-	if(challenge_perfect_score){
-		Print48Small(bitmap , timeLeftText, 2);	
-		Print48Small(bitmap , " PERFECT !! ", 3);
+	if (challenge_perfect_score)
+	{
+		Print48Small(bitmap, timeLeftText, 2);
+		Print48Small(bitmap, " PERFECT !! ", 3);
 	}
 }
 
@@ -4116,7 +4132,7 @@ void render_challenge_results_2600()
 	render_challenge_text_2600(bitmap, ChallengeResultsHeight);
 }
 
-void render_challenge_text_2600(const uint8_t* data, int height)
+void render_challenge_text_2600(const uint8_t *data, int height)
 {
 	int line = 0;
 	vcsEndOverblank();
@@ -4230,7 +4246,6 @@ void render_challenge_2600()
 	vcsSta3(WSYNC);
 	writeAudio30();
 	vcsSta3(WSYNC);
-
 
 	int fly_x_rounded = fly.x.Round();
 	vcsSta3(WSYNC);

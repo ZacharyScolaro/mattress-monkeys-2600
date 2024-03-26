@@ -7,6 +7,14 @@
 #include "boundingBox.hpp"
 #include <cstddef>
 
+#if defined(__GNUC__)
+#define NO_INIT __attribute__((section(".noinit")))
+#define RAM_FUNC __attribute__((long_call, section(".RamFunc")))
+#else
+#define NO_INIT
+#define RAM_FUNC
+#endif
+
 const int BonusShownFramesMax = 10 * 60;
 const int BonusShownFramesMin = 4 * 60;
 const int BonusHiddenFramesMax = 30 * 60;
@@ -24,12 +32,16 @@ const FP32 ArmVelocity = fp32(3);
 const int FlyAscentDuration = 32;
 const int BubblePopFrames = 3;
 const int BubbleScoreFrames = 45;
-const int ChallengeFrames = 60 * 20;
+const int ChallengeFrames = 60 * 20 - 1;
 const int ChallengeThresholds[] = { 25, 100, 200 };
 const uint8_t ColuRedWall = 0x42;
 const int BubblePopValue = 10;
+const int ChallengeTimeLeftValue = 25;
+const int ChallengeResultsCountdownFrames = 12;
 const int BubbleStartPositions[16] = {70, 60, 110, 120, 90, 100, 80, 70, 30, 40, 50, 70, 80, 40, 30, 20}; // originally 30, 20, 30, 40, 50, 60, 70, 80, 90, 100, 90, 80, 70, 60, 50, 40
 const FP32 BubbleVelocity = fp32(.40);
+
+const int ChallengeResultsHeight = 64;
 
 // helper classes
 enum BedState
@@ -58,6 +70,7 @@ enum PlaySubState
 	ZoomingIn,
 	CountingDown,
 	Challenge,
+	ChallengeResults,
 	ZoomingOut,
 	FadingIn,
 };
@@ -282,6 +295,7 @@ void enter_title_state();
 void update_title_state();
 void update_bouncing_state();
 void update_challenge_state();
+void update_challenge_results_state();
 void update_game_over_state();
 void enter_game_over_state();
 void play_game();
@@ -297,6 +311,7 @@ void draw_high_score_2600();
 void draw_zoom_2600();
 void draw_countdown_2600();
 void draw_challenge_2600();
+void draw_challenge_results_2600();
 
 // render functions
 void render_title_text_2600(int &line);
@@ -310,6 +325,8 @@ void render_48pixel_sprite(int &line, const uint8_t *data, int height);
 void render_zoom_2600();
 void render_countdown_2600();
 void render_challenge_2600();
+void render_challenge_results_2600();
+void render_challenge_text_2600(const uint8_t* data, int height);
 
 auto render_text_2600 = render_title_text_2600;
 // title vars
@@ -338,6 +355,9 @@ int countdown_index = 0;
 
 int challenge_player = 0;
 int challenge_frames_remaining = 0;
+int challenge_seconds_remaining = 5;
+int challenge_bubbles_popped = 9;
+bool challenge_perfect_score = false;
 int next_challenge_score = 0;
 int min_monkey_x = 16;
 int max_monkey_x = 140;
@@ -388,6 +408,7 @@ Monkey monkey_0 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = Col
 Monkey monkey_1 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = true, .bottomed_out = false};
 const Monkey *monkeys[] = {&monkey_0, &monkey_1};
 
+bool aud0_muted = false;
 bool challenge_mode = false;
 bool jump_in_progress = true;
 bool show_challenge_wall = false;
@@ -690,14 +711,15 @@ const char OctopusherTitleScreen2600Graphics[192 * 9] = {
 	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
-__attribute__((section(".noinit"))) static uint8_t bitmap[192 * 80];
 
-__attribute__((section(".noinit"))) static uint8_t playfieldBuffer[193 * 5]; // 00001111 11112222 22220000 11111111 22222222
-__attribute__((section(".noinit"))) static uint8_t colupfBuffer[193];
-__attribute__((section(".noinit"))) static uint8_t grp0Buffer[193];
-__attribute__((section(".noinit"))) static uint8_t colup0Buffer[193];
-__attribute__((section(".noinit"))) static uint8_t grp1Buffer[193];
-__attribute__((section(".noinit"))) static uint8_t colup1Buffer[193];
+NO_INIT static uint8_t bitmap[192 * 80];
+
+NO_INIT static uint8_t playfieldBuffer[193 * 5]; // 00001111 11112222 22220000 11111111 22222222
+NO_INIT static uint8_t colupfBuffer[193];
+NO_INIT static uint8_t grp0Buffer[193];
+NO_INIT static uint8_t colup0Buffer[193];
+NO_INIT static uint8_t grp1Buffer[193];
+NO_INIT static uint8_t colup1Buffer[193];
 
 static char scoreText[18] = {0, 0, 0, 0, 16, 18, 18, 18, 16, 16, 18, 18, 18, 16, 0, 0, 0, 0};
 void setPF(int x, int y);
@@ -759,6 +781,7 @@ enum class FrameTypeEnum
 	Zoom,
 	CountDown,
 	Challenge,
+	ChallengeResults,
 	GameOver,
 	Count
 };
@@ -860,6 +883,9 @@ void update_game_state()
 		{
 			update_challenge_state();
 		}
+		else if(play_substate == PlaySubState::ChallengeResults){
+			update_challenge_results_state();
+		}
 		else
 		{
 			update_bouncing_state();
@@ -891,6 +917,8 @@ void init_ntsc_2600()
 	render_frame[(int)FrameTypeEnum::CountDown] = render_countdown_2600;
 	draw_frame[(int)FrameTypeEnum::Challenge] = draw_challenge_2600;
 	render_frame[(int)FrameTypeEnum::Challenge] = render_challenge_2600;
+	draw_frame[(int)FrameTypeEnum::ChallengeResults] = draw_challenge_results_2600;
+	render_frame[(int)FrameTypeEnum::ChallengeResults] = render_challenge_results_2600;
 	draw_frame[(int)FrameTypeEnum::GameOver] = draw_game_over_2600;
 	render_frame[(int)FrameTypeEnum::GameOver] = render_title_2600;
 
@@ -1140,22 +1168,22 @@ void fade_palette(uint8_t fade_level)
 	fade_color(ColuP1Monkey, InitialColuP1Monkey, fade_level);
 }
 
-// For tuning purposes only
-ConfigEntry config_entries[] = {
-	// ConfigEntry("Zoom Level "               ,0 		,&zoom_level),
-	// ConfigEntry("ColuWall "               ,ColuWall 		,&ColuWall),
-	// ConfigEntry("ColuSheet "              ,ColuSheet 	,&ColuSheet),
-	// ConfigEntry("ColuMattress "           ,ColuMattress ,&ColuMattress),
-	// ConfigEntry("ColuFlyWing "            ,ColuFlyWing	,&ColuFlyWing),
-	// ConfigEntry("ColuFlyBody "            ,ColuFlyBody	,&ColuFlyBody),
-	// ConfigEntry("ColuPillow "             ,ColuPillow  	,&ColuPillow),
-	// ConfigEntry("ColuHeadboard "          ,ColuHeadboard,&ColuHeadboard),
-	// ConfigEntry("ColuBedPost "            ,ColuBedPost 	,&ColuBedPost),
-	// ConfigEntry("ColuFanBlade "           ,ColuFanBlade ,&ColuFanBlade),
-	// ConfigEntry("ColuP0Monkey "           ,ColuP0Monkey ,&ColuP0Monkey),
-	// ConfigEntry("ColuP1Monkey "           ,ColuP1Monkey	,&ColuP1Monkey),
-};
-LiveConfig live_config = {.count = (int)(sizeof(config_entries) / sizeof(config_entries[0])), .entries = config_entries};
+// // // For tuning purposes only
+// // ConfigEntry config_entries[] = {
+// // 	// ConfigEntry("Zoom Level "               ,0 		,&zoom_level),
+// // 	// ConfigEntry("ColuWall "               ,ColuWall 		,&ColuWall),
+// // 	// ConfigEntry("ColuSheet "              ,ColuSheet 	,&ColuSheet),
+// // 	// ConfigEntry("ColuMattress "           ,ColuMattress ,&ColuMattress),
+// // 	// ConfigEntry("ColuFlyWing "            ,ColuFlyWing	,&ColuFlyWing),
+// // 	// ConfigEntry("ColuFlyBody "            ,ColuFlyBody	,&ColuFlyBody),
+// // 	// ConfigEntry("ColuPillow "             ,ColuPillow  	,&ColuPillow),
+// // 	// ConfigEntry("ColuHeadboard "          ,ColuHeadboard,&ColuHeadboard),
+// // 	// ConfigEntry("ColuBedPost "            ,ColuBedPost 	,&ColuBedPost),
+// // 	// ConfigEntry("ColuFanBlade "           ,ColuFanBlade ,&ColuFanBlade),
+// // 	// ConfigEntry("ColuP0Monkey "           ,ColuP0Monkey ,&ColuP0Monkey),
+// // 	// ConfigEntry("ColuP1Monkey "           ,ColuP1Monkey	,&ColuP1Monkey),
+// // };
+// // LiveConfig live_config = {.count = (int)(sizeof(config_entries) / sizeof(config_entries[0])), .entries = config_entries};
 
 void play_game()
 {
@@ -1199,6 +1227,8 @@ void play_game()
 			countdown_frames_remaining = 30 * 3;
 			countdown_index = 0;
 			current_frame = FrameTypeEnum::CountDown;
+			init_audio_player(&sfx_player, 1, &SfxBubblePop);
+			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
 		}
 	}
 	case CountingDown:
@@ -1206,20 +1236,28 @@ void play_game()
 		countdown_frames_remaining--;
 		if (countdown_frames_remaining == 30 * 2)
 		{
+			init_audio_player(&sfx_player, 1, &SfxBubblePop);
+			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
 			countdown_index = 1;
 		}
 		else if (countdown_frames_remaining == 30)
 		{
+			init_audio_player(&sfx_player, 1, &SfxBubblePop);
+			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
 			countdown_index = 2;
 		}
 		else if (countdown_frames_remaining == 0)
 		{
+			init_audio_player(&sfx_player, 1, &SfxBubblePop);
+			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
 			play_substate = Challenge;
 			current_frame = FrameTypeEnum::Challenge;
+			challenge_perfect_score = false;
 			challenge_frames_remaining = ChallengeFrames;
 			bubbleDistance = 0;
 			bubble_index = 0;
 			bubble_offset = 5;
+			challenge_bubbles_popped = 0;
 			for (int i = 0; i < 16; i++)
 			{
 				if (i > 10)
@@ -1254,12 +1292,29 @@ void play_game()
 	case Challenge:
 	{
 		challenge_frames_remaining--;
+		if (challenge_perfect_score || challenge_frames_remaining <= 0)
+		{
+			challenge_frames_remaining = 20;
+			play_substate = ChallengeResults;
+			current_frame = FrameTypeEnum::ChallengeResults;
+			fly.is_alive = false;
+		}
+		else
+		{
+			moveFly((challenge_player > 0) ? masq1->GetMove() : masq0->GetMove());
+		}
+		break;
+	}
+	case ChallengeResults:
+	{
 		if (challenge_frames_remaining <= 0)
 		{
 			if (player_count < 2 || challenge_player > 0)
 			{
 				play_substate = ZoomingOut;
 				current_frame = FrameTypeEnum::Zoom;
+				init_audio_player(&audio_player0, 0, &SongMonkeys);
+				init_audio_player(&audio_player1, 1, &SongMonkeys);
 			}
 			else
 			{
@@ -1269,10 +1324,6 @@ void play_game()
 				countdown_index = 0;
 				current_frame = FrameTypeEnum::CountDown;
 			}
-		}
-		else
-		{
-			moveFly((challenge_player > 0) ? masq1->GetMove() : masq0->GetMove());
 		}
 		break;
 	}
@@ -1643,7 +1694,7 @@ void DrawFlyRegion(int &line, int height, int fly_x, int fly_y, int fly_frame)
 	}
 }
 
-__attribute__((long_call, section(".RamFunc"))) void init_ntsc_7800()
+RAM_FUNC void init_ntsc_7800()
 {
 	for (size_t i = 0; i < sizeof(kernel_7800); i++)
 	{
@@ -1847,15 +1898,11 @@ void update_challenge_state()
 	update_monkey_arm(right_arm);
 
 	// See if player popped them all
-	bool zoom_out_red_wall = false;
+	challenge_perfect_score = true;
 	for (int i = 0; i < 16; i++)
 	{
 		if (bubbles[i].points_awarded == false)
-			zoom_out_red_wall = true;
-	}
-	if (!zoom_out_red_wall)
-	{
-		challenge_frames_remaining = 1;
+			challenge_perfect_score = false;
 	}
 	// Animate bubbles
 	int r = ((frame & 3) == 0) ? randint() : 0xffffffff;
@@ -1960,10 +2007,7 @@ void update_challenge_state()
 			bubbles[bit].points_awarded = true;
 			init_audio_player(&sfx_player, 1, &SfxBubblePop);
 			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
-			if (challenge_player == 0)
-				monkey_0.score += BubblePopValue;
-			else
-				monkey_1.score += BubblePopValue;
+			challenge_bubbles_popped++;
 		}
 		fly.hit_box.Y -= 16;
 		(*bubbles[bib].hit_box).X = bubbles[bib].x;
@@ -1974,10 +2018,7 @@ void update_challenge_state()
 			bubbles[bib].points_awarded = true;
 			init_audio_player(&sfx_player, 1, &SfxBubblePop);
 			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
-			if (challenge_player == 0)
-				monkey_0.score += BubblePopValue;
-			else
-				monkey_1.score += BubblePopValue;
+			challenge_bubbles_popped++;
 		}
 	}
 	// Pop bubbles towards top of screen to force fly into danger zone to pick up points
@@ -1986,6 +2027,35 @@ void update_challenge_state()
 	{
 		bubbles[bip].state = Popping0;
 		bubbles[bip].frames_remaining = BubblePopFrames;
+	}
+
+	// Time left
+	challenge_seconds_remaining = (challenge_frames_remaining / 60) + 1;
+}
+
+void update_challenge_results_state() {
+	challenge_frames_remaining--;
+	if(challenge_frames_remaining == 0){
+		if(challenge_bubbles_popped){
+			challenge_frames_remaining = ChallengeResultsCountdownFrames;
+			challenge_bubbles_popped--;
+			if (challenge_player == 0)
+				monkey_0.score += BubblePopValue;
+			else
+				monkey_1.score += BubblePopValue;
+			init_audio_player(&sfx_player, 1, &SfxBubblePop);
+			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
+		}
+		else if(challenge_perfect_score && challenge_seconds_remaining){
+			challenge_frames_remaining = ChallengeResultsCountdownFrames;
+			challenge_seconds_remaining--;
+			if (challenge_player == 0)
+				monkey_0.score += ChallengeTimeLeftValue;
+			else
+				monkey_1.score += ChallengeTimeLeftValue;
+			init_audio_player(&sfx_player, 1, &SfxBubblePop);
+			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
+		}
 	}
 }
 
@@ -3159,6 +3229,7 @@ void SetVariablesFromState()
 		jumping_enabled = true;
 		fly_spawn_enabled = true;
 		challenge_mode = false;
+		aud0_muted = false;
 		break;
 	case FlyExit:
 		show_challenge_wall = false;
@@ -3166,6 +3237,7 @@ void SetVariablesFromState()
 		jumping_enabled = true;
 		fly_spawn_enabled = false;
 		challenge_mode = false;
+		aud0_muted = false;
 		break;
 	case MonkeyLanding:
 		show_challenge_wall = false;
@@ -3173,6 +3245,7 @@ void SetVariablesFromState()
 		jumping_enabled = false;
 		fly_spawn_enabled = false;
 		challenge_mode = false;
+		aud0_muted = false;
 		break;
 	case FadingOut:
 		if (frame & 1)
@@ -3182,6 +3255,7 @@ void SetVariablesFromState()
 		jumping_enabled = false;
 		fly_spawn_enabled = false;
 		challenge_mode = false;
+		aud0_muted = false;
 		break;
 	case ZoomingIn:
 		if (frame & 1)
@@ -3191,12 +3265,19 @@ void SetVariablesFromState()
 		jumping_enabled = false;
 		fly_spawn_enabled = false;
 		challenge_mode = false;
+		aud0_muted = false;
 		break;
 	case CountingDown:
 		challenge_mode = false;
+		aud0_muted = true;
 		break;
 	case Challenge:
 		challenge_mode = true;
+		aud0_muted = true;
+		break;
+	case ChallengeResults:
+		challenge_mode = true;
+		aud0_muted = true;
 		break;
 	case ZoomingOut:
 		if (frame & 1)
@@ -3206,6 +3287,7 @@ void SetVariablesFromState()
 		jumping_enabled = false;
 		fly_spawn_enabled = false;
 		challenge_mode = false;
+		aud0_muted = false;
 		break;
 	case FadingIn:
 		if (frame & 1)
@@ -3215,6 +3297,7 @@ void SetVariablesFromState()
 		jumping_enabled = false;
 		fly_spawn_enabled = false;
 		challenge_mode = false;
+		aud0_muted = false;
 		break;
 	}
 }
@@ -3239,28 +3322,13 @@ void DrawScores()
 		right_score /= 10;
 	}
 
-	if (challenge_mode)
+	for (int i = 0; i < monkey_0.lives; i++)
 	{
-		if (fly.is_alive)
-		{
-			int seconds_remaining = challenge_frames_remaining / 60;
-			for (int i = 0; i < 2; i++)
-			{
-				scoreText[9 - i] = (seconds_remaining % 10) & 0xf;
-				seconds_remaining /= 10;
-			}
-		}
+		scoreText[5 + i] = 18;
 	}
-	else
+	for (int i = 0; i < monkey_1.lives; i++)
 	{
-		for (int i = 0; i < monkey_0.lives; i++)
-		{
-			scoreText[5 + i] = 18;
-		}
-		for (int i = 0; i < monkey_1.lives; i++)
-		{
-			scoreText[10 + i] = 18;
-		}
+		scoreText[10 + i] = 18;
 	}
 	// Used when debugging
 	// for (int i = 0; i < 8; i++)
@@ -3287,13 +3355,24 @@ void place_monkey_on_post()
 
 void writeAudio30()
 {
-	// Channel 0 is always music
+	if(aud0_muted) {
+		vcsWrite5(AUDV0, 0);
+	}
+	else{
+		vcsWrite5(AUDV0, audio_player0.volume);
+	}
 	vcsWrite5(AUDC0, audio_player0.control);
-	vcsWrite5(AUDV0, audio_player0.volume);
 	vcsWrite5(AUDF0, audio_player0.frequency);
 	// Channel 1 is either music or SFX
+	if(!aud0_muted || chan1_player == &sfx_player)
+	{
+		vcsWrite5(AUDV1, chan1_player->volume);
+	}
+	else
+	{
+		vcsWrite5(AUDV1, 0);
+	}
 	vcsWrite5(AUDC1, chan1_player->control);
-	vcsWrite5(AUDV1, chan1_player->volume);
 	vcsWrite5(AUDF1, chan1_player->frequency);
 }
 
@@ -3308,6 +3387,7 @@ void next_audio_frame()
 		init_audio_player(&sfx_player, 1, &SfxFlyIdle);
 		sfx_frames_remaining = SfxFlyIdle.percussions[0].length;
 	}
+
 	if (sfx_frames_remaining > 0)
 	{
 		sfx_frames_remaining--;
@@ -3730,7 +3810,7 @@ int zoom_bottom = 175;
 int zoom_wall_index = 0;
 void draw_zoom_2600()
 {
-
+	PrintText("                    ", 0);
 	// PF (wall)
 	zoom_top = 19 - zoom_level; // ((zoom_level * 17) / 17);
 	zoom_bottom = 41 + ((zoom_level * 134) / 17);
@@ -3766,6 +3846,7 @@ void draw_zoom_2600()
 
 void draw_countdown_2600()
 {
+	PrintText("                    ", 0);
 	grp0Buffer[35] = 0;
 	grp1Buffer[35] = 0;
 	grp0Buffer[36] = 0;
@@ -3774,6 +3855,21 @@ void draw_countdown_2600()
 
 void draw_challenge_2600()
 {
+	for (int i = 0; i < 18; i++)
+	{
+		scoreText[i] = ' ';
+	}
+	if (fly.is_alive)
+	{
+		int val = challenge_seconds_remaining;
+		for (int i = 0; i < 2; i++)
+		{
+			scoreText[9 - i] = (val % 10) & 0xf;
+			val /= 10;
+			if(val == 0){break;}
+		}
+	}
+	PrintText(scoreText, 0);
 	DrawMonkeyArm(left_arm, 1);
 	DrawMonkeyArm(right_arm, 3);
 	// Top 3 lines empty because we are positioning the fly and setting up for the next display kernel
@@ -3843,6 +3939,49 @@ void draw_challenge_2600()
 				index += increment;
 			}
 		}
+	}
+}
+
+void draw_challenge_results_2600()
+{
+	DrawScores();
+
+	for(int i = 0; i < 6 * 16 * 4; i++){
+		bitmap[i] = 0;
+	}
+
+	if(challenge_player == 0){
+		Print48Small(bitmap, "  Player 1  ", 0);
+	}else{
+		Print48Small(bitmap, "  Player 2  ", 0);		
+	}
+
+	int val = challenge_bubbles_popped;
+	char bubblesText[13] = { " Bubbles  0 " };
+	for (int i = 0; i < 2; i++)
+	{
+		bubblesText[10 - i] = '0' + ((val % 10) & 0xf);
+		val /= 10;
+		if(val == 0){
+			break;
+		}
+	}
+	Print48Small(bitmap, bubblesText, 1);	
+
+	val = challenge_seconds_remaining;
+	char timeLeftText[13] = { "Time Left  0" };
+	for (int i = 0; i < 2; i++)
+	{
+		timeLeftText[11 - i] = '0' + ((val % 10) & 0xf);
+		val /= 10;
+		if(val == 0){
+			break;
+		}
+	}
+
+	if(challenge_perfect_score){
+		Print48Small(bitmap , timeLeftText, 2);	
+		Print48Small(bitmap , " PERFECT !! ", 3);
 	}
 }
 
@@ -3967,6 +4106,16 @@ void render_zoom_2600()
 
 void render_countdown_2600()
 {
+	render_challenge_text_2600(CountdownGraphics[countdown_index], sizeof(CountdownGraphics[0]) / 6);
+}
+
+void render_challenge_results_2600()
+{
+	render_challenge_text_2600(bitmap, ChallengeResultsHeight);
+}
+
+void render_challenge_text_2600(const uint8_t* data, int height)
+{
 	int line = 0;
 	vcsEndOverblank();
 	vcsSta3(WSYNC);
@@ -4054,7 +4203,7 @@ void render_countdown_2600()
 		line++;
 	}
 
-	render_48pixel_sprite(line, CountdownGraphics[countdown_index], sizeof(CountdownGraphics[0]) / 6);
+	render_48pixel_sprite(line, data, height);
 
 	for (; line < room_height;)
 	{

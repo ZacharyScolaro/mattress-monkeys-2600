@@ -155,6 +155,25 @@ void InvertCharacter(int row, int col)
 	}
 }
 
+
+void Print48Small(uint8_t* pBuffer, const char *ptext, int row)
+{
+	int index = row * 6 * GlyphHeight;
+	for (int offset = 0; offset < 3; offset++)
+	{
+		for (int y = 3; y >= 0; y--)
+		{
+			for (int x = 0; x < 12;)
+			{
+				uint8_t b = ((font[(int)ptext[x++] * 3 + offset] >> (y * 3)) & 7) << 4;
+				b |= (font[(int)ptext[x++] * 3 + offset] >> (y * 3)) & 7;
+				pBuffer[index++] = b;
+			}
+		}
+	}
+}
+
+
 void PrintSmall(const char *ptext, int row, int col, int len)
 {
 	int index;

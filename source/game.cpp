@@ -409,6 +409,7 @@ Monkey monkey_1 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = Col
 const Monkey *monkeys[] = {&monkey_0, &monkey_1};
 
 bool aud0_muted = false;
+bool enable_music = true;
 bool challenge_mode = false;
 bool jump_in_progress = true;
 bool show_challenge_wall = false;
@@ -844,6 +845,12 @@ void update_game_state()
 			case 2:
 				enter_gameplay_state(menu_selection);
 				break;
+			case 5:
+				enable_music = true;
+				break;
+			case 6:
+				enable_music = false;
+				break;
 			}
 		}
 		break;
@@ -1258,6 +1265,7 @@ void play_game()
 			bubble_index = 0;
 			bubble_offset = 5;
 			challenge_bubbles_popped = 0;
+			int start_position_randomizer = randint() & 0xf;
 			for (int i = 0; i < 16; i++)
 			{
 				if (i > 10)
@@ -1272,7 +1280,7 @@ void play_game()
 				{
 					bubbles[i].state = Popped;
 				}
-				bubbles[i].x = BubbleStartPositions[i];
+				bubbles[i].x = BubbleStartPositions[(i+start_position_randomizer) & 0xf];
 				bubbles[i].points_awarded = false;
 			}
 			fly.is_alive = true;
@@ -3361,7 +3369,7 @@ void place_monkey_on_post()
 
 void writeAudio30()
 {
-	if (aud0_muted)
+	if (!enable_music || aud0_muted)
 	{
 		vcsWrite5(AUDV0, 0);
 	}
@@ -3372,7 +3380,7 @@ void writeAudio30()
 	vcsWrite5(AUDC0, audio_player0.control);
 	vcsWrite5(AUDF0, audio_player0.frequency);
 	// Channel 1 is either music or SFX
-	if (!aud0_muted || chan1_player == &sfx_player)
+	if ((enable_music && !aud0_muted) || chan1_player == &sfx_player)
 	{
 		vcsWrite5(AUDV1, chan1_player->volume);
 	}
@@ -3583,7 +3591,12 @@ void update_title_state()
 		{
 			menu_selection = sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0]);
 		}
+		if (menu_selection == 6)
+		{
+			menu_selection--;
+		}
 		menu_selection--;
+		
 		init_audio_player(&sfx_player, 1, &SfxBounce);
 		sfx_frames_remaining = SfxBounce.percussions[0].length;
 	}
@@ -3591,7 +3604,7 @@ void update_title_state()
 	{
 		// right
 		menu_selection++;
-		if (menu_selection >= (int)(sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0])))
+		if (menu_selection >= (int)(sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0]))-1)
 		{
 			menu_selection = 0;
 		}
@@ -3628,6 +3641,14 @@ void update_title_state()
 			break;
 		}
 	}
+
+	if(enable_music && menu_selection == 5){
+		menu_selection = 6;
+	}
+	if(!enable_music && menu_selection == 6){
+		menu_selection = 5;
+	}
+
 	place_monkey_on_post();
 	SetVariablesFromState();
 	ColuWall = InitialColuWall;

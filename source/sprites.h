@@ -11,9 +11,9 @@ extern const uint8_t TitleArtGraphics[2][138];
 
 extern const uint8_t TitleArtColu[2][138];
 
-extern const uint8_t MenuOptionsGraphics[5][30];
+extern const uint8_t MenuOptionsGraphics[7][30];
 
-extern const uint8_t MenuOptionsColu[5][30];
+extern const uint8_t MenuOptionsColu[7][30];
 
 extern const uint8_t FanBladeGraphics[7][14];
 

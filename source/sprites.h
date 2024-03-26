@@ -67,6 +67,14 @@ extern const uint8_t CountdownP2Graphics[5];
 
 extern const uint8_t CountdownP2Colu[5];
 
+extern const uint8_t PreviewFlyHunterGraphics[1152];
+
+extern const uint8_t PreviewFlyHunterColu[1152];
+
+extern const uint8_t PreviewBigfootGraphics[1152];
+
+extern const uint8_t PreviewBigfootColu[1152];
+
 extern const uint8_t ChallengeLightPlayfield[204];
 
 extern const uint8_t kernel_7800[549];

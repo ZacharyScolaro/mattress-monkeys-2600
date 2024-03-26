@@ -439,6 +439,11 @@ parse_sprite_strip(f_header, f_source, 'challenge-fly-2cycle.png', 'Fly', 8, 11,
 parse_sprite_strip(f_header, f_source, 'player-1-challenge-countdown_1px_gap+48px_sprite.png', 'Countdown', 48, 31, 3, 1, 1, 0, 0, None, 1)
 parse_sprite_strip(f_header, f_source, 'player-2-challenge-countdown_1px_gap+48px_sprite.png', 'CountdownP2', 8, 5, 1, 1, 1, 32, 0, None, 41)
 
+# Previews
+parse_sprite_strip(f_header, f_source, 'previews/fly_hunter.png', 'PreviewFlyHunter', 48, 192, 1, 4, 2, 0, 0, (152,92,40))
+parse_sprite_strip(f_header, f_source, 'previews/bigfoots_bluff.png', 'PreviewBigfoot', 48, 192, 1, 4, 2, 0, 0, (6,57,32))
+
+
 parse_playfield(f_header, f_source, 'challenge-light.png', 'ChallengeLight', 34, 4, 1, 0, 0, (0,0,0))
 
 # TODO DEPRECATE THIS FUCNTION generate_sine_tables(f_header, f_source)

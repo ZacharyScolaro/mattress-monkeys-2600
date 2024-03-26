@@ -1092,7 +1092,7 @@ void play_game()
 				{
 					bubbles[i].state = Popped;
 				}
-				bubbles[i].x = BubbleStartPositions[(i+start_position_randomizer) & 0xf];
+				bubbles[i].x = BubbleStartPositions[(i + start_position_randomizer) & 0xf];
 				bubbles[i].points_awarded = false;
 			}
 			fly.is_alive = true;
@@ -1270,8 +1270,13 @@ void show_credits()
 	}
 }
 
+const int PreviewsCount = 2;
+const uint8_t PreviewColuP[PreviewsCount] = {0xfe, 0xce};
+const uint8_t PreviewColuBK[PreviewsCount] = {0xf2, 0xc2};
+const uint8_t *PreviewGraphics[PreviewsCount] = {PreviewFlyHunterGraphics, PreviewBigfootGraphics};
 void show_previews()
 {
+	int preview_index = 0;
 	int frameCount = 0;
 	int tenthCount = 0;
 	uint8_t prev_but0 = 0;
@@ -1287,14 +1292,13 @@ void show_previews()
 		vcsEndOverblank();
 		vcsSta3(WSYNC);
 		writeAudio30();
-		vcsSta3(WSYNC);
 
 		vcsSta3(WSYNC);
 		vcsNop2n(3);
 		vcsWrite5(NUSIZ0, 0x03);
 		vcsWrite5(NUSIZ1, 0x03);
-		vcsWrite5(COLUP0, 0x0f);
-		vcsWrite5(COLUP1, 0x0f);
+		vcsWrite5(COLUP0, PreviewColuP[preview_index]);
+		vcsWrite5(COLUP1, PreviewColuP[preview_index]);
 		vcsWrite5(GRP0, 0xff);
 		vcsWrite5(GRP1, 0xff);
 		vcsSta3(RESP0);
@@ -1307,25 +1311,31 @@ void show_previews()
 		vcsSta3(WSYNC);
 		vcsSta3(HMOVE);
 		vcsWrite5(CTRLPF, 0x01);
-		vcsWrite5(COLUPF, 0x80);
+		vcsWrite5(COLUBK, PreviewColuBK[preview_index]);
 		vcsNop2n(26);
 		vcsSta3(HMCLR);
 		vcsJmp3();
 		vcsWrite5(VBLANK, 0);
 
-		int y = 0;
-		for (int i = 0; i < 192; i++)
-		{
-			vcsWrite5(COLUBK, i);
-			vcsSta3(WSYNC);
-		}
+		int line = 0;
+		render_48pixel_sprite(line, PreviewGraphics[preview_index], 192);
+		vcsSta3(HMOVE);
 
+		vcsSta3(WSYNC);
+		vcsSta3(HMOVE);
+		vcsSta3(WSYNC);
+		vcsSta3(HMOVE);
+		vcsSta3(WSYNC);
 		vcsWrite5(VBLANK, 2);
 		uint8_t but0 = vcsRead4(INPT4);
 		vcsStartOverblank();
 		if (((but0 & 0x80) == 0) && (prev_but0 & 0x80))
 		{
-			return;
+			preview_index++;
+			if (preview_index == PreviewsCount)
+			{
+				return;
+			}
 		}
 		prev_but0 = but0;
 	}
@@ -3393,7 +3403,7 @@ void update_title_state()
 			menu_selection--;
 		}
 		menu_selection--;
-		
+
 		init_audio_player(&sfx_player, 1, &SfxBounce);
 		sfx_frames_remaining = SfxBounce.percussions[0].length;
 	}
@@ -3401,7 +3411,7 @@ void update_title_state()
 	{
 		// right
 		menu_selection++;
-		if (menu_selection >= (int)(sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0]))-1)
+		if (menu_selection >= (int)(sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0])) - 1)
 		{
 			menu_selection = 0;
 		}
@@ -3439,10 +3449,12 @@ void update_title_state()
 		}
 	}
 
-	if(enable_music && menu_selection == 5){
+	if (enable_music && menu_selection == 5)
+	{
 		menu_selection = 6;
 	}
-	if(!enable_music && menu_selection == 6){
+	if (!enable_music && menu_selection == 6)
+	{
 		menu_selection = 5;
 	}
 

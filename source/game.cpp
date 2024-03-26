@@ -1289,6 +1289,8 @@ void show_previews()
 			tenthCount++;
 		}
 
+		next_audio_frame();
+
 		vcsEndOverblank();
 		vcsSta3(WSYNC);
 		writeAudio30();

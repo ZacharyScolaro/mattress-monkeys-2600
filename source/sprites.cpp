@@ -185,9 +185,9 @@ const uint8_t BubbleColu[7][15] = {
  };
 
 const uint8_t FlyGraphics[2][11] = { 
-{ 0xd0, 0xb8, 0x98, 0x7c, 0x3f, 0x3e, 0x7e, 0x7f, 0x3c, 0x22, 0x40 },
+{ 0xd0, 0xb8, 0x98, 0x7c, 0x3e, 0x3d, 0x7d, 0x7e, 0x3c, 0x2a, 0x48 },
 
-{ 0x00, 0x00, 0xe0, 0xf8, 0x3f, 0x3e, 0x7e, 0x7f, 0x3c, 0x22, 0x40 }
+{ 0x00, 0x00, 0xe0, 0xf8, 0x3e, 0x3d, 0x7d, 0x7e, 0x3c, 0x2a, 0x48 }
  };
 
 const uint8_t FlyColu[2][11] = { 
@@ -917,6 +917,66 @@ const track_t SfxBubblePop =
    // SFX
    .even_speed = 7,
    .odd_speed = 7,
+   .notes = (uint8_t[]) { 0x11, 0x00 }
+}}
+};
+
+
+const track_t SfxBellShort =
+{
+	.channels = { {0}, {(sequence_t[]){ { .goto_index=-1, .pattern_index=0 } }} },
+	.instruments = (instrument_t[]){0},
+	.percussions = (percussion_t[]){   {
+   // FH_bell_short
+   .frequencies = (uint8_t[]) { 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11 },
+   .volumes = (uint8_t[]) { 10, 9, 9, 9, 9, 9, 9, 8, 7, 5, 3, 0 },
+   .waveforms = (uint8_t[]) { 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 },
+   .length = 12
+}},
+	.patterns = (pattern_t[]){   {
+   // SFX
+   .even_speed = 12,
+   .odd_speed = 12,
+   .notes = (uint8_t[]) { 0x11, 0x00 }
+}}
+};
+
+
+const track_t SfxBellLong =
+{
+	.channels = { {0}, {(sequence_t[]){ { .goto_index=-1, .pattern_index=0 } }} },
+	.instruments = (instrument_t[]){0},
+	.percussions = (percussion_t[]){   {
+   // FH_bell_long
+   .frequencies = (uint8_t[]) { 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 },
+   .volumes = (uint8_t[]) { 10, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 8, 8, 8, 7, 6, 6, 6, 5, 4, 3, 2, 0 },
+   .waveforms = (uint8_t[]) { 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 },
+   .length = 24
+}},
+	.patterns = (pattern_t[]){   {
+   // SFX
+   .even_speed = 24,
+   .odd_speed = 24,
+   .notes = (uint8_t[]) { 0x11, 0x00 }
+}}
+};
+
+
+const track_t SfxTimeBonus =
+{
+	.channels = { {0}, {(sequence_t[]){ { .goto_index=-1, .pattern_index=0 } }} },
+	.instruments = (instrument_t[]){0},
+	.percussions = (percussion_t[]){   {
+   // FH_time_points
+   .frequencies = (uint8_t[]) { 9, 9, 9, 9, 9, 9 },
+   .volumes = (uint8_t[]) { 10, 10, 9, 7, 4, 0 },
+   .waveforms = (uint8_t[]) { 4, 4, 4, 4, 4, 4 },
+   .length = 6
+}},
+	.patterns = (pattern_t[]){   {
+   // SFX
+   .even_speed = 6,
+   .odd_speed = 6,
    .notes = (uint8_t[]) { 0x11, 0x00 }
 }}
 };

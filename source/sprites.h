@@ -113,6 +113,9 @@ extern const track_t SfxFan;
 extern const track_t SfxFlyIdle;
 extern const track_t SfxFlySquish;
 extern const track_t SfxBubblePop;
+extern const track_t SfxBellShort;
+extern const track_t SfxBellLong;
+extern const track_t SfxTimeBonus;
 extern const int32_t Sine[256];
 
 

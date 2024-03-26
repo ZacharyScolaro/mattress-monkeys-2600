@@ -1227,8 +1227,8 @@ void play_game()
 			countdown_frames_remaining = 30 * 3;
 			countdown_index = 0;
 			current_frame = FrameTypeEnum::CountDown;
-			init_audio_player(&sfx_player, 1, &SfxBubblePop);
-			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
+			init_audio_player(&sfx_player, 1, &SfxBellShort);
+			sfx_frames_remaining = SfxBellShort.percussions[0].length;
 		}
 	}
 	case CountingDown:
@@ -1236,20 +1236,20 @@ void play_game()
 		countdown_frames_remaining--;
 		if (countdown_frames_remaining == 30 * 2)
 		{
-			init_audio_player(&sfx_player, 1, &SfxBubblePop);
-			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
+			init_audio_player(&sfx_player, 1, &SfxBellShort);
+			sfx_frames_remaining = SfxBellShort.percussions[0].length;
 			countdown_index = 1;
 		}
 		else if (countdown_frames_remaining == 30)
 		{
-			init_audio_player(&sfx_player, 1, &SfxBubblePop);
-			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
+			init_audio_player(&sfx_player, 1, &SfxBellShort);
+			sfx_frames_remaining = SfxBellShort.percussions[0].length;
 			countdown_index = 2;
 		}
 		else if (countdown_frames_remaining == 0)
 		{
-			init_audio_player(&sfx_player, 1, &SfxBubblePop);
-			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
+			init_audio_player(&sfx_player, 1, &SfxBellLong);
+			sfx_frames_remaining = SfxBellLong.percussions[0].length;
 			play_substate = Challenge;
 			current_frame = FrameTypeEnum::Challenge;
 			challenge_perfect_score = false;
@@ -1323,6 +1323,8 @@ void play_game()
 				countdown_frames_remaining = 30 * 3;
 				countdown_index = 0;
 				current_frame = FrameTypeEnum::CountDown;
+				init_audio_player(&sfx_player, 1, &SfxBellShort);
+				sfx_frames_remaining = SfxBellShort.percussions[0].length;
 			}
 		}
 		break;
@@ -2053,8 +2055,8 @@ void update_challenge_results_state() {
 				monkey_0.score += ChallengeTimeLeftValue;
 			else
 				monkey_1.score += ChallengeTimeLeftValue;
-			init_audio_player(&sfx_player, 1, &SfxBubblePop);
-			sfx_frames_remaining = SfxBubblePop.percussions[0].length;
+			init_audio_player(&sfx_player, 1, &SfxTimeBonus);
+			sfx_frames_remaining = SfxTimeBonus.percussions[0].length;
 		}
 	}
 }

@@ -456,6 +456,9 @@ parse_ttp(f_header, f_source, 'FanWhack.ttp', 'SfxFan')
 parse_ttp(f_header, f_source, 'FlyIdle.ttp', 'SfxFlyIdle')
 parse_ttp(f_header, f_source, 'FlySquish.ttp', 'SfxFlySquish')
 parse_ttp(f_header, f_source, 'BubblePop.ttp', 'SfxBubblePop')
+parse_ttp(f_header, f_source, 'BellShort.ttp', 'SfxBellShort')
+parse_ttp(f_header, f_source, 'BellLong.ttp', 'SfxBellLong')
+parse_ttp(f_header, f_source, 'TimeBonus.ttp', 'SfxTimeBonus')
 
 make_sine_lookup_table(f_header, f_source, 'Sine', 256);
 

@@ -1229,6 +1229,8 @@ void show_credits()
 		PrintSmall("\"Monkeys Spinning Monkeys\" licensed ", text_line++, 0, 36);
 		PrintSmall("by Incopetech Inc. (c) 2023         ", text_line++, 0, 36);
 
+		next_audio_frame();
+		
 		vcsEndOverblank();
 		vcsSta3(WSYNC);
 		writeAudio30();
@@ -2759,15 +2761,16 @@ void update_bouncing_state()
 		banana_shown = !banana_shown;
 		if (banana_shown)
 		{
-			banana_cooldown = (randint() % (BonusShownFramesMax - BonusShownFramesMin)) + BonusShownFramesMin;
+			banana_cooldown = ((randint() & 0x7fffffff) % (BonusShownFramesMax - BonusShownFramesMin)) + BonusShownFramesMin;
 		}
 		else
 		{
-			banana_cooldown = (randint() % (BonusHiddenFramesMax - BonusHiddenFramesMin)) + BonusHiddenFramesMin;
+			banana_cooldown = ((randint() & 0x7fffffff) % (BonusHiddenFramesMax - BonusHiddenFramesMin)) + BonusHiddenFramesMin;
 		}
 	}
 
-	if (jumping_monkey->state != FanSmacked && jumping_monkey->state != Dead)
+	if (jumping_monkey->state != FanSmacked && jumping_monkey->state != Dead
+		&& (jumping_monkey == &monkey_0 || player_count != 1))
 	{
 
 		fly_top_hit_box.X = fly_top_x;
@@ -2795,13 +2798,7 @@ void update_bouncing_state()
 			jumping_monkey->score += BananaValues[(int)bed_state];
 			init_audio_player(&sfx_player, 1, &SfxBonus);
 			sfx_frames_remaining = SfxBonus.percussions[0].length;
-		}
-
-		if (player_count == 1)
-		{
-			monkey_1.score = 0;
-		}
-		
+		}	
 	}
 }
 void draw_bouncing_scene_2600()

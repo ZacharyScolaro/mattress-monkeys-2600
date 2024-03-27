@@ -2796,6 +2796,12 @@ void update_bouncing_state()
 			init_audio_player(&sfx_player, 1, &SfxBonus);
 			sfx_frames_remaining = SfxBonus.percussions[0].length;
 		}
+
+		if (player_count == 1)
+		{
+			monkey_1.score = 0;
+		}
+		
 	}
 }
 void draw_bouncing_scene_2600()

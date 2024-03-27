@@ -75,6 +75,10 @@ extern const uint8_t PreviewBigfootGraphics[1152];
 
 extern const uint8_t PreviewBigfootColu[1152];
 
+extern const uint8_t PreviewOctopusherGraphics[1152];
+
+extern const uint8_t PreviewOctopusherColu[1152];
+
 extern const uint8_t ChallengeLightPlayfield[204];
 
 extern const uint8_t kernel_7800[549];

@@ -1270,10 +1270,10 @@ void show_credits()
 	}
 }
 
-const int PreviewsCount = 2;
-const uint8_t PreviewColuP[PreviewsCount] = {0xfe, 0xce};
-const uint8_t PreviewColuBK[PreviewsCount] = {0xf2, 0xc2};
-const uint8_t *PreviewGraphics[PreviewsCount] = {PreviewFlyHunterGraphics, PreviewBigfootGraphics};
+const int PreviewsCount = 3;
+const uint8_t PreviewColuP[PreviewsCount] = {0xfe, 0xce, 0xae};
+const uint8_t PreviewColuBK[PreviewsCount] = {0xf2, 0xc2, 0x82};
+const uint8_t *PreviewGraphics[PreviewsCount] = {PreviewFlyHunterGraphics, PreviewBigfootGraphics, PreviewOctopusherGraphics};
 void show_previews()
 {
 	int preview_index = 0;
@@ -1321,13 +1321,21 @@ void show_previews()
 
 		int line = 0;
 		render_48pixel_sprite(line, PreviewGraphics[preview_index], 192);
-		vcsSta3(HMOVE);
 
+		vcsSta3(HMOVE);
+		vcsLda2(0);
+		vcsSta3(GRP0);
+		vcsSta3(GRP1);
+		vcsSta3(GRP0);
+		vcsSta3(GRP1);
 		vcsSta3(WSYNC);
+
 		vcsSta3(HMOVE);
 		vcsSta3(WSYNC);
+
 		vcsSta3(HMOVE);
 		vcsSta3(WSYNC);
+
 		vcsWrite5(VBLANK, 2);
 		uint8_t but0 = vcsRead4(INPT4);
 		vcsStartOverblank();
@@ -2491,14 +2499,14 @@ void update_bouncing_state()
 	case Jumping:
 		jumping_monkey->x += jumping_monkey->velocity_x;
 
-		if (jumping_monkey->x < min_monkey_x)
+		if (jumping_monkey->x < 0)
 		{
-			jumping_monkey->x = min_monkey_x;
+			jumping_monkey->x = 0;
 			jumping_monkey->velocity_x = 0;
 		}
-		if (jumping_monkey->x > max_monkey_x)
+		if (jumping_monkey->x > 160)
 		{
-			jumping_monkey->x = max_monkey_x;
+			jumping_monkey->x = 160;
 			jumping_monkey->velocity_x = 0;
 		}
 		ApplyGravity();
@@ -2531,7 +2539,10 @@ void update_bouncing_state()
 			}
 			if (jumping_monkey->lives > 0)
 			{
-				jumping_monkey->lives--;
+				if (jumping_monkey == &monkey_0 || player_count != 1)
+				{
+					jumping_monkey->lives--;
+				}
 				jumping_monkey->velocity_x = jumping_monkey->face_left ? fp32(-1.5) : fp32(1.5);
 				jumping_monkey->frame = 0;
 				jumping_monkey->state = HoppingOntoPost;
@@ -2627,7 +2638,10 @@ void update_bouncing_state()
 				auto lv = (standing_monkey->x.Round() + 2 + (wave_length / 4)) - sine_hpos;
 				auto vx = fp32(-1.25) * FP32(Sine[(uint8_t)((((lv % wave_length) * 256) / wave_length)).Round()], true);
 				auto vy = fp32(-7.5) + (fp32(-0.6) * FP32(Sine[(uint8_t)((((lv % wave_length) * 128) / wave_length)).Round()], true));
-
+				if (vy == 0)
+				{
+					vy = fp32(0.01);
+				}
 				Monkey *temp = jumping_monkey;
 				jumping_monkey = standing_monkey;
 				standing_monkey = temp;
@@ -2646,11 +2660,40 @@ void update_bouncing_state()
 		else if (jumping_monkey->y > 158)
 		{
 			jumping_monkey->y = 158;
-			jumping_monkey->bottomed_out = true;
+			if (jumping_monkey->x > min_monkey_x && jumping_monkey->x < max_monkey_x)
+			{
+				jumping_monkey->bottomed_out = true;
+			}
+			else
+			{
+				jumping_monkey->state = FanSmacked;
+				jumping_monkey->velocity_x = jumping_monkey->x < 0x4d ? -2 : 2;
+				jumping_monkey->velocity_y = 0;
+			}
 		}
 		else if (jumping_monkey->y > 129 && jumping_monkey->velocity_y > 0)
 		{
 			jumping_monkey->velocity_x = 0;
+		}
+		else if (jumping_monkey->state == Jumping && jumping_monkey->velocity_y > 0 && jumping_monkey->y >= 105 && min_monkey_x - 15 < jumping_monkey->x && jumping_monkey->x < min_monkey_x)
+		{
+			jumping_monkey->face_left = false;
+			jumping_monkey->x = min_monkey_x - 7;
+			jumping_monkey->velocity_x = fp32(1.5);
+			jumping_monkey->y = 105;
+			jumping_monkey->velocity_y = 0;
+			jumping_monkey->state = WalkingToEdge;
+			jump_in_progress = true;
+		}
+		else if (jumping_monkey->state == Jumping && jumping_monkey->velocity_y > 0 && jumping_monkey->y >= 105 && max_monkey_x + 15 > jumping_monkey->x && jumping_monkey->x > max_monkey_x)
+		{
+			jumping_monkey->face_left = true;
+			jumping_monkey->x = max_monkey_x + 7;
+			jumping_monkey->velocity_x = fp32(-1.5);
+			jumping_monkey->y = 105;
+			jumping_monkey->velocity_y = 0;
+			jumping_monkey->state = WalkingToEdge;
+			jump_in_progress = true;
 		}
 	}
 
@@ -3138,20 +3181,23 @@ void DrawScores()
 		scoreText[3 - i] = (left_score % 10) & 0xf;
 		left_score /= 10;
 	}
-	int right_score = monkey_1.score;
-	for (int i = 0; i < 4; i++)
-	{
-		scoreText[17 - i] = (right_score % 10) & 0xf;
-		right_score /= 10;
-	}
-
 	for (int i = 0; i < monkey_0.lives; i++)
 	{
 		scoreText[5 + i] = 18;
 	}
-	for (int i = 0; i < monkey_1.lives; i++)
+
+	if (player_count != 1)
 	{
-		scoreText[10 + i] = 18;
+		int right_score = monkey_1.score;
+		for (int i = 0; i < 4; i++)
+		{
+			scoreText[17 - i] = (right_score % 10) & 0xf;
+			right_score /= 10;
+		}
+		for (int i = 0; i < monkey_1.lives; i++)
+		{
+			scoreText[10 + i] = 18;
+		}
 	}
 	// Used when debugging
 	// for (int i = 0; i < 8; i++)

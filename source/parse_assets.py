@@ -442,6 +442,7 @@ parse_sprite_strip(f_header, f_source, 'player-2-challenge-countdown_1px_gap+48p
 # Previews
 parse_sprite_strip(f_header, f_source, 'previews/fly_hunter.png', 'PreviewFlyHunter', 48, 192, 1, 4, 2, 0, 0, (152,92,40))
 parse_sprite_strip(f_header, f_source, 'previews/bigfoots_bluff.png', 'PreviewBigfoot', 48, 192, 1, 4, 2, 0, 0, (6,57,32))
+parse_sprite_strip(f_header, f_source, 'previews/octopusher.png', 'PreviewOctopusher', 48, 192, 1, 4, 2, 0, 0, (0,51,102))
 
 
 parse_playfield(f_header, f_source, 'challenge-light.png', 'ChallengeLight', 34, 4, 1, 0, 0, (0,0,0))

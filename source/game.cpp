@@ -1230,7 +1230,7 @@ void show_credits()
 		PrintSmall("by Incopetech Inc. (c) 2023         ", text_line++, 0, 36);
 
 		next_audio_frame();
-		
+
 		vcsEndOverblank();
 		vcsSta3(WSYNC);
 		writeAudio30();
@@ -1355,6 +1355,11 @@ void show_previews()
 
 void move_monkey(uint8_t joy, Monkey *monkey)
 {
+	if (game_state != GameState::PlayingGame)
+	{
+		return;
+	}
+
 	switch (monkey->state)
 	{
 	case FanSmacked:
@@ -2769,8 +2774,7 @@ void update_bouncing_state()
 		}
 	}
 
-	if (jumping_monkey->state != FanSmacked && jumping_monkey->state != Dead
-		&& (jumping_monkey == &monkey_0 || player_count != 1))
+	if (jumping_monkey->state != FanSmacked && jumping_monkey->state != Dead && (jumping_monkey == &monkey_0 || player_count != 1))
 	{
 
 		fly_top_hit_box.X = fly_top_x;
@@ -2798,7 +2802,7 @@ void update_bouncing_state()
 			jumping_monkey->score += BananaValues[(int)bed_state];
 			init_audio_player(&sfx_player, 1, &SfxBonus);
 			sfx_frames_remaining = SfxBonus.percussions[0].length;
-		}	
+		}
 	}
 }
 void draw_bouncing_scene_2600()
@@ -3425,17 +3429,44 @@ AI2::AI2(int index) : _monkey(monkeys[index]), _other_monkey(monkeys[(index + 1)
 uint8_t AI2::GetMove()
 {
 	uint8_t joystick = 0xf;
+	int x = _monkey->x.Round();
 	if (_monkey->state != Jumping)
 	{
-		if (_monkey->x < _other_monkey->x)
+		int full_wave =  wave_length.Round();
+		int half_wave = full_wave / 2;
+		int nextPeak = _other_monkey->x.Round() - (half_wave * 5);
+		int distance = 1000;
+		int target = 80;
+		for(int i = 0; i < 6; i ++)
+		{
+			if(nextPeak > min_monkey_x && nextPeak < max_monkey_x){
+				int d = x - nextPeak;
+				if(d < 0){
+					d = -d;
+				}
+				if(d < distance){
+					distance = d;
+					target = nextPeak;
+				}
+			}
+			nextPeak += full_wave;
+		}
+		
+		if (x < target -1)
+		{
 			joystick &= JoyRight;
-		if (_monkey->x > _other_monkey->y)
+		}
+		if(x > target + 1)
+		{
 			joystick &= JoyLeft;
+		}
 	}
 	else
 	{
-		if (_monkey->lives > 0 && _monkey->y < 80)
-			joystick &= JoyUp;
+		if (x < (min_monkey_x + 10) && _monkey->velocity_x < 0)
+			joystick &= JoyRight;
+		if (x > (max_monkey_x - 10) && _monkey->velocity_x > 0)
+			joystick &= JoyLeft;
 	}
 	return joystick;
 }

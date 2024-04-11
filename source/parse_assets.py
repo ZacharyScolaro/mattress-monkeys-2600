@@ -436,8 +436,8 @@ parse_sprite_strip(f_header, f_source, 'challenge-monkey-hand-open.png', 'Monkey
 parse_sprite_strip(f_header, f_source, 'challenge-monkey-hand-closed.png', 'MonkeyHandClosed', 8, 136, 1, 1, 1, 0, 0, None)
 parse_sprite_strip(f_header, f_source, 'challenge-bubbles-sprites.png', 'Bubble', 8, 15, 7, 1, 1, 1, 0, None, 1)
 parse_sprite_strip(f_header, f_source, 'challenge-fly-2cycle.png', 'Fly', 8, 11, 2, 1, 1, 0, 0, None)
-parse_sprite_strip(f_header, f_source, 'player-1-challenge-countdown_1px_gap+48px_sprite.png', 'Countdown', 48, 31, 3, 1, 1, 0, 0, None, 1)
-parse_sprite_strip(f_header, f_source, 'player-2-challenge-countdown_1px_gap+48px_sprite.png', 'CountdownP2', 8, 5, 1, 1, 1, 32, 0, None, 41)
+parse_sprite_strip(f_header, f_source, 'player-1-challenge-countdown_1px_gap+48px_sprite.png', 'Countdown',   48, 31, 3, 1, 1, 0, 0, None, 1)
+parse_sprite_strip(f_header, f_source, 'player-2-challenge-countdown_1px_gap+48px_sprite.png', 'CountdownP2', 48, 31, 3, 1, 1, 0, 0, None, 1)
 
 # Previews
 parse_sprite_strip(f_header, f_source, 'previews/fly_hunter.png', 'PreviewFlyHunter', 48, 192, 1, 4, 2, 0, 0, (152,92,40))

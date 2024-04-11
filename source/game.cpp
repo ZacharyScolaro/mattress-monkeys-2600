@@ -647,11 +647,11 @@ void update_game_state()
 	// easter egg
 	if (monkey_0.offScreenCount > EasterThreshold)
 	{
-		monkey_0.color+=4;
+		monkey_0.color += 4;
 	}
 	if (monkey_1.offScreenCount > EasterThreshold)
 	{
-		monkey_1.color+=4;
+		monkey_1.color += 4;
 	}
 
 	button_down_event = (((but0 & 0x80) == 0) && (prev_but0 & 0x80));
@@ -4175,7 +4175,14 @@ void render_zoom_2600()
 
 void render_countdown_2600()
 {
-	render_challenge_text_2600(CountdownGraphics[countdown_index], sizeof(CountdownGraphics[0]) / 6);
+	if (challenge_player == 0)
+	{
+		render_challenge_text_2600(CountdownGraphics[countdown_index], sizeof(CountdownGraphics[0]) / 6);
+	}
+	else
+	{
+		render_challenge_text_2600(CountdownP2Graphics[countdown_index], sizeof(CountdownP2Graphics[0]) / 6);
+	}
 }
 
 void render_challenge_results_2600()

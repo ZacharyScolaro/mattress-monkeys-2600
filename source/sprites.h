@@ -63,9 +63,9 @@ extern const uint8_t CountdownGraphics[3][186];
 
 extern const uint8_t CountdownColu[3][186];
 
-extern const uint8_t CountdownP2Graphics[5];
+extern const uint8_t CountdownP2Graphics[3][186];
 
-extern const uint8_t CountdownP2Colu[5];
+extern const uint8_t CountdownP2Colu[3][186];
 
 extern const uint8_t PreviewFlyHunterGraphics[1152];
 

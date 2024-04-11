@@ -22,6 +22,9 @@ const int BonusHiddenFramesMin = 15 * 60;
 
 const int FlyValues[] = {1, 2, 5};
 const int BananaValues[] = {5, 10, 25};
+const int OffscreenPenaltyValues[] = {5, 10, 25};
+const int OffbedPenaltyValues[] = {5, 10, 25};
+const int EasterThreshold = 100;
 
 const FP32 MaxFlyVelocity = fp32(2.5);
 const FP32 MaxFlyVelocityMinus = MaxFlyVelocity * fp32(-1.0);
@@ -37,7 +40,7 @@ const int ChallengeThresholds[] = {25, 100, 200};
 const uint8_t ColuRedWall = 0x42;
 const int BubblePopValue = 10;
 const int ChallengeTimeLeftValue = 25;
-const int ChallengeResultsCountdownFrames = 12;
+const int ChallengeResultsCountdownFrames = 4;
 const int BubbleStartPositions[16] = {70, 60, 110, 120, 90, 100, 80, 70, 30, 40, 50, 70, 80, 40, 30, 20}; // originally 30, 20, 30, 40, 50, 60, 70, 80, 90, 100, 90, 80, 70, 60, 50, 40
 const FP32 BubbleVelocity = fp32(.40);
 
@@ -215,6 +218,8 @@ public:
 	FP32 y;
 	FP32 velocity_x;
 	FP32 velocity_y;
+	int min_x;
+	int max_x;
 	int score;
 	MonkeyState state;
 	int frame;
@@ -222,6 +227,7 @@ public:
 	int lives;
 	bool face_left;
 	bool bottomed_out;
+	int offScreenCount;
 };
 class Fly
 {
@@ -254,6 +260,7 @@ public:
 const uint8_t JoyRight = 0x7;
 const uint8_t JoyLeft = 0xb;
 const uint8_t JoyUp = 0xe;
+const uint8_t JoyDown = 0xd;
 class Human : public Masquerader
 {
 private:
@@ -268,6 +275,9 @@ class AI : public Masquerader
 {
 private:
 	const Monkey *_monkey;
+	const Monkey *_other_monkey;
+	int mode;
+	int mode_frames;
 
 public:
 	AI(int index);
@@ -359,8 +369,6 @@ int challenge_seconds_remaining = 5;
 int challenge_bubbles_popped = 9;
 bool challenge_perfect_score = false;
 int next_challenge_score = 0;
-int min_monkey_x = 16;
-int max_monkey_x = 140;
 int shake_frames_remaining = 0;
 int monkey_y_lwm = 500;
 int monkey_y_hwm = 0;
@@ -404,8 +412,8 @@ static uint8_t ColuP0Monkey = InitialColuP0Monkey;
 static uint8_t ColuP1Monkey = InitialColuP1Monkey;
 static uint8_t ColuFloor = InitialColuFloor;
 
-Monkey monkey_0 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = ColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false, .bottomed_out = false};
-Monkey monkey_1 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = ColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = true, .bottomed_out = false};
+Monkey monkey_0 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = InitialColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false, .bottomed_out = false, .offScreenCount = 0};
+Monkey monkey_1 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = InitialColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = true, .bottomed_out = false, .offScreenCount = 0};
 const Monkey *monkeys[] = {&monkey_0, &monkey_1};
 
 bool aud0_muted = false;
@@ -636,6 +644,16 @@ void init_game_state()
 
 void update_game_state()
 {
+	// easter egg
+	if (monkey_0.offScreenCount > EasterThreshold)
+	{
+		monkey_0.color+=4;
+	}
+	if (monkey_1.offScreenCount > EasterThreshold)
+	{
+		monkey_1.color+=4;
+	}
+
 	button_down_event = (((but0 & 0x80) == 0) && (prev_but0 & 0x80));
 	frame++;
 	next_audio_frame();
@@ -983,8 +1001,8 @@ void fade_palette(uint8_t fade_level)
 	fade_color(ColuHeadboard, InitialColuHeadboard, fade_level);
 	fade_color(ColuBedPost, InitialColuBedPost, fade_level);
 	fade_color(ColuFanBlade, InitialColuFanBlade, fade_level);
-	fade_color(ColuP0Monkey, InitialColuP0Monkey, fade_level);
-	fade_color(ColuP1Monkey, InitialColuP1Monkey, fade_level);
+	fade_color(ColuP0Monkey, monkey_0.color, fade_level);
+	fade_color(ColuP1Monkey, monkey_1.color, fade_level);
 }
 
 // // // For tuning purposes only
@@ -1181,11 +1199,11 @@ void play_game()
 	fade_palette(fade_level);
 
 	// Update High Score
-	if (high_score < monkey_0.score)
+	if (player_count > 0 && high_score < monkey_0.score)
 	{
 		high_score = monkey_0.score;
 	}
-	if (high_score < monkey_1.score)
+	if (player_count == 2 && high_score < monkey_1.score)
 	{
 		high_score = monkey_1.score;
 	}
@@ -1373,7 +1391,7 @@ void move_monkey(uint8_t joy, Monkey *monkey)
 	}
 
 	bool horizontal_input = false;
-	if (((joy & 0x4) == 0) && monkey->x > min_monkey_x)
+	if (((joy & 0x4) == 0) && monkey->x > monkey->min_x)
 	{
 		// left
 		monkey->x -= 1;
@@ -1384,7 +1402,7 @@ void move_monkey(uint8_t joy, Monkey *monkey)
 		monkey->face_left = true;
 		horizontal_input = true;
 	}
-	if (((joy & 0x8) == 0) && monkey->x < max_monkey_x)
+	if (((joy & 0x8) == 0) && monkey->x < monkey->max_x)
 	{
 		// right
 		monkey->x += 1;
@@ -2505,19 +2523,108 @@ void update_bouncing_state()
 	case Walking:
 	case Jumping:
 		jumping_monkey->x += jumping_monkey->velocity_x;
-
-		if (jumping_monkey->x < 0)
+		if (jumping_monkey->x < 0 || jumping_monkey->x > 159)
 		{
+			jumping_monkey->velocity_x = 0;
+			jumping_monkey->velocity_y = 0;
+			jumping_monkey->face_left = jumping_monkey->x > 159;
+			jumping_monkey->frame = 0;
 			jumping_monkey->x = 0;
-			jumping_monkey->velocity_x = 0;
+			switch (bed_state)
+			{
+			case Wide:
+				jumping_monkey->y = jumping_monkey->face_left ? 0x5b : 0x65;
+				jumping_monkey->velocity_y = fp32(4);
+				break;
+			case Medium:
+				jumping_monkey->y = jumping_monkey->face_left ? 0x37 : 0x4b;
+				jumping_monkey->velocity_y = fp32(2);
+				break;
+			case Narrow:
+			default:
+				jumping_monkey->y = jumping_monkey->face_left ? 0x5f : 0x6e;
+				jumping_monkey->velocity_y = fp32(-4);
+				break;
+			}
+			jumping_monkey->velocity_x = jumping_monkey->face_left ? fp32(-1.5) : fp32(1.5);
+			jumping_monkey->frame = 0;
+			jumping_monkey->state = HoppingOntoPost;
+			jumping_monkey->score -= OffscreenPenaltyValues[(int)bed_state];
+			if (jumping_monkey->score < 0)
+			{
+				jumping_monkey->score = 0;
+			}
+			jumping_monkey->offScreenCount++;
 		}
-		if (jumping_monkey->x > 160)
+		else
 		{
-			jumping_monkey->x = 160;
-			jumping_monkey->velocity_x = 0;
+			if (jumping_monkey->x < jumping_monkey->min_x)
+			{
+				jumping_monkey->x = jumping_monkey->min_x;
+				jumping_monkey->velocity_x = 0;
+			}
+			if (jumping_monkey->x > jumping_monkey->max_x)
+			{
+				jumping_monkey->x = jumping_monkey->max_x;
+				jumping_monkey->velocity_x = 0;
+			}
+			ApplyGravity();
+			jumping_monkey->y += jumping_monkey->velocity_y;
+			if (jumping_monkey->velocity_y > 0)
+			{
+				if (jumping_monkey->y.Round() > 135)
+				{
+					if (jumping_monkey->x < standing_monkey->min_x)
+					{
+						// Landed on carpet
+						jumping_monkey->velocity_x = fp32(0.5);
+						jumping_monkey->velocity_y = fp32(-8);
+						jumping_monkey->frame = 0;
+						jumping_monkey->state = HoppingOntoPost;
+						jumping_monkey->score -= OffbedPenaltyValues[(int)bed_state];
+						if (jumping_monkey->score < 0)
+						{
+							jumping_monkey->score = 0;
+						}
+					}
+					if (jumping_monkey->x > standing_monkey->max_x)
+					{
+						// Landed on carpet
+						jumping_monkey->velocity_x = fp32(-0.5);
+						jumping_monkey->velocity_y = fp32(-8);
+						jumping_monkey->frame = 0;
+						jumping_monkey->state = HoppingOntoPost;
+						jumping_monkey->score -= OffbedPenaltyValues[(int)bed_state];
+						if (jumping_monkey->score < 0)
+						{
+							jumping_monkey->score = 0;
+						}
+					}
+				}
+				if (jumping_monkey->y.Round() > 105)
+				{
+					// check if landed on post
+					if (jumping_monkey->x < standing_monkey->min_x && jumping_monkey->x > standing_monkey->min_x - 24)
+					{
+						jumping_monkey->face_left = false;
+						jumping_monkey->velocity_x = fp32(1.5);
+						jumping_monkey->x = standing_monkey->min_x - 7;
+						jumping_monkey->y = 105;
+						jumping_monkey->velocity_y = 0;
+						jumping_monkey->state = WalkingToEdge;
+					}
+					if (jumping_monkey->x < standing_monkey->max_x + 24 && jumping_monkey->x > standing_monkey->max_x)
+					{
+						jumping_monkey->face_left = true;
+						jumping_monkey->velocity_x = fp32(-1.5);
+						jumping_monkey->x = standing_monkey->max_x + 7;
+						jumping_monkey->y = 105;
+						jumping_monkey->velocity_y = 0;
+						jumping_monkey->state = WalkingToEdge;
+					}
+				}
+			}
 		}
-		ApplyGravity();
-		jumping_monkey->y += jumping_monkey->velocity_y;
 		break;
 	case FanSmacked:
 		jumping_monkey->x += jumping_monkey->velocity_x;
@@ -2570,14 +2677,14 @@ void update_bouncing_state()
 		{
 			jumping_monkey->frame++;
 			jumping_monkey->x += jumping_monkey->velocity_x;
+			jumping_monkey->y += jumping_monkey->velocity_y;
 			if (jumping_monkey->x < 0)
 			{
 				jumping_monkey->x += 160;
 			}
-			if (jumping_monkey->face_left
-					? (jumping_monkey->x <= max_monkey_x + 16)
-					: (jumping_monkey->x >= min_monkey_x - 16))
+			if (jumping_monkey->velocity_y > 0 && jumping_monkey->y > 105)
 			{
+				jumping_monkey->y = 105;
 				jumping_monkey->velocity_y = 0;
 				jumping_monkey->state = WalkingToEdge;
 			}
@@ -2586,7 +2693,6 @@ void update_bouncing_state()
 				// Make it a quick hop since player lacks control on ascent
 				jumping_monkey->velocity_y += GravityFall;
 			}
-			jumping_monkey->y += jumping_monkey->velocity_y;
 		}
 		break;
 	case WalkingToEdge:
@@ -2602,8 +2708,8 @@ void update_bouncing_state()
 				jumping_monkey->x += 160;
 			}
 			if (jumping_monkey->face_left
-					? (jumping_monkey->x <= max_monkey_x + 3)
-					: (jumping_monkey->x >= min_monkey_x - 3))
+					? (jumping_monkey->x <= standing_monkey->max_x + 3)
+					: (jumping_monkey->x >= standing_monkey->min_x - 3))
 			{
 				jumping_monkey->velocity_x = jumping_monkey->face_left ? fp32(-1.5) : fp32(1.5);
 				jumping_monkey->velocity_y = fp32(-4);
@@ -2667,40 +2773,11 @@ void update_bouncing_state()
 		else if (jumping_monkey->y > 158)
 		{
 			jumping_monkey->y = 158;
-			if (jumping_monkey->x > min_monkey_x && jumping_monkey->x < max_monkey_x)
-			{
-				jumping_monkey->bottomed_out = true;
-			}
-			else
-			{
-				jumping_monkey->state = FanSmacked;
-				jumping_monkey->velocity_x = jumping_monkey->x < 0x4d ? -2 : 2;
-				jumping_monkey->velocity_y = 0;
-			}
+			jumping_monkey->bottomed_out = true;
 		}
 		else if (jumping_monkey->y > 129 && jumping_monkey->velocity_y > 0)
 		{
 			jumping_monkey->velocity_x = 0;
-		}
-		else if (jumping_monkey->state == Jumping && jumping_monkey->velocity_y > 0 && jumping_monkey->y >= 105 && min_monkey_x - 15 < jumping_monkey->x && jumping_monkey->x < min_monkey_x)
-		{
-			jumping_monkey->face_left = false;
-			jumping_monkey->x = min_monkey_x - 7;
-			jumping_monkey->velocity_x = fp32(1.5);
-			jumping_monkey->y = 105;
-			jumping_monkey->velocity_y = 0;
-			jumping_monkey->state = WalkingToEdge;
-			jump_in_progress = true;
-		}
-		else if (jumping_monkey->state == Jumping && jumping_monkey->velocity_y > 0 && jumping_monkey->y >= 105 && max_monkey_x + 15 > jumping_monkey->x && jumping_monkey->x > max_monkey_x)
-		{
-			jumping_monkey->face_left = true;
-			jumping_monkey->x = max_monkey_x + 7;
-			jumping_monkey->velocity_x = fp32(-1.5);
-			jumping_monkey->y = 105;
-			jumping_monkey->velocity_y = 0;
-			jumping_monkey->state = WalkingToEdge;
-			jump_in_progress = true;
 		}
 	}
 
@@ -3015,6 +3092,9 @@ void DrawMattress()
 
 void DrawMonkey(Monkey *monkey, uint8_t *buffer)
 {
+	if (monkey->x <= 0 || monkey->x >= 160)
+		return; // Monkey not visible
+
 	int sprite_index = 0;
 	if (monkey->state == Jumping || monkey->state == HoppingOntoPost || monkey->state == HoppingOntoMattress)
 		sprite_index = 2;
@@ -3053,18 +3133,14 @@ void DrawMonkeys()
 
 void SetVariablesFromState()
 {
-	// live_config.HandleInput(joysticks >> 4);
-	p0_monkey->color = ColuP0Monkey;
-	p1_monkey->color = ColuP1Monkey;
-
 	// Apply current state
 	switch (bed_state)
 	{
 	case (Wide):
 		InitialColuWall = 0x6a;
 		render_bed = RenderWideBed;
-		min_monkey_x = 16;
-		max_monkey_x = 140;
+		standing_monkey->min_x = 16;
+		standing_monkey->max_x = 140;
 		bed_left = 16;
 		bed_right = 148;
 		wave_length = 80;
@@ -3073,8 +3149,8 @@ void SetVariablesFromState()
 		InitialColuWall = 0x9c;
 		InitialColuFloor = 0x1d;
 		render_bed = RenderMediumBed;
-		min_monkey_x = 28;
-		max_monkey_x = 128;
+		standing_monkey->min_x = 28;
+		standing_monkey->max_x = 128;
 		bed_left = 28;
 		bed_right = 136;
 		wave_length = 65;
@@ -3083,14 +3159,39 @@ void SetVariablesFromState()
 		InitialColuWall = 0xb9;
 		InitialColuFloor = 0x69;
 		render_bed = RenderNarrowBed;
-		min_monkey_x = 40;
-		max_monkey_x = 116;
+		standing_monkey->min_x = 40;
+		standing_monkey->max_x = 116;
 		bed_left = 40;
 		bed_right = 124;
 		wave_length = 50;
 		break;
 	}
 
+	if (jumping_monkey->y < 105)
+	{
+		jumping_monkey->min_x = -160;
+		jumping_monkey->max_x = 320;
+	}
+	else
+	{
+		if (jumping_monkey->x < standing_monkey->min_x - 20)
+		{
+			// landing off bed
+			jumping_monkey->min_x = -160;
+			jumping_monkey->max_x = standing_monkey->min_x - 20;
+		}
+		else if (jumping_monkey->x > standing_monkey->max_x + 20)
+		{
+			// landing off bed
+			jumping_monkey->min_x = standing_monkey->max_x + 20;
+			jumping_monkey->max_x = 320;
+		}
+		else
+		{
+			jumping_monkey->min_x = standing_monkey->min_x;
+			jumping_monkey->max_x = standing_monkey->max_x;
+		}
+	}
 	switch (play_substate)
 	{
 	case NotPlaying:
@@ -3222,7 +3323,7 @@ void place_monkey_on_post()
 {
 	SetVariablesFromState();
 	jumping_monkey->face_left = (jumping_monkey == &monkey_1);
-	jumping_monkey->x = jumping_monkey->face_left ? max_monkey_x + 7 : min_monkey_x - 7;
+	jumping_monkey->x = jumping_monkey->face_left ? standing_monkey->max_x + 7 : standing_monkey->min_x - 7;
 	jumping_monkey->y = 105;
 	jumping_monkey->velocity_y = 0;
 	jumping_monkey->state = WalkingToEdge;
@@ -3400,24 +3501,59 @@ uint8_t Human::GetMove()
 	return (joystick >> _rightShift) & 0x0f;
 }
 
-AI::AI(int index) : _monkey(monkeys[index])
+AI::AI(int index) : _monkey(monkeys[index]), _other_monkey(monkeys[(index + 1) & 1]), mode(0), mode_frames(0)
 {
 }
 
 uint8_t AI::GetMove()
 {
-	uint8_t joystick = 0xf;
-	if (_monkey->state != Jumping)
+	mode_frames--;
+	if (mode_frames < 0)
 	{
-		if (_monkey->x < 75)
-			joystick &= JoyRight;
-		if (_monkey->x > 85)
-			joystick &= JoyLeft;
+		mode_frames = (randint() & 0x1ff) + 180;
+		mode = randint() & 3;
 	}
-	else
+
+	uint8_t joystick = 0xf;
+	switch (mode)
 	{
-		if (_monkey->lives > 0)
-			joystick &= JoyUp;
+	case 1: // Follow other monkey on ground and aim for center when jumping
+		if (_monkey->state == Jumping)
+		{
+			if (_monkey->x < 75)
+				joystick &= JoyRight;
+			if (_monkey->x > 85)
+				joystick &= JoyLeft;
+		}
+		else
+		{
+			if (_monkey->x < _other_monkey->x - 3)
+				joystick &= JoyRight;
+			if (_monkey->x > _other_monkey->x + 3)
+				joystick &= JoyLeft;
+		}
+		break;
+	case 2:
+		joystick &= JoyDown;
+		break;
+	case 3:
+		joystick &= JoyUp;
+		break;
+
+	default: // Aim for center
+		if (_monkey->state != Jumping)
+		{
+			if (_monkey->x < 75)
+				joystick &= JoyRight;
+			if (_monkey->x > 85)
+				joystick &= JoyLeft;
+		}
+		else
+		{
+			if (_monkey->lives > 0 && _monkey->velocity_y < 0)
+				joystick &= JoyUp;
+		}
+		break;
 	}
 	return joystick;
 }
@@ -3432,40 +3568,43 @@ uint8_t AI2::GetMove()
 	int x = _monkey->x.Round();
 	if (_monkey->state != Jumping)
 	{
-		int full_wave =  wave_length.Round();
+		int full_wave = wave_length.Round();
 		int half_wave = full_wave / 2;
 		int nextPeak = _other_monkey->x.Round() - (half_wave * 5);
 		int distance = 1000;
 		int target = 80;
-		for(int i = 0; i < 6; i ++)
+		for (int i = 0; i < 6; i++)
 		{
-			if(nextPeak > min_monkey_x && nextPeak < max_monkey_x){
+			if (nextPeak > standing_monkey->min_x && nextPeak < standing_monkey->max_x)
+			{
 				int d = x - nextPeak;
-				if(d < 0){
+				if (d < 0)
+				{
 					d = -d;
 				}
-				if(d < distance){
+				if (d < distance)
+				{
 					distance = d;
 					target = nextPeak;
 				}
 			}
 			nextPeak += full_wave;
 		}
-		
-		if (x < target -1)
+
+		if (x < target - 1)
 		{
 			joystick &= JoyRight;
 		}
-		if(x > target + 1)
+		if (x > target + 1)
 		{
 			joystick &= JoyLeft;
 		}
 	}
 	else
 	{
-		if (x < (min_monkey_x + 10) && _monkey->velocity_x < 0)
+		if (x < (_monkey->min_x + 10) && _monkey->velocity_x < 0)
 			joystick &= JoyRight;
-		if (x > (max_monkey_x - 10) && _monkey->velocity_x > 0)
+		if (x > (_monkey->max_x - 10) && _monkey->velocity_x > 0)
 			joystick &= JoyLeft;
 	}
 	return joystick;
@@ -4289,7 +4428,7 @@ void render_challenge_2600()
 			vcsNop2();
 			vcsSta3(RESPONE);
 		}
-		vcsWrite5(COLUPF, i < 34 ? FanChasisColu[18] : InitialColuP0Monkey); // 26 31
+		vcsWrite5(COLUPF, i < 34 ? FanChasisColu[18] : monkey_0.color); // 26 31
 		if ((colupfBuffer[i] & 0xf) == 2)
 		{
 			vcsNop2();
@@ -4313,7 +4452,7 @@ void render_challenge_2600()
 			vcsNop2();
 			vcsSta3(RESPONE);
 		}
-		vcsWrite5(COLUPF, i < 34 ? FanChasisColu[18] : InitialColuP1Monkey); // 46	51
+		vcsWrite5(COLUPF, i < 34 ? FanChasisColu[18] : monkey_1.color); // 46	51
 		if ((colupfBuffer[i] & 0xf) == 6)
 		{
 			vcsNop2();

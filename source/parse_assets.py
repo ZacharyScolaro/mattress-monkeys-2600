@@ -465,6 +465,7 @@ parse_ttp(f_header, f_source, 'BubblePop.ttp', 'SfxBubblePop')
 parse_ttp(f_header, f_source, 'BellShort.ttp', 'SfxBellShort')
 parse_ttp(f_header, f_source, 'BellLong.ttp', 'SfxBellLong')
 parse_ttp(f_header, f_source, 'TimeBonus.ttp', 'SfxTimeBonus')
+parse_ttp(f_header, f_source, 'BedFall.ttp', 'SfxBedFall')
 
 make_sine_lookup_table(f_header, f_source, 'Sine', 256);
 

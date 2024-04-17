@@ -2555,6 +2555,8 @@ void update_bouncing_state()
 				jumping_monkey->score = 0;
 			}
 			jumping_monkey->offScreenCount++;
+			init_audio_player(&sfx_player, 1, &SfxBedFall);
+			sfx_frames_remaining = SfxBedFall.percussions[0].length;
 		}
 		else
 		{

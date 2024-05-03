@@ -1,5 +1,5 @@
 mattress_monkeys: *.cpp assets
-	arm-none-eabi-g++ -r -mlong-calls -fno-exceptions -march=armv6-m *.cpp -oMattressMonkeys.bin -O3 -Wall -LvcsLib/lib -lFP32 -IvcsLib/inc
+	arm-none-eabi-g++ -r -s -mlong-calls -fno-exceptions -fno-rtti -march=armv6-m *.cpp -oMattressMonkeys.bin -O3 -Wall -LvcsLib/lib -lFP32 -IvcsLib/inc -lgcc
 	arm-none-eabi-strip MattressMonkeys.bin -d -R.comment -R.ARM.attributes
 	# Build with mock to catch any missing symbol definitions that won't be provided by the firmware
 	arm-none-eabi-g++ -mlong-calls -fno-exceptions --specs=nosys.specs -march=armv6-m MattressMonkeys.bin -omocked.bin -O3 -Wall -LvcsLib/lib -lvcsMock -lgcc

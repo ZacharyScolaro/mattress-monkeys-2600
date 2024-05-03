@@ -22,8 +22,8 @@ const int BonusHiddenFramesMin = 15 * 60;
 
 const int FlyValues[] = {1, 2, 5};
 const int BananaValues[] = {5, 10, 25};
-const int OffscreenPenaltyValues[] = {5, 10, 25};
-const int OffbedPenaltyValues[] = {5, 10, 25};
+const int OffscreenPenaltyValues[] = {5, 5, 5};
+const int OffbedPenaltyValues[] = {1, 1, 1};
 const int EasterThreshold = 100;
 
 const FP32 MaxFlyVelocity = fp32(2.5);

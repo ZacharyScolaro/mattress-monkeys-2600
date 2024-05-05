@@ -231,6 +231,7 @@ public:
 	bool face_left;
 	bool bottomed_out;
 	int offScreenCount;
+	int idleFrameCount;
 };
 class Fly
 {
@@ -415,8 +416,8 @@ static uint8_t ColuP0Monkey = InitialColuP0Monkey;
 static uint8_t ColuP1Monkey = InitialColuP1Monkey;
 static uint8_t ColuFloor = InitialColuFloor;
 
-Monkey monkey_0 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = InitialColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false, .bottomed_out = false, .offScreenCount = 0};
-Monkey monkey_1 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = InitialColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = true, .bottomed_out = false, .offScreenCount = 0};
+Monkey monkey_0 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = InitialColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false, .bottomed_out = false, .offScreenCount = 0, .idleFrameCount = 0 };
+Monkey monkey_1 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = InitialColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = true, .bottomed_out = false, .offScreenCount = 0, .idleFrameCount = 0 };
 const Monkey *monkeys[] = {&monkey_0, &monkey_1};
 
 bool aud0_muted = false;
@@ -1391,6 +1392,12 @@ void move_monkey(uint8_t joy, Monkey *monkey)
 		return;
 	default:
 		break;
+	}
+
+	if(joy == 0xf){
+		monkey->idleFrameCount++;
+	}else{
+		monkey->idleFrameCount = 0;
 	}
 
 	bool horizontal_input = false;
@@ -2756,9 +2763,12 @@ void update_bouncing_state()
 				auto lv = (standing_monkey->x.Round() + 2 + (wave_length / 4)) - sine_hpos;
 				auto vx = fp32(-1.25) * FP32(Sine[(uint8_t)((((lv % wave_length) * 256) / wave_length)).Round()], true);
 				auto vy = fp32(-7.5) + (fp32(-0.6) * FP32(Sine[(uint8_t)((((lv % wave_length) * 128) / wave_length)).Round()], true));
-				if (vy == 0)
-				{
-					vy = fp32(0.01);
+				if(vx == 0){
+					vx = (randint() & 0xf) * fp32(.1) - fp32(0.75);
+				}
+				if(standing_monkey->idleFrameCount > 5 * 60){
+					standing_monkey->x < 80 ? fp32(1) : fp32(-1);
+					vy = vy * fp32(1.1);
 				}
 				Monkey *temp = jumping_monkey;
 				jumping_monkey = standing_monkey;
@@ -3131,12 +3141,16 @@ void DrawMonkey(Monkey *monkey, uint8_t *buffer)
 			 psprite = OctopusGraphics[sprite_index];
 		}
 	}
+	auto my = monkey->y.Round();
+	if(my < 4){
+		my = 4;
+	}
 	for (int j = 0; j < 13; j++)
 	{
 		auto grp = psprite[j];
 		if (!monkey->face_left)
 			grp = ReverseByte[grp];
-		buffer[monkey->y.Round() + j] = grp;
+		buffer[my + j] = grp;
 	}
 }
 void DrawMonkeys()
@@ -3524,7 +3538,7 @@ uint8_t AI::GetMove()
 	mode_frames--;
 	if (mode_frames < 0)
 	{
-		mode_frames = (randint() & 0x1ff) + 180;
+		mode_frames = (randint() & 0x7f) + 120;
 		mode = randint() & 3;
 	}
 

@@ -23,9 +23,17 @@ extern const uint8_t FanChasisGraphics[20];
 
 extern const uint8_t FanChasisColu[20];
 
-extern const uint8_t MonkeyGraphics[12][12];
+extern const uint8_t MonkeyGraphics[8][13];
 
-extern const uint8_t MonkeyColu[12][12];
+extern const uint8_t MonkeyColu[8][13];
+
+extern const uint8_t SpiderGraphics[8][13];
+
+extern const uint8_t SpiderColu[8][13];
+
+extern const uint8_t OctopusGraphics[8][13];
+
+extern const uint8_t OctopusColu[8][13];
 
 extern const uint8_t BonusBananaGraphics[13];
 
@@ -128,6 +136,7 @@ extern const track_t SfxBubblePop;
 extern const track_t SfxBellShort;
 extern const track_t SfxBellLong;
 extern const track_t SfxTimeBonus;
+extern const track_t SfxBedFall;
 extern const int32_t Sine[256];
 
 

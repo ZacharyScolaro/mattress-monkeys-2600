@@ -15,6 +15,9 @@
 #define RAM_FUNC
 #endif
 
+const uint8_t SpiderColor = 0x02;
+const uint8_t OctopusColor = 0x34;
+
 const int BonusShownFramesMax = 10 * 60;
 const int BonusShownFramesMin = 4 * 60;
 const int BonusHiddenFramesMax = 30 * 60;
@@ -24,7 +27,7 @@ const int FlyValues[] = {1, 2, 5};
 const int BananaValues[] = {5, 10, 25};
 const int OffscreenPenaltyValues[] = {5, 5, 5};
 const int OffbedPenaltyValues[] = {1, 1, 1};
-const int EasterThreshold = 100;
+const int EasterThreshold = 50;
 
 const FP32 MaxFlyVelocity = fp32(2.5);
 const FP32 MaxFlyVelocityMinus = MaxFlyVelocity * fp32(-1.0);
@@ -647,11 +650,11 @@ void update_game_state()
 	// easter egg
 	if (monkey_0.offScreenCount > EasterThreshold)
 	{
-		monkey_0.color += 4;
+		monkey_0.color = SpiderColor;
 	}
 	if (monkey_1.offScreenCount > EasterThreshold)
 	{
-		monkey_1.color += 4;
+		monkey_1.color = OctopusColor;
 	}
 
 	button_down_event = (((but0 & 0x80) == 0) && (prev_but0 & 0x80));
@@ -3119,9 +3122,18 @@ void DrawMonkey(Monkey *monkey, uint8_t *buffer)
 		sprite_index = monkey->animation;
 	}
 
-	for (int j = 0; j < 12; j++)
+	auto psprite = MonkeyGraphics[sprite_index];
+	if (monkey->offScreenCount > EasterThreshold)
 	{
-		auto grp = MonkeyGraphics[sprite_index][j];
+		if(monkey == &monkey_0){
+			 psprite = SpiderGraphics[sprite_index];
+		}else{
+			 psprite = OctopusGraphics[sprite_index];
+		}
+	}
+	for (int j = 0; j < 13; j++)
+	{
+		auto grp = psprite[j];
 		if (!monkey->face_left)
 			grp = ReverseByte[grp];
 		buffer[monkey->y.Round() + j] = grp;

@@ -63,7 +63,14 @@ enum class GameState
 	Credits,
 	Previews,
 	PlayingGame,
-	GameOver
+	GameOver,
+	Paused
+};
+
+enum class PauseState
+{
+	Resume,
+	Exit
 };
 
 enum PlaySubState
@@ -303,7 +310,7 @@ public:
 // functions
 // game state
 void init_game_state();
-void update_game_state();
+bool update_game_state();
 void enter_gameplay_state(int menu_choice);
 void enter_title_state();
 void update_title_state();
@@ -326,6 +333,7 @@ void draw_zoom_2600();
 void draw_countdown_2600();
 void draw_challenge_2600();
 void draw_challenge_results_2600();
+bool PrintPausedMenu();
 
 // render functions
 void render_title_text_2600(int &line);
@@ -367,6 +375,9 @@ int player_count = 0;
 int countdown_frames_remaining = 0;
 int countdown_index = 0;
 
+GameState prev_game_state;
+PauseState pause_state;
+
 int challenge_player = 0;
 int challenge_frames_remaining = 0;
 int challenge_seconds_remaining = 5;
@@ -376,7 +387,8 @@ int next_challenge_score = 0;
 int shake_frames_remaining = 0;
 int monkey_y_lwm = 500;
 int monkey_y_hwm = 0;
-
+int idleCount = 0;
+bool demoMode = false;
 FP32 bubbleDistance = 0;
 int bubble_index = 0;
 int bubble_offset = 0;
@@ -416,8 +428,8 @@ static uint8_t ColuP0Monkey = InitialColuP0Monkey;
 static uint8_t ColuP1Monkey = InitialColuP1Monkey;
 static uint8_t ColuFloor = InitialColuFloor;
 
-Monkey monkey_0 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = InitialColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false, .bottomed_out = false, .offScreenCount = 0, .idleFrameCount = 0 };
-Monkey monkey_1 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = InitialColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = true, .bottomed_out = false, .offScreenCount = 0, .idleFrameCount = 0 };
+Monkey monkey_0 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = InitialColuP0Monkey, .x = 40, .y = 50, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = false, .bottomed_out = false, .offScreenCount = 0, .idleFrameCount = 0};
+Monkey monkey_1 = {.hit_box = BoundingBox<FP32>(0, 0, 0, 8, 0, 12), .color = InitialColuP1Monkey, .x = 120, .y = 129, .velocity_x = 0, .velocity_y = 0, .score = 0, .state = Standing, .frame = 0, .animation = 0, .lives = 3, .face_left = true, .bottomed_out = false, .offScreenCount = 0, .idleFrameCount = 0};
 const Monkey *monkeys[] = {&monkey_0, &monkey_1};
 
 bool aud0_muted = false;
@@ -628,7 +640,10 @@ extern "C" int elf_main(uint32_t *args)
 	init_game_state();
 	while (true)
 	{
-		update_game_state();
+		if (update_game_state())
+		{
+			return 0;
+		}
 		draw_frame[(int)current_frame]();
 		render_frame[(int)current_frame]();
 	}
@@ -646,8 +661,12 @@ void init_game_state()
 	enter_title_state();
 }
 
-void update_game_state()
+bool update_game_state()
 {
+	if (joystick == 0xff)
+	{
+		idleCount++;
+	}
 	// easter egg
 	if (monkey_0.offScreenCount > EasterThreshold)
 	{
@@ -659,13 +678,22 @@ void update_game_state()
 	}
 
 	button_down_event = (((but0 & 0x80) == 0) && (prev_but0 & 0x80));
-	frame++;
+	if (game_state != GameState::Paused)
+	{
+		frame++;
+	}
 	next_audio_frame();
 	switch (game_state)
 	{
 	case GameState::Title:
+		if (idleCount > 30 * 60)
+		{
+			demoMode = true;
+			enter_gameplay_state(0);
+		}
 		if (button_down_event)
 		{
+			demoMode = false;
 			switch (menu_selection)
 			{
 			case 0:
@@ -681,10 +709,14 @@ void update_game_state()
 				break;
 			case 5:
 				enable_music = true;
+				menu_selection = 6;
 				break;
 			case 6:
 				enable_music = false;
+				menu_selection = 5;
 				break;
+			case 7:
+				return true;
 			}
 		}
 		break;
@@ -695,13 +727,43 @@ void update_game_state()
 	case GameState::PlayingGame:
 		if (jumping_monkey->state == Dead)
 		{
-			enter_game_over_state();
+			if (demoMode)
+			{
+				enter_title_state();
+			}
+			else
+			{
+				enter_game_over_state();
+			}
+		}
+		else if (demoMode && (joystick != 0xff || button_down_event))
+		{
+			enter_title_state();
+		}
+		else if (button_down_event)
+		{
+			prev_game_state = game_state;
+			game_state = GameState::Paused;
 		}
 		break;
 	case GameState::GameOver:
 		if (button_down_event)
 		{
 			enter_title_state();
+		}
+		break;
+	case GameState::Paused:
+		if (button_down_event)
+		{
+			if (pause_state == PauseState::Exit)
+			{
+				enter_gameplay_state(player_count);
+				enter_title_state();
+			}
+			else
+			{
+				game_state = prev_game_state;
+			}
 		}
 		break;
 	default:
@@ -735,6 +797,19 @@ void update_game_state()
 	case GameState::GameOver:
 		update_game_over_state();
 		break;
+	case GameState::Paused:
+		if ((prev_joystick & 0xf0) == 0xf0)
+		{
+			if (joystick >> 4 == JoyLeft)
+			{
+				pause_state = PauseState::Resume;
+			}
+			if (joystick >> 4 == JoyRight)
+			{
+				pause_state = PauseState::Exit;
+			}
+		}
+		break;
 	default:
 		break;
 	}
@@ -743,6 +818,7 @@ void update_game_state()
 	// no inputs should be processed after this
 	prev_joystick = joystick;
 	prev_but0 = but0;
+	return false;
 }
 
 void init_ntsc_2600()
@@ -1226,6 +1302,19 @@ void enter_title_state()
 	monkey_1.x = 100;
 	monkey_1.y = 145;
 	menu_selection = 1;
+	idleCount = 0;
+	init_audio_player(&audio_player0, 0, &SongMonkeys);
+	init_audio_player(&audio_player1, 1, &SongMonkeys);
+	fly.is_alive = false;
+	sfx_frames_remaining = 0;
+	challenge_frames_remaining = 0;
+	fade_level = 16;
+	show_challenge_wall = true;
+	bonus_enabled = false;
+	jumping_enabled = false;
+	fly_spawn_enabled = false;
+	challenge_mode = false;
+	aud0_muted = false;
 }
 
 void enter_game_over_frame()
@@ -1249,7 +1338,7 @@ void show_credits()
 		PrintText("  Marco Johannes  ", text_line++);
 		PrintText("                  ", text_line++);
 		PrintSmall("\"Monkeys Spinning Monkeys\" licensed ", text_line++, 0, 36);
-		PrintSmall("by Incopetech Inc. (c) 2023         ", text_line++, 0, 36);
+		PrintSmall("by Incompetech Inc. (c) 2024        ", text_line++, 0, 36);
 
 		next_audio_frame();
 
@@ -1394,9 +1483,12 @@ void move_monkey(uint8_t joy, Monkey *monkey)
 		break;
 	}
 
-	if(joy == 0xf){
+	if (joy == 0xf)
+	{
 		monkey->idleFrameCount++;
-	}else{
+	}
+	else
+	{
 		monkey->idleFrameCount = 0;
 	}
 
@@ -2763,10 +2855,12 @@ void update_bouncing_state()
 				auto lv = (standing_monkey->x.Round() + 2 + (wave_length / 4)) - sine_hpos;
 				auto vx = fp32(-1.25) * FP32(Sine[(uint8_t)((((lv % wave_length) * 256) / wave_length)).Round()], true);
 				auto vy = fp32(-7.5) + (fp32(-0.6) * FP32(Sine[(uint8_t)((((lv % wave_length) * 128) / wave_length)).Round()], true));
-				if(vx == 0){
+				if (vx == 0)
+				{
 					vx = (randint() & 0xf) * fp32(.1) - fp32(0.75);
 				}
-				if(standing_monkey->idleFrameCount > 5 * 60){
+				if (standing_monkey->idleFrameCount > 5 * 60)
+				{
 					standing_monkey->x < 80 ? fp32(1) : fp32(-1);
 					vy = vy * fp32(1.1);
 				}
@@ -3059,7 +3153,7 @@ void DrawMattress()
 	{
 		playfieldBuffer[i] = 0;
 	}
-	if (jumping_monkey->state != Dead)
+	if (jumping_monkey->state != Dead && game_state != GameState::Paused)
 	{
 		sine_frame += 4;
 		max_height = FP32(Sine[sine_frame], true) * fp32(15);
@@ -3135,14 +3229,18 @@ void DrawMonkey(Monkey *monkey, uint8_t *buffer)
 	auto psprite = MonkeyGraphics[sprite_index];
 	if (monkey->offScreenCount > EasterThreshold)
 	{
-		if(monkey == &monkey_0){
-			 psprite = SpiderGraphics[sprite_index];
-		}else{
-			 psprite = OctopusGraphics[sprite_index];
+		if (monkey == &monkey_0)
+		{
+			psprite = SpiderGraphics[sprite_index];
+		}
+		else
+		{
+			psprite = OctopusGraphics[sprite_index];
 		}
 	}
 	auto my = monkey->y.Round();
-	if(my < 4){
+	if (my < 4)
+	{
 		my = 4;
 	}
 	for (int j = 0; j < 13; j++)
@@ -3306,45 +3404,48 @@ void SetVariablesFromState()
 
 void DrawScores()
 {
-	// Scoring
-	for (int i = 0; i < 18; i++)
+	if (!PrintPausedMenu())
 	{
-		scoreText[i] = ' ';
-	}
-	int left_score = monkey_0.score;
-	for (int i = 0; i < 4; i++)
-	{
-		scoreText[3 - i] = (left_score % 10) & 0xf;
-		left_score /= 10;
-	}
-	for (int i = 0; i < monkey_0.lives; i++)
-	{
-		scoreText[5 + i] = 18;
-	}
-
-	if (player_count != 1)
-	{
-		int right_score = monkey_1.score;
+		// Scoring
+		for (int i = 0; i < 18; i++)
+		{
+			scoreText[i] = ' ';
+		}
+		int left_score = monkey_0.score;
 		for (int i = 0; i < 4; i++)
 		{
-			scoreText[17 - i] = (right_score % 10) & 0xf;
-			right_score /= 10;
+			scoreText[3 - i] = (left_score % 10) & 0xf;
+			left_score /= 10;
 		}
-		for (int i = 0; i < monkey_1.lives; i++)
+		for (int i = 0; i < monkey_0.lives; i++)
 		{
-			scoreText[10 + i] = 18;
+			scoreText[5 + i] = 18;
 		}
+
+		if (player_count != 1)
+		{
+			int right_score = monkey_1.score;
+			for (int i = 0; i < 4; i++)
+			{
+				scoreText[17 - i] = (right_score % 10) & 0xf;
+				right_score /= 10;
+			}
+			for (int i = 0; i < monkey_1.lives; i++)
+			{
+				scoreText[10 + i] = 18;
+			}
+		}
+		// Used when debugging
+		// for (int i = 0; i < 8; i++)
+		//{
+		//	scoreText[i] = (char)((uint32_t)(jumping_monkey->y.Round()) >> ((7 - i) * 4)) & 0xf;
+		//}
+		// for (int i = 0; i < 8; i++)
+		//{
+		//	scoreText[i + 10] = (char)((uint32_t)(monkey_y_hwm) >> ((7 - i) * 4)) & 0xf;
+		//}
+		PrintText(scoreText, 0);
 	}
-	// Used when debugging
-	// for (int i = 0; i < 8; i++)
-	//{
-	//	scoreText[i] = (char)((uint32_t)(jumping_monkey->y.Round()) >> ((7 - i) * 4)) & 0xf;
-	//}
-	// for (int i = 0; i < 8; i++)
-	//{
-	//	scoreText[i + 10] = (char)((uint32_t)(monkey_y_hwm) >> ((7 - i) * 4)) & 0xf;
-	//}
-	PrintText(scoreText, 0);
 }
 
 void place_monkey_on_post()
@@ -3507,8 +3608,28 @@ void moveFly(uint8_t joy)
 	}
 }
 
+bool PrintPausedMenu()
+{
+	if (game_state == GameState::Paused)
+	{
+		if (pause_state == PauseState::Resume)
+		{
+			PrintText("PAUSED:  Resume ->", 0);
+		}
+		else
+		{
+			PrintText("PAUSED:   <- Exit ", 0);
+		}
+		return true;
+	}
+	return false;
+}
 void draw_high_score_2600()
 {
+	if (PrintPausedMenu())
+	{
+		return;
+	}
 	char high_score_text[19] = "High Score:  00000";
 	int right_score = high_score;
 	for (int i = 0; i < 5; i++)
@@ -3647,11 +3768,11 @@ void update_title_state()
 		{
 			menu_selection = sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0]);
 		}
-		if (menu_selection == 6)
+		menu_selection--;
+		if ((enable_music && menu_selection == 5) || (!enable_music && menu_selection == 6))
 		{
 			menu_selection--;
 		}
-		menu_selection--;
 
 		init_audio_player(&sfx_player, 1, &SfxBounce);
 		sfx_frames_remaining = SfxBounce.percussions[0].length;
@@ -3660,7 +3781,11 @@ void update_title_state()
 	{
 		// right
 		menu_selection++;
-		if (menu_selection >= (int)(sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0])) - 1)
+		if ((enable_music && menu_selection == 5) || (!enable_music && menu_selection == 6))
+		{
+			menu_selection++;
+		}
+		if (menu_selection >= (int)(sizeof(MenuOptionsGraphics) / sizeof(MenuOptionsGraphics[0])))
 		{
 			menu_selection = 0;
 		}
@@ -3698,15 +3823,6 @@ void update_title_state()
 		}
 	}
 
-	if (enable_music && menu_selection == 5)
-	{
-		menu_selection = 6;
-	}
-	if (!enable_music && menu_selection == 6)
-	{
-		menu_selection = 5;
-	}
-
 	place_monkey_on_post();
 	SetVariablesFromState();
 	ColuWall = InitialColuWall;
@@ -3723,6 +3839,7 @@ void update_game_over_state()
 
 void enter_gameplay_state(int menu_choice)
 {
+	pause_state = PauseState::Resume;
 	player_count = menu_choice;
 	masq0 = &ai0;
 	masq1 = &ai1;
@@ -3897,7 +4014,10 @@ int zoom_bottom = 175;
 int zoom_wall_index = 0;
 void draw_zoom_2600()
 {
-	PrintText("                    ", 0);
+	if (!PrintPausedMenu())
+	{
+		PrintText("                    ", 0);
+	}
 	// PF (wall)
 	zoom_top = 19 - zoom_level; // ((zoom_level * 17) / 17);
 	zoom_bottom = 41 + ((zoom_level * 134) / 17);
@@ -3933,7 +4053,10 @@ void draw_zoom_2600()
 
 void draw_countdown_2600()
 {
-	PrintText("                    ", 0);
+	if (!PrintPausedMenu())
+	{
+		PrintText("                    ", 0);
+	}
 	grp0Buffer[35] = 0;
 	grp1Buffer[35] = 0;
 	grp0Buffer[36] = 0;
@@ -3959,7 +4082,10 @@ void draw_challenge_2600()
 			}
 		}
 	}
-	PrintText(scoreText, 0);
+	if (!PrintPausedMenu())
+	{
+		PrintText(scoreText, 0);
+	}
 	DrawMonkeyArm(left_arm, 1);
 	DrawMonkeyArm(right_arm, 3);
 	// Top 3 lines empty because we are positioning the fly and setting up for the next display kernel

@@ -1515,17 +1515,17 @@ void move_monkey(uint8_t joy, Monkey *monkey)
 		monkey->face_left = false;
 		horizontal_input = true;
 	}
-	if (monkey->y < 110)
+	// if (monkey->y < 110)
 	{
-		if (((joy & 0x1) == 0) && monkey->y > 4)
+		if (((joy & 0x1) == 0) && monkey->velocity_y < fp32(-1.0))
 		{
 			// up
-			monkey->y -= 1;
+			monkey->y -= fp32(1.7);
 		}
 		if (((joy & 0x2) == 0) && monkey->y < 157)
 		{
 			// down
-			monkey->y += 1;
+			monkey->y += fp32(0.5);
 		}
 	}
 
@@ -2854,7 +2854,7 @@ void update_bouncing_state()
 			{
 				auto lv = (standing_monkey->x.Round() + 2 + (wave_length / 4)) - sine_hpos;
 				auto vx = fp32(-1.25) * FP32(Sine[(uint8_t)((((lv % wave_length) * 256) / wave_length)).Round()], true);
-				auto vy = fp32(-7.5) + (fp32(-0.6) * FP32(Sine[(uint8_t)((((lv % wave_length) * 128) / wave_length)).Round()], true));
+				auto vy = fp32(-7.3) + (fp32(-0.8) * FP32(Sine[(uint8_t)((((lv % wave_length) * 128) / wave_length)).Round()], true));
 				if (vx == 0)
 				{
 					vx = (randint() & 0xf) * fp32(.1) - fp32(0.75);
@@ -3416,6 +3416,10 @@ void DrawScores()
 		{
 			scoreText[3 - i] = (left_score % 10) & 0xf;
 			left_score /= 10;
+			if (left_score == 0)
+			{
+				break;
+			}
 		}
 		for (int i = 0; i < monkey_0.lives; i++)
 		{
@@ -3429,6 +3433,10 @@ void DrawScores()
 			{
 				scoreText[17 - i] = (right_score % 10) & 0xf;
 				right_score /= 10;
+				if (right_score == 0)
+				{
+					break;
+				}
 			}
 			for (int i = 0; i < monkey_1.lives; i++)
 			{
@@ -3630,12 +3638,16 @@ void draw_high_score_2600()
 	{
 		return;
 	}
-	char high_score_text[19] = "High Score:  00000";
+	char high_score_text[19] = "High Score:       ";
 	int right_score = high_score;
 	for (int i = 0; i < 5; i++)
 	{
 		high_score_text[17 - i] = (right_score % 10) & 0xf;
 		right_score /= 10;
+		if (right_score == 0)
+		{
+			break;
+		}
 	}
 	PrintText(high_score_text, 0);
 }
@@ -4425,7 +4437,7 @@ void render_challenge_text_2600(const uint8_t *data, int height)
 	vcsSta3(WSYNC);
 	line++;
 
-	for (; line < 50;)
+	for (; line < 75;)
 	{
 		vcsSta3(HMOVE);
 		vcsSta3(WSYNC);

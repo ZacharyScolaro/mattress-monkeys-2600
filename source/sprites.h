@@ -9,83 +9,129 @@ extern const uint8_t GameOverGraphics[6*23];
 
 extern const uint8_t TitleArtGraphics[2][138];
 
-extern const uint8_t TitleArtColu[2][138];
+extern const uint8_t TitleArtColuNtsc[2][138];
+
+extern const uint8_t TitleArtColuPal[2][138];
 
 extern const uint8_t MenuOptionsGraphics[8][30];
 
-extern const uint8_t MenuOptionsColu[8][30];
+extern const uint8_t MenuOptionsColuNtsc[8][30];
+
+extern const uint8_t MenuOptionsColuPal[8][30];
 
 extern const uint8_t FanBladeGraphics[7][14];
 
-extern const uint8_t FanBladeColu[7][14];
+extern const uint8_t FanBladeColuNtsc[7][14];
+
+extern const uint8_t FanBladeColuPal[7][14];
 
 extern const uint8_t FanChasisGraphics[20];
 
-extern const uint8_t FanChasisColu[20];
+extern const uint8_t FanChasisColuNtsc[20];
+
+extern const uint8_t FanChasisColuPal[20];
 
 extern const uint8_t MonkeyGraphics[8][13];
 
-extern const uint8_t MonkeyColu[8][13];
+extern const uint8_t MonkeyColuNtsc[8][13];
+
+extern const uint8_t MonkeyColuPal[8][13];
 
 extern const uint8_t SpiderGraphics[8][13];
 
-extern const uint8_t SpiderColu[8][13];
+extern const uint8_t SpiderColuNtsc[8][13];
+
+extern const uint8_t SpiderColuPal[8][13];
 
 extern const uint8_t OctopusGraphics[8][13];
 
-extern const uint8_t OctopusColu[8][13];
+extern const uint8_t OctopusColuNtsc[8][13];
+
+extern const uint8_t OctopusColuPal[8][13];
 
 extern const uint8_t BonusBananaGraphics[13];
 
-extern const uint8_t BonusBananaColu[13];
+extern const uint8_t BonusBananaColuNtsc[13];
+
+extern const uint8_t BonusBananaColuPal[13];
 
 extern const uint8_t HeadBoardWideGraphics[200];
 
-extern const uint8_t HeadBoardWideColu[200];
+extern const uint8_t HeadBoardWideColuNtsc[200];
+
+extern const uint8_t HeadBoardWideColuPal[200];
 
 extern const uint8_t HeadBoardMediumGraphics[200];
 
-extern const uint8_t HeadBoardMediumColu[200];
+extern const uint8_t HeadBoardMediumColuNtsc[200];
+
+extern const uint8_t HeadBoardMediumColuPal[200];
 
 extern const uint8_t HeadBoardNarrowGraphics[200];
 
-extern const uint8_t HeadBoardNarrowColu[200];
+extern const uint8_t HeadBoardNarrowColuNtsc[200];
+
+extern const uint8_t HeadBoardNarrowColuPal[200];
 
 extern const uint8_t MonkeyHandOpenGraphics[136];
 
-extern const uint8_t MonkeyHandOpenColu[136];
+extern const uint8_t MonkeyHandOpenColuNtsc[136];
+
+extern const uint8_t MonkeyHandOpenColuPal[136];
 
 extern const uint8_t MonkeyHandClosedGraphics[136];
 
-extern const uint8_t MonkeyHandClosedColu[136];
+extern const uint8_t MonkeyHandClosedColuNtsc[136];
+
+extern const uint8_t MonkeyHandClosedColuPal[136];
 
 extern const uint8_t BubbleGraphics[7][15];
 
-extern const uint8_t BubbleColu[7][15];
+extern const uint8_t BubbleColuNtsc[7][15];
+
+extern const uint8_t BubbleColuPal[7][15];
 
 extern const uint8_t FlyGraphics[2][11];
 
-extern const uint8_t FlyColu[2][11];
+extern const uint8_t FlyColuNtsc[2][11];
+
+extern const uint8_t FlyColuPal[2][11];
 
 extern const uint8_t CountdownGraphics[3][186];
 
-extern const uint8_t CountdownColu[3][186];
+extern const uint8_t CountdownColuNtsc[3][186];
+
+extern const uint8_t CountdownColuPal[3][186];
 
 extern const uint8_t CountdownP2Graphics[3][186];
 
-extern const uint8_t CountdownP2Colu[3][186];
+extern const uint8_t CountdownP2ColuNtsc[3][186];
+
+extern const uint8_t CountdownP2ColuPal[3][186];
+
+extern const uint8_t PaletteGraphics[20];
+
+extern const uint8_t PaletteColuNtsc[20];
+
+extern const uint8_t PaletteColuPal[20];
 
 extern const uint8_t PreviewFlyHunterGraphics[1152];
 
-extern const uint8_t PreviewFlyHunterColu[1152];
+extern const uint8_t PreviewFlyHunterColuNtsc[1152];
+
+extern const uint8_t PreviewFlyHunterColuPal[1152];
 
 extern const uint8_t PreviewBigfootGraphics[1152];
 
-extern const uint8_t PreviewBigfootColu[1152];
+extern const uint8_t PreviewBigfootColuNtsc[1152];
+
+extern const uint8_t PreviewBigfootColuPal[1152];
 
 extern const uint8_t PreviewOctopusherGraphics[1152];
 
-extern const uint8_t PreviewOctopusherColu[1152];
+extern const uint8_t PreviewOctopusherColuNtsc[1152];
+
+extern const uint8_t PreviewOctopusherColuPal[1152];
 
 extern const uint8_t ChallengeLightPlayfield[204];
 

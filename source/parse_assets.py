@@ -19,12 +19,10 @@ def reverse_byte(b):
 	return reverse_byte_lookup[b & 0xff]
 
 init_ttt_typedefs_called = False
-palette = []
 
 y = 0;
 
 def parse_palette(png_name):
-	global palette;
 	y = 0;
 	f = open('../assets/' + png_name, 'rb')
 	r = png.Reader(f)
@@ -43,12 +41,27 @@ def parse_palette(png_name):
 			pixel_y = pixel_y + 1
 		y+=1
 	f.close()
+	return palette
 
-def rgb_to_colu(rgb):
+ntsc_palette = parse_palette('palette-ntsc.png')
+
+pal_palette = parse_palette('palette-pal.png')
+
+def rgb_to_ntsc_colu(rgb):
 	closest = 0
 	min_dist = 256*256*256
 	for i in range(0,128):
-		dist = math.sqrt((rgb[0] - palette[i][0])**2 +(rgb[1] - palette[i][1])**2 + (rgb[2] - palette[i][2])**2)
+		dist = math.sqrt((rgb[0] - ntsc_palette[i][0])**2 +(rgb[1] - ntsc_palette[i][1])**2 + (rgb[2] - ntsc_palette[i][2])**2)
+		if dist < min_dist:
+			min_dist = dist
+			closest = i
+	return closest * 2
+
+def rgb_to_pal_colu(rgb):
+	closest = 0
+	min_dist = 256*256*256
+	for i in range(0,128):
+		dist = math.sqrt((rgb[0] - pal_palette[i][0])**2 +(rgb[1] - pal_palette[i][1])**2 + (rgb[2] - pal_palette[i][2])**2)
 		if dist < min_dist:
 			min_dist = dist
 			closest = i
@@ -60,7 +73,8 @@ def parse_png(png_name, pixel_width, pixel_height, item_x, item_y, item_width, i
 	y = 0
 
 	graphic_bytes = []
-	color_bytes = []
+	ntsc_color_bytes = []
+	pal_color_bytes = []
 
 	f = open('../assets/' + png_name, 'rb')
 	r = png.Reader(f)
@@ -73,14 +87,16 @@ def parse_png(png_name, pixel_width, pixel_height, item_x, item_y, item_width, i
 #		print("row", y)
 		if y % pixel_height == 0:
 			if pixel_y >= item_y:
-				colu = 0
+				ntsc_colu = 0
+				pal_colu = 0
 				b = 0
 				mask = 0x80
 				for x in range(item_x*pixel_width*planes, (item_x + item_width)*pixel_width*planes, pixel_width*planes):
 					color = (row[x], row[x+1], row[x+2])
 					if (alpha_color == None and row[x+3] > 0) or (alpha_color != None and color  != alpha_color):
 						b |= mask
-						colu = rgb_to_colu(color)
+						ntsc_colu = rgb_to_ntsc_colu(color)
+						pal_colu = rgb_to_pal_colu(color)
 					mask = mask >> 1
 					if mask == 0:
 						graphic_bytes.append('0x{:02x}'.format(b) if stringify else b)
@@ -88,35 +104,48 @@ def parse_png(png_name, pixel_width, pixel_height, item_x, item_y, item_width, i
 						mask = 0x80
 				if mask != 0x80:
 					graphic_bytes.append('0x{:02x}'.format(b) if stringify else b)
-				color_bytes.append('0x{:02x}'.format(colu) if stringify else b)
+				ntsc_color_bytes.append('0x{:02x}'.format(ntsc_colu) if stringify else b)
+				pal_color_bytes.append('0x{:02x}'.format(pal_colu) if stringify else b)
 			pixel_y = pixel_y + 1
 			if pixel_y >= item_y + item_height:
 				break
 		y+=1
 	f.close()
-	return graphic_bytes, color_bytes
+	return graphic_bytes, ntsc_color_bytes, pal_color_bytes
 
 def parse_sprite_strip(f_header, f_source, png_name, item_name, item_width, item_height, item_count, pixel_width, pixel_height, item_x, item_y, alpha_color, padding_x = 0):
-	colus = []
+	ntsc_colus = []
+	pal_colus = []
 	item_size = math.ceil(item_width/8) * item_height # figure out how many bytes to hold it all
 	first_dimension = '[' + str(item_count) + ']' if item_count > 1 else ''
 	f_header.write('\nextern const uint8_t ' + item_name + 'Graphics' + first_dimension + '[' + str(item_size) + '];\n')
 	f_source.write('\nconst uint8_t ' + item_name + 'Graphics' + first_dimension + '[' + str(item_size) + '] = { ')
 	for x in range(0, item_count):
-		graphic_bytes, colu_bytes = parse_png(png_name, pixel_width, pixel_height, x * (item_width + padding_x) + item_x, item_y, item_width, item_height, alpha_color)
-		colus.append(colu_bytes)
+		graphic_bytes, ntsc_colu_bytes, pal_colu_bytes = parse_png(png_name, pixel_width, pixel_height, x * (item_width + padding_x) + item_x, item_y, item_width, item_height, alpha_color)
+		ntsc_colus.append(ntsc_colu_bytes)
+		pal_colus.append(pal_colu_bytes)
 		if item_count > 1:
 			f_source.write('\n{ ')
 		f_source.write(', '.join(graphic_bytes))
 		if item_count > 1:
 			f_source.write(' }' + ('' if x == item_count-1 else ',') +'\n')
 	f_source.write(' };\n')
-	#Colu
-	f_header.write('\nextern const uint8_t ' + item_name + 'Colu' + first_dimension + '[' + str(item_size) + '];\n')
-	f_source.write('\nconst uint8_t ' + item_name + 'Colu' + first_dimension + '[' + str(item_size) + '] = { ')
+	#Colu NTSC
+	f_header.write('\nextern const uint8_t ' + item_name + 'ColuNtsc' + first_dimension + '[' + str(item_size) + '];\n')
+	f_source.write('\nconst uint8_t ' + item_name + 'ColuNtsc' + first_dimension + '[' + str(item_size) + '] = { ')
 	for x in range(0, item_count):
-		colu_bytes = colus[x]
-		colus.append(colu_bytes)
+		colu_bytes = ntsc_colus[x]
+		if item_count > 1:
+			f_source.write('\n{ ')
+		f_source.write(', '.join(colu_bytes))
+		if item_count > 1:
+			f_source.write(' }' + ('' if x == item_count-1 else ',') +'\n')
+	f_source.write(' };\n')
+	#Colu PAL
+	f_header.write('\nextern const uint8_t ' + item_name + 'ColuPal' + first_dimension + '[' + str(item_size) + '];\n')
+	f_source.write('\nconst uint8_t ' + item_name + 'ColuPal' + first_dimension + '[' + str(item_size) + '] = { ')
+	for x in range(0, item_count):
+		colu_bytes = pal_colus[x]
 		if item_count > 1:
 			f_source.write('\n{ ')
 		f_source.write(', '.join(colu_bytes))
@@ -131,7 +160,7 @@ def parse_playfield(f_header, f_source, png_name, item_name, item_height, pixel_
 	item_size = 6 * item_height # figure out how many bytes to hold it all
 	f_header.write('\nextern const uint8_t ' + item_name + 'Playfield' + '[' + str(item_size) + '];\n')
 	f_source.write('\nconst uint8_t ' + item_name + 'Playfield' + '[' + str(item_size) + '] = { ')
-	graphic_bytes, colu_bytes = parse_png(png_name, pixel_width, pixel_height, item_x, item_y, item_width, item_height, alpha_color, False)
+	graphic_bytes, _, _ = parse_png(png_name, pixel_width, pixel_height, item_x, item_y, item_width, item_height, alpha_color, False)
 	for i in range(0, item_height):
 		gi = i * 5
 		pf_bytes.append('0x{:02x}'.format(reverse_byte(graphic_bytes[gi] >> 4)))
@@ -395,7 +424,6 @@ def ttt_pattern_to_cpp(name, evenspeed, oddspeed, notes):
    .notes = (uint8_t[]) {{ {notes} }}
 }}'''.format(name=name, evenspeed=evenspeed, oddspeed=oddspeed, notes=',\n'.join([', '.join(notes[i:i + 8]) for i in range(0, len(notes), 8)]))
 
-parse_palette('palette.png')
 
 f_header = open('sprites.h', 'wt', newline='\n')
 f_header.write('''#ifndef SPRITES_H
@@ -409,7 +437,7 @@ f_source.write('#include "sprites.h"\n')
 
 png_name = 'ascii.png'
 item_name = 'ScoreSprites'
-graphic_bytes, color_bytes = parse_png(png_name, 1, 1, 0, 0, 1024, 8, (0,0,0))
+graphic_bytes, _, _ = parse_png(png_name, 1, 1, 0, 0, 1024, 8, (0,0,0))
 f_header.write('\nextern const uint8_t ' + item_name + 'Graphics[128*8];\n')
 f_source.write('\nconst uint8_t ' + item_name + 'Graphics[128*8] = { ')
 f_source.write(', '.join(graphic_bytes))
@@ -417,7 +445,7 @@ f_source.write(' };\n')
 
 png_name = 'game-over.png'
 item_name = 'GameOver'
-graphic_bytes, color_bytes = parse_png(png_name, 1, 1, 0, 0, 48, 23, None)
+graphic_bytes, _, _ = parse_png(png_name, 1, 1, 0, 0, 48, 23, None)
 f_header.write('\nextern const uint8_t ' + item_name + 'Graphics[6*23];\n')
 f_source.write('\nconst uint8_t ' + item_name + 'Graphics[6*23] = { ')
 f_source.write(', '.join(graphic_bytes))
@@ -440,6 +468,7 @@ parse_sprite_strip(f_header, f_source, 'challenge-bubbles-sprites.png', 'Bubble'
 parse_sprite_strip(f_header, f_source, 'challenge-fly-2cycle.png', 'Fly', 8, 11, 2, 1, 1, 0, 0, None)
 parse_sprite_strip(f_header, f_source, 'player-1-challenge-countdown_1px_gap+48px_sprite.png', 'Countdown',   48, 31, 3, 1, 1, 0, 0, None, 1)
 parse_sprite_strip(f_header, f_source, 'player-2-challenge-countdown_1px_gap+48px_sprite.png', 'CountdownP2', 48, 31, 3, 1, 1, 0, 0, None, 1)
+parse_sprite_strip(f_header, f_source, 'palette.png', 'Palette', 8, 20, 1, 1, 21, 1, 0, None)
 
 # Previews
 parse_sprite_strip(f_header, f_source, 'previews/fly_hunter.png', 'PreviewFlyHunter', 48, 192, 1, 4, 2, 0, 0, (152,92,40))

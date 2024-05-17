@@ -5,7 +5,7 @@ mattress_monkeys: *.cpp assets
 	arm-none-eabi-g++ -mlong-calls -fno-exceptions --specs=nosys.specs -march=armv6-m MattressMonkeys.bin -omocked.bin -O3 -Wall -LvcsLib/lib -lvcsMock -lgcc
 #	cp MattressMonkeys.bin ../../ChameleonCartFirmware/Core/Lib/libelfrom.a
 #	touch ../../ChameleonCartFirmware/Core/Src/main.c
-	../../gopher.exe MattressMonkeys.bin
+	../../gopher.exe -tv ntsc MattressMonkeys.bin
 #	../../gopher2600_linux_amd64 MattressMonkeys.bin
 
 assets: ../assets/* kernel_7800.asm

@@ -15,8 +15,35 @@
 #define RAM_FUNC
 #endif
 
-const uint8_t SpiderColor = 0x02;
-const uint8_t OctopusColor = 0x34;
+static uint8_t OctopusColor = 0x34;
+static uint8_t SpiderColor = 0x02;
+static uint8_t ColuRedWall = 0x42;
+static uint8_t InitialColuWallWid = 0x6a;
+static uint8_t InitialColuWallMed = 0x9c;
+static uint8_t InitialColuWallNar = 0xb9;
+static uint8_t InitialColuFloorMed = 0x1d;
+static uint8_t InitialColuFloorNar = 0x69;
+static uint8_t InitialColuCeiling = 0x0f;
+static uint8_t InitialColuSheet = 0xd6;
+static uint8_t InitialColuMattress = 0xd4;
+static uint8_t InitialColuFlyWing = 0xff;
+static uint8_t InitialColuFlyBody = 0x00;
+static uint8_t InitialColuPillow = 0x0f;
+static uint8_t InitialColuHeadboard = 0xf7;
+static uint8_t InitialColuBedPost = 0xf5;
+static uint8_t InitialColuFanBlade = 0x02;
+static uint8_t InitialColuP0Monkey = 0xf3;
+static uint8_t InitialColuScoreBackground = 0x00;
+static uint8_t InitialColuP1Monkey = 0x2f;
+
+static uint8_t InitialColuWall = 0x6a;
+static uint8_t InitialColuFloor = 0x1d;
+
+
+static const uint8_t *FanChasisColu;
+static const uint8_t *BonusBananaColu;
+static const uint8_t (*BubbleColu)[15];
+static const uint8_t (*FlyColu)[11];
 
 const int BonusShownFramesMax = 10 * 60;
 const int BonusShownFramesMin = 4 * 60;
@@ -40,7 +67,6 @@ const int BubblePopFrames = 3;
 const int BubbleScoreFrames = 45;
 const int ChallengeFrames = 60 * 20 - 1;
 const int ChallengeThresholds[] = {25, 100, 200};
-const uint8_t ColuRedWall = 0x42;
 const int BubblePopValue = 5;
 const int ChallengeTimeLeftValue = 10;
 const int ChallengeResultsCountdownFrames = 4;
@@ -397,21 +423,6 @@ bool zoom_out_red_wall;
 uint8_t joystick = 0xff;
 uint8_t prev_joystick = 0xff;
 
-static uint8_t InitialColuWall = 0x6a;
-static uint8_t InitialColuFloor = 0x1d;
-static const uint8_t InitialColuCeiling = 0x0f;
-static const uint8_t InitialColuSheet = 0xd6;	 // formerly 0xdb
-static const uint8_t InitialColuMattress = 0xd4; // formerly 0xd7
-static const uint8_t InitialColuFlyWing = 0xff;
-static const uint8_t InitialColuFlyBody = 0x00;
-static const uint8_t InitialColuPillow = 0x0f;
-static const uint8_t InitialColuHeadboard = 0xf7;
-static const uint8_t InitialColuBedPost = 0xf5;
-static const uint8_t InitialColuFanBlade = 0x02;
-static const uint8_t InitialColuP0Monkey = 0xf3;
-static const uint8_t InitialColuP1Monkey = 0x2f;
-
-static const uint8_t InitialColuScoreBackground = 0;
 static uint8_t ColuScoreBackground = InitialColuScoreBackground;
 
 static uint8_t ColuCeiling = InitialColuCeiling;
@@ -618,14 +629,14 @@ enum class FrameTypeEnum
 FrameTypeEnum current_frame;
 
 // init_system functions
-void init_ntsc_2600();
-void init_ntsc_7800();
-static void (*init_system[5])() = {
-	init_ntsc_2600, // ST_NTSC_2600
-	init_ntsc_2600, // ST_PAL_2600
-	init_ntsc_2600, // ST_PAL60_2600
-	init_ntsc_7800, // ST_NTSC_7800
-	init_ntsc_7800, // ST_PAL_7800
+void init_2600(bool ntsc);
+void init_7800(bool ntsc);
+static void (*init_system[5])(bool) = {
+	init_2600, // ST_NTSC_2600
+	init_2600, // ST_PAL_2600
+	init_2600, // ST_PAL60_2600
+	init_7800, // ST_NTSC_7800
+	init_7800, // ST_PAL_7800
 };
 // draw_frame functions
 static void (*draw_frame[(int)FrameTypeEnum::Count])();
@@ -635,7 +646,8 @@ static void (*render_frame[(int)FrameTypeEnum::Count])();
 
 extern "C" int elf_main(uint32_t *args)
 {
-	init_system[args[MP_SYSTEM_TYPE]]();
+	auto systemType = args[MP_SYSTEM_TYPE];
+	init_system[systemType](systemType == ST_NTSC_2600 || systemType == ST_NTSC_7800);
 
 	init_game_state();
 	while (true)
@@ -821,7 +833,7 @@ bool update_game_state()
 	return false;
 }
 
-void init_ntsc_2600()
+void init_2600(bool ntsc)
 {
 	// initialize draw and render functions for this system
 	draw_frame[(int)FrameTypeEnum::Title] = draw_title_2600;
@@ -851,7 +863,101 @@ void init_ntsc_2600()
 	vcsCopyOverblankToRiotRam();
 
 	vcsStartOverblank();
-	ShowLogo();
+
+// 	uint8_t palette[20] = {
+// 0x34,
+// 0x02,
+// 0x42,
+// 0x6a,
+// 0x9c,
+// 0xb9,
+// 0x1d,
+// 0x69,
+// 0x0f,
+// 0xd6,
+// 0xd4,
+// 0xff,
+// 0x00,
+// 0x0f,
+// 0xf7,
+// 0xf5,
+// 0x02,
+// 0xf3,
+// 0x00,
+// 0x2f
+// };
+// 	while (true)
+// 	{
+// 		vcsEndOverblank();
+// 		vcsSta3(WSYNC);
+// 		for (int i = 0; i < 20; i++)
+// 		{
+// 			for (int k = 0; k < 9; k++)
+// 			{
+// 				vcsWrite5(VBLANK, 0);
+// 				vcsJmp3();
+// 				vcsJmp3();
+// 				vcsJmp3();
+// 				vcsJmp3();
+// 				vcsJmp3();
+// 				vcsJmp3();
+// 				for (int j = 0; j < 8; j++)
+// 				{
+// 					vcsWrite5(COLUBK, PaletteColuNtsc[i]);
+// 				}
+// 				vcsWrite5(COLUBK, 0);
+// 				vcsSta3(WSYNC);
+// 			}
+// 		}
+// 		vcsWrite5(VBLANK, 2);
+// 		vcsWrite5(VBLANK, 2);
+// 		vcsStartOverblank();
+// 	}
+
+	const uint8_t *pcolu = PaletteColuNtsc;
+	if (ntsc)
+	{
+		FanChasisColu = FanChasisColuNtsc;
+		BonusBananaColu = BonusBananaColuNtsc;
+		BubbleColu = BubbleColuNtsc;
+		FlyColu = FlyColuNtsc;
+	}
+	else
+	{
+		// Switch to PAL colors
+		pcolu = PaletteColuPal;
+		FanChasisColu = FanChasisColuPal;
+		BonusBananaColu = BonusBananaColuPal;
+		BubbleColu = BubbleColuPal;
+		FlyColu = FlyColuPal;
+	}
+
+	// Apply palette
+	int i = 0;
+	OctopusColor = pcolu[i++];
+	SpiderColor = pcolu[i++];
+	ColuRedWall = pcolu[i++];
+	InitialColuWallWid = pcolu[i++];
+	InitialColuWallMed = pcolu[i++];
+	InitialColuWallNar = pcolu[i++];
+	InitialColuFloorMed = pcolu[i++];
+	InitialColuFloorNar = pcolu[i++];
+	InitialColuCeiling = pcolu[i++];
+	InitialColuSheet = pcolu[i++];
+	InitialColuMattress = pcolu[i++];
+	InitialColuFlyWing = pcolu[i++];
+	InitialColuFlyBody = pcolu[i++];
+	InitialColuPillow = pcolu[i++];
+	InitialColuHeadboard = pcolu[i++];
+	InitialColuBedPost = pcolu[i++];
+	InitialColuFanBlade = pcolu[i++];
+	InitialColuP1Monkey = pcolu[i++];
+	InitialColuP0Monkey = pcolu[i++];
+	InitialColuScoreBackground = pcolu[i++];
+	monkey_0.color = InitialColuP0Monkey;
+	monkey_1.color = InitialColuP1Monkey;
+
+	ShowLogo(ntsc);
 }
 
 void draw_title_2600()
@@ -1260,6 +1366,7 @@ void play_game()
 			else if (bed_state == Medium)
 				max_bed_state_reached = bed_state = Narrow;
 			place_monkey_on_post();
+			jumping_monkey->velocity_x = !jumping_monkey->face_left ? fp32(1.5) : fp32(-1.5);
 			standing_monkey->face_left = !jumping_monkey->face_left;
 			standing_monkey->x = 88;
 			standing_monkey->state = Standing;
@@ -1648,7 +1755,7 @@ void DrawFlyRegion(int &line, int height, int fly_x, int fly_y, int fly_frame)
 	}
 }
 
-RAM_FUNC void init_ntsc_7800()
+RAM_FUNC void init_7800(bool ntsc)
 {
 	for (size_t i = 0; i < sizeof(kernel_7800); i++)
 	{
@@ -3263,7 +3370,7 @@ void SetVariablesFromState()
 	switch (bed_state)
 	{
 	case (Wide):
-		InitialColuWall = 0x6a;
+		InitialColuWall = InitialColuWallWid;
 		render_bed = RenderWideBed;
 		standing_monkey->min_x = 16;
 		standing_monkey->max_x = 140;
@@ -3272,8 +3379,8 @@ void SetVariablesFromState()
 		wave_length = 80;
 		break;
 	case (Medium):
-		InitialColuWall = 0x9c;
-		InitialColuFloor = 0x1d;
+		InitialColuWall = InitialColuWallMed;
+		InitialColuFloor = InitialColuFloorMed;
 		render_bed = RenderMediumBed;
 		standing_monkey->min_x = 28;
 		standing_monkey->max_x = 128;
@@ -3282,8 +3389,8 @@ void SetVariablesFromState()
 		wave_length = 65;
 		break;
 	case (Narrow):
-		InitialColuWall = 0xb9;
-		InitialColuFloor = 0x69;
+		InitialColuWall = InitialColuWallNar;
+		InitialColuFloor = InitialColuFloorNar;
 		render_bed = RenderNarrowBed;
 		standing_monkey->min_x = 40;
 		standing_monkey->max_x = 116;

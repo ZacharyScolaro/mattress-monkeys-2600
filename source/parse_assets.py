@@ -113,7 +113,7 @@ def parse_png(png_name, pixel_width, pixel_height, item_x, item_y, item_width, i
 	f.close()
 	return graphic_bytes, ntsc_color_bytes, pal_color_bytes
 
-def parse_sprite_strip(f_header, f_source, png_name, item_name, item_width, item_height, item_count, pixel_width, pixel_height, item_x, item_y, alpha_color, padding_x = 0):
+def parse_sprite_strip(f_header, f_source, png_name, item_name, item_width, item_height, item_count, pixel_width, pixel_height, item_x, item_y, alpha_color, padding_x = 0, save_colors = False):
 	ntsc_colus = []
 	pal_colus = []
 	item_size = math.ceil(item_width/8) * item_height # figure out how many bytes to hold it all
@@ -130,28 +130,29 @@ def parse_sprite_strip(f_header, f_source, png_name, item_name, item_width, item
 		if item_count > 1:
 			f_source.write(' }' + ('' if x == item_count-1 else ',') +'\n')
 	f_source.write(' };\n')
-	#Colu NTSC
-	f_header.write('\nextern const uint8_t ' + item_name + 'ColuNtsc' + first_dimension + '[' + str(item_size) + '];\n')
-	f_source.write('\nconst uint8_t ' + item_name + 'ColuNtsc' + first_dimension + '[' + str(item_size) + '] = { ')
-	for x in range(0, item_count):
-		colu_bytes = ntsc_colus[x]
-		if item_count > 1:
-			f_source.write('\n{ ')
-		f_source.write(', '.join(colu_bytes))
-		if item_count > 1:
-			f_source.write(' }' + ('' if x == item_count-1 else ',') +'\n')
-	f_source.write(' };\n')
-	#Colu PAL
-	f_header.write('\nextern const uint8_t ' + item_name + 'ColuPal' + first_dimension + '[' + str(item_size) + '];\n')
-	f_source.write('\nconst uint8_t ' + item_name + 'ColuPal' + first_dimension + '[' + str(item_size) + '] = { ')
-	for x in range(0, item_count):
-		colu_bytes = pal_colus[x]
-		if item_count > 1:
-			f_source.write('\n{ ')
-		f_source.write(', '.join(colu_bytes))
-		if item_count > 1:
-			f_source.write(' }' + ('' if x == item_count-1 else ',') +'\n')
-	f_source.write(' };\n')
+	if save_colors:
+		#Colu NTSC
+		f_header.write('\nextern const uint8_t ' + item_name + 'ColuNtsc' + first_dimension + '[' + str(item_size) + '];\n')
+		f_source.write('\nconst uint8_t ' + item_name + 'ColuNtsc' + first_dimension + '[' + str(item_size) + '] = { ')
+		for x in range(0, item_count):
+			colu_bytes = ntsc_colus[x]
+			if item_count > 1:
+				f_source.write('\n{ ')
+			f_source.write(', '.join(colu_bytes))
+			if item_count > 1:
+				f_source.write(' }' + ('' if x == item_count-1 else ',') +'\n')
+		f_source.write(' };\n')
+		#Colu PAL
+		f_header.write('\nextern const uint8_t ' + item_name + 'ColuPal' + first_dimension + '[' + str(item_size) + '];\n')
+		f_source.write('\nconst uint8_t ' + item_name + 'ColuPal' + first_dimension + '[' + str(item_size) + '] = { ')
+		for x in range(0, item_count):
+			colu_bytes = pal_colus[x]
+			if item_count > 1:
+				f_source.write('\n{ ')
+			f_source.write(', '.join(colu_bytes))
+			if item_count > 1:
+				f_source.write(' }' + ('' if x == item_count-1 else ',') +'\n')
+		f_source.write(' };\n')
 
 
 def parse_playfield(f_header, f_source, png_name, item_name, item_height, pixel_width, pixel_height, item_x, item_y, alpha_color):
@@ -356,7 +357,7 @@ def parse_ttt_percussions(ttt_json):
 	for percussion in ttt_json['percussion']:
 		d, a = parse_ttt_percussion(percussion)
 		if d['name'] != '---':
-			   percussions.append(a)
+			percussions.append(a)
 	return percussions
 
 def parse_ttt_percussion(percussion):
@@ -454,21 +455,21 @@ f_source.write(' };\n')
 parse_sprite_strip(f_header, f_source, 'title-art.png', 'TitleArt', 48, 23, 2, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'menu-options.png', 'MenuOptions', 48, 5, 8, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'pf-fan-blade-animation.png', 'FanBlade', 11, 7, 7, 4, 1, 0, 0, (0,0,0))
-parse_sprite_strip(f_header, f_source, 'fan-chasis.png', 'FanChasis', 8, 20, 1, 1, 1, 0, 0, (195,195,195))
+parse_sprite_strip(f_header, f_source, 'fan-chasis.png', 'FanChasis', 8, 20, 1, 1, 1, 0, 0, (195,195,195), 0, True)
 parse_sprite_strip(f_header, f_source, 'monkey-player-sprites.png', 'Monkey', 8, 13, 8, 1, 1, 0,  0, (0,0,0), 1)
 parse_sprite_strip(f_header, f_source, 'monkey-player-sprites.png', 'Spider', 8, 13, 8, 1, 1, 0, 14, (0,0,0), 1)
 parse_sprite_strip(f_header, f_source, 'monkey-player-sprites.png', 'Octopus', 8, 13, 8, 1, 1, 0, 28, (0,0,0), 1)
-parse_sprite_strip(f_header, f_source, 'bonus-banana.png', 'BonusBanana', 8, 13, 1, 1, 1, 0, 0, (0,0,0))
+parse_sprite_strip(f_header, f_source, 'bonus-banana.png', 'BonusBanana', 8, 13, 1, 1, 1, 0, 0, (0,0,0), 0, True)
 parse_sprite_strip(f_header, f_source, 'headboard-king.png', 'HeadBoardWide', 40, 40, 1, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'headboard-full.png', 'HeadBoardMedium', 40, 40, 1, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'headboard-twin.png', 'HeadBoardNarrow', 40, 40, 1, 1, 1, 0, 0, (0,0,0))
 parse_sprite_strip(f_header, f_source, 'challenge-monkey-hand-open.png', 'MonkeyHandOpen', 8, 136, 1, 1, 1, 0, 0, None)
 parse_sprite_strip(f_header, f_source, 'challenge-monkey-hand-closed.png', 'MonkeyHandClosed', 8, 136, 1, 1, 1, 0, 0, None)
-parse_sprite_strip(f_header, f_source, 'challenge-bubbles-sprites.png', 'Bubble', 8, 15, 7, 1, 1, 1, 0, None, 1)
-parse_sprite_strip(f_header, f_source, 'challenge-fly-2cycle.png', 'Fly', 8, 11, 2, 1, 1, 0, 0, None)
+parse_sprite_strip(f_header, f_source, 'challenge-bubbles-sprites.png', 'Bubble', 8, 15, 7, 1, 1, 1, 0, None, 1, True)
+parse_sprite_strip(f_header, f_source, 'challenge-fly-2cycle.png', 'Fly', 8, 11, 2, 1, 1, 0, 0, None, 0, True)
 parse_sprite_strip(f_header, f_source, 'player-1-challenge-countdown_1px_gap+48px_sprite.png', 'Countdown',   48, 31, 3, 1, 1, 0, 0, None, 1)
 parse_sprite_strip(f_header, f_source, 'player-2-challenge-countdown_1px_gap+48px_sprite.png', 'CountdownP2', 48, 31, 3, 1, 1, 0, 0, None, 1)
-parse_sprite_strip(f_header, f_source, 'palette.png', 'Palette', 8, 20, 1, 1, 21, 1, 0, None)
+parse_sprite_strip(f_header, f_source, 'palette.png', 'Palette', 8, 20, 1, 1, 21, 1, 0, None, 0, True)
 
 # Previews
 parse_sprite_strip(f_header, f_source, 'previews/fly_hunter.png', 'PreviewFlyHunter', 48, 192, 1, 4, 2, 0, 0, (152,92,40))

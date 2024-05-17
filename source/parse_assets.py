@@ -19,12 +19,10 @@ def reverse_byte(b):
 	return reverse_byte_lookup[b & 0xff]
 
 init_ttt_typedefs_called = False
-palette = []
 
 y = 0;
 
 def parse_palette(png_name):
-	global palette;
 	y = 0;
 	f = open('../assets/' + png_name, 'rb')
 	r = png.Reader(f)
@@ -43,6 +41,11 @@ def parse_palette(png_name):
 			pixel_y = pixel_y + 1
 		y+=1
 	f.close()
+	return palette
+
+ntsc_palette = parse_palette('palette.png')
+
+palette = parse_palette('palette-pal.png')
 
 def rgb_to_colu(rgb):
 	closest = 0
@@ -395,7 +398,6 @@ def ttt_pattern_to_cpp(name, evenspeed, oddspeed, notes):
    .notes = (uint8_t[]) {{ {notes} }}
 }}'''.format(name=name, evenspeed=evenspeed, oddspeed=oddspeed, notes=',\n'.join([', '.join(notes[i:i + 8]) for i in range(0, len(notes), 8)]))
 
-parse_palette('palette.png')
 
 f_header = open('sprites.h', 'wt', newline='\n')
 f_header.write('''#ifndef SPRITES_H

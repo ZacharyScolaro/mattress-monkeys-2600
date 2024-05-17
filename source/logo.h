@@ -2,6 +2,6 @@
 #define LOGO_H
 #include <stdint.h>
 
-void ShowLogo();
+void ShowLogo(bool ntsc);
 
 #endif // LOGO_H

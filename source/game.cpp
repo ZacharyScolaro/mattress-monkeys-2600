@@ -15,8 +15,23 @@
 #define RAM_FUNC
 #endif
 
-const uint8_t SpiderColor = 0x02;
-const uint8_t OctopusColor = 0x34;
+static uint8_t SpiderColor = 0x02;
+static uint8_t OctopusColor = 0x34;
+static uint8_t ColuRedWall = 0x42;
+static uint8_t InitialColuWall = 0x6a;
+static uint8_t InitialColuFloor = 0x1d;
+static uint8_t InitialColuCeiling = 0x0f;
+static uint8_t InitialColuSheet = 0xd6;	   // formerly 0xdb
+static uint8_t InitialColuMattress = 0xd4; // formerly 0xd7
+static uint8_t InitialColuFlyWing = 0xff;
+static uint8_t InitialColuFlyBody = 0x00;
+static uint8_t InitialColuPillow = 0x0f;
+static uint8_t InitialColuHeadboard = 0xf7;
+static uint8_t InitialColuBedPost = 0xf5;
+static uint8_t InitialColuFanBlade = 0x02;
+static uint8_t InitialColuP0Monkey = 0xf3;
+static uint8_t InitialColuP1Monkey = 0x2f;
+static uint8_t InitialColuScoreBackground = 0;
 
 const int BonusShownFramesMax = 10 * 60;
 const int BonusShownFramesMin = 4 * 60;
@@ -39,8 +54,7 @@ const int FlyAscentDuration = 32;
 const int BubblePopFrames = 3;
 const int BubbleScoreFrames = 45;
 const int ChallengeFrames = 60 * 20 - 1;
-const int ChallengeThresholds[] = {25, 100, 200};
-const uint8_t ColuRedWall = 0x42;
+const int ChallengeThresholds[] = {0, 0, 0};
 const int BubblePopValue = 5;
 const int ChallengeTimeLeftValue = 10;
 const int ChallengeResultsCountdownFrames = 4;
@@ -397,21 +411,6 @@ bool zoom_out_red_wall;
 uint8_t joystick = 0xff;
 uint8_t prev_joystick = 0xff;
 
-static uint8_t InitialColuWall = 0x6a;
-static uint8_t InitialColuFloor = 0x1d;
-static const uint8_t InitialColuCeiling = 0x0f;
-static const uint8_t InitialColuSheet = 0xd6;	 // formerly 0xdb
-static const uint8_t InitialColuMattress = 0xd4; // formerly 0xd7
-static const uint8_t InitialColuFlyWing = 0xff;
-static const uint8_t InitialColuFlyBody = 0x00;
-static const uint8_t InitialColuPillow = 0x0f;
-static const uint8_t InitialColuHeadboard = 0xf7;
-static const uint8_t InitialColuBedPost = 0xf5;
-static const uint8_t InitialColuFanBlade = 0x02;
-static const uint8_t InitialColuP0Monkey = 0xf3;
-static const uint8_t InitialColuP1Monkey = 0x2f;
-
-static const uint8_t InitialColuScoreBackground = 0;
 static uint8_t ColuScoreBackground = InitialColuScoreBackground;
 
 static uint8_t ColuCeiling = InitialColuCeiling;
@@ -618,14 +617,14 @@ enum class FrameTypeEnum
 FrameTypeEnum current_frame;
 
 // init_system functions
-void init_ntsc_2600();
-void init_ntsc_7800();
-static void (*init_system[5])() = {
-	init_ntsc_2600, // ST_NTSC_2600
-	init_ntsc_2600, // ST_PAL_2600
-	init_ntsc_2600, // ST_PAL60_2600
-	init_ntsc_7800, // ST_NTSC_7800
-	init_ntsc_7800, // ST_PAL_7800
+void init_2600(bool ntsc);
+void init_7800(bool ntsc);
+static void (*init_system[5])(bool) = {
+	init_2600, // ST_NTSC_2600
+	init_2600, // ST_PAL_2600
+	init_2600, // ST_PAL60_2600
+	init_7800, // ST_NTSC_7800
+	init_7800, // ST_PAL_7800
 };
 // draw_frame functions
 static void (*draw_frame[(int)FrameTypeEnum::Count])();
@@ -635,7 +634,8 @@ static void (*render_frame[(int)FrameTypeEnum::Count])();
 
 extern "C" int elf_main(uint32_t *args)
 {
-	init_system[args[MP_SYSTEM_TYPE]]();
+	auto systemType = ST_PAL_2600; // args[MP_SYSTEM_TYPE];
+	init_system[systemType](systemType == ST_NTSC_2600 || systemType == ST_NTSC_7800);
 
 	init_game_state();
 	while (true)
@@ -656,7 +656,7 @@ void init_game_state()
 	game_state = GameState::Title;
 	play_substate = PlaySubState::NotPlaying;
 	bed_state = BedState::Wide;
-	max_bed_state_reached = BedState::Wide;
+	max_bed_state_reached = BedState::Narrow;
 	render_bed = RenderWideBed;
 	enter_title_state();
 }
@@ -821,7 +821,7 @@ bool update_game_state()
 	return false;
 }
 
-void init_ntsc_2600()
+void init_2600(bool ntsc)
 {
 	// initialize draw and render functions for this system
 	draw_frame[(int)FrameTypeEnum::Title] = draw_title_2600;
@@ -851,7 +851,32 @@ void init_ntsc_2600()
 	vcsCopyOverblankToRiotRam();
 
 	vcsStartOverblank();
-	ShowLogo();
+
+	if (!ntsc)
+	{
+		// Switch to PAL colors
+		SpiderColor = 0x02;
+		OctopusColor = 0x66;
+		ColuRedWall = 0x64;
+		InitialColuWall = 0xca;
+		InitialColuFloor = 0x2c;
+		InitialColuCeiling = 0x0f;
+		InitialColuSheet = 0x36;
+		InitialColuMattress = 0x34;
+		InitialColuFlyWing = 0x4f;
+		InitialColuFlyBody = 0x00;
+		InitialColuPillow = 0x0f;
+		InitialColuHeadboard = 0x46;
+		InitialColuBedPost = 0x44;
+		InitialColuFanBlade = 0x02;
+		InitialColuP0Monkey = 0x22;
+		InitialColuP1Monkey = 0x4f;
+		InitialColuScoreBackground = 0;
+		monkey_0.color = InitialColuP0Monkey;
+		monkey_1.color = InitialColuP1Monkey;
+	}
+
+	ShowLogo(ntsc);
 }
 
 void draw_title_2600()
@@ -1260,6 +1285,7 @@ void play_game()
 			else if (bed_state == Medium)
 				max_bed_state_reached = bed_state = Narrow;
 			place_monkey_on_post();
+			jumping_monkey->velocity_x = !jumping_monkey->face_left ? fp32(1.5) : fp32(-1.5);
 			standing_monkey->face_left = !jumping_monkey->face_left;
 			standing_monkey->x = 88;
 			standing_monkey->state = Standing;
@@ -1648,7 +1674,7 @@ void DrawFlyRegion(int &line, int height, int fly_x, int fly_y, int fly_frame)
 	}
 }
 
-RAM_FUNC void init_ntsc_7800()
+RAM_FUNC void init_7800(bool ntsc)
 {
 	for (size_t i = 0; i < sizeof(kernel_7800); i++)
 	{

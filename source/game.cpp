@@ -14,7 +14,7 @@
 #define NO_INIT
 #define RAM_FUNC
 #endif
-
+bool isNtsc = true;
 static uint8_t OctopusColor = 0x34;
 static uint8_t SpiderColor = 0x02;
 static uint8_t ColuRedWall = 0x42;
@@ -39,11 +39,19 @@ static uint8_t InitialColuP1Monkey = 0x2f;
 static uint8_t InitialColuWall = 0x6a;
 static uint8_t InitialColuFloor = 0x1d;
 
-
 static const uint8_t *FanChasisColu;
 static const uint8_t *BonusBananaColu;
 static const uint8_t (*BubbleColu)[15];
 static const uint8_t (*FlyColu)[11];
+
+const int PreviewsCount = 3;
+const uint8_t PreviewColuPNtsc[PreviewsCount] = {0xfe, 0xce, 0xae};
+const uint8_t PreviewColuBkNtsc[PreviewsCount] = {0xf2, 0xc2, 0x82};
+const uint8_t PreviewColuPPal[PreviewsCount] = {0x2e, 0x3e, 0x9e};
+const uint8_t PreviewColuBkPal[PreviewsCount] = {0x20, 0x52, 0xd2};
+
+static const uint8_t* PreviewColuP = PreviewColuPNtsc;
+static const uint8_t* PreviewColuBK= PreviewColuBkNtsc;
 
 const int BonusShownFramesMax = 10 * 60;
 const int BonusShownFramesMin = 4 * 60;
@@ -54,7 +62,7 @@ const int FlyValues[] = {1, 2, 5};
 const int BananaValues[] = {5, 10, 25};
 const int OffscreenPenaltyValues[] = {5, 5, 5};
 const int OffbedPenaltyValues[] = {1, 1, 1};
-const int EasterThreshold = 50;
+const int EasterThreshold = -50;
 
 const FP32 MaxFlyVelocity = fp32(2.5);
 const FP32 MaxFlyVelocityMinus = MaxFlyVelocity * fp32(-1.0);
@@ -66,7 +74,7 @@ const int FlyAscentDuration = 32;
 const int BubblePopFrames = 3;
 const int BubbleScoreFrames = 45;
 const int ChallengeFrames = 60 * 20 - 1;
-const int ChallengeThresholds[] = {25, 100, 200};
+const int ChallengeThresholds[] = {0, 0, 200};
 const int BubblePopValue = 5;
 const int ChallengeTimeLeftValue = 10;
 const int ChallengeResultsCountdownFrames = 4;
@@ -646,8 +654,9 @@ static void (*render_frame[(int)FrameTypeEnum::Count])();
 
 extern "C" int elf_main(uint32_t *args)
 {
-	auto systemType = args[MP_SYSTEM_TYPE];
-	init_system[systemType](systemType == ST_NTSC_2600 || systemType == ST_NTSC_7800);
+	auto systemType =ST_PAL_2600; // args[MP_SYSTEM_TYPE];
+	isNtsc = systemType == ST_NTSC_2600 || systemType == ST_NTSC_7800;
+	init_system[systemType](isNtsc);
 
 	init_game_state();
 	while (true)
@@ -864,55 +873,55 @@ void init_2600(bool ntsc)
 
 	vcsStartOverblank();
 
-// 	uint8_t palette[20] = {
-// 0x34,
-// 0x02,
-// 0x42,
-// 0x6a,
-// 0x9c,
-// 0xb9,
-// 0x1d,
-// 0x69,
-// 0x0f,
-// 0xd6,
-// 0xd4,
-// 0xff,
-// 0x00,
-// 0x0f,
-// 0xf7,
-// 0xf5,
-// 0x02,
-// 0xf3,
-// 0x00,
-// 0x2f
-// };
-// 	while (true)
-// 	{
-// 		vcsEndOverblank();
-// 		vcsSta3(WSYNC);
-// 		for (int i = 0; i < 20; i++)
-// 		{
-// 			for (int k = 0; k < 9; k++)
-// 			{
-// 				vcsWrite5(VBLANK, 0);
-// 				vcsJmp3();
-// 				vcsJmp3();
-// 				vcsJmp3();
-// 				vcsJmp3();
-// 				vcsJmp3();
-// 				vcsJmp3();
-// 				for (int j = 0; j < 8; j++)
-// 				{
-// 					vcsWrite5(COLUBK, PaletteColuNtsc[i]);
-// 				}
-// 				vcsWrite5(COLUBK, 0);
-// 				vcsSta3(WSYNC);
-// 			}
-// 		}
-// 		vcsWrite5(VBLANK, 2);
-// 		vcsWrite5(VBLANK, 2);
-// 		vcsStartOverblank();
-// 	}
+	// 	uint8_t palette[20] = {
+	// 0x34,
+	// 0x02,
+	// 0x42,
+	// 0x6a,
+	// 0x9c,
+	// 0xb9,
+	// 0x1d,
+	// 0x69,
+	// 0x0f,
+	// 0xd6,
+	// 0xd4,
+	// 0xff,
+	// 0x00,
+	// 0x0f,
+	// 0xf7,
+	// 0xf5,
+	// 0x02,
+	// 0xf3,
+	// 0x00,
+	// 0x2f
+	// };
+	// 	while (true)
+	// 	{
+	// 		vcsEndOverblank();
+	// 		vcsSta3(WSYNC);
+	// 		for (int i = 0; i < 20; i++)
+	// 		{
+	// 			for (int k = 0; k < 9; k++)
+	// 			{
+	// 				vcsWrite5(VBLANK, 0);
+	// 				vcsJmp3();
+	// 				vcsJmp3();
+	// 				vcsJmp3();
+	// 				vcsJmp3();
+	// 				vcsJmp3();
+	// 				vcsJmp3();
+	// 				for (int j = 0; j < 8; j++)
+	// 				{
+	// 					vcsWrite5(COLUBK, PaletteColuNtsc[i]);
+	// 				}
+	// 				vcsWrite5(COLUBK, 0);
+	// 				vcsSta3(WSYNC);
+	// 			}
+	// 		}
+	// 		vcsWrite5(VBLANK, 2);
+	// 		vcsWrite5(VBLANK, 2);
+	// 		vcsStartOverblank();
+	// 	}
 
 	const uint8_t *pcolu = PaletteColuNtsc;
 	if (ntsc)
@@ -930,11 +939,14 @@ void init_2600(bool ntsc)
 		BonusBananaColu = BonusBananaColuPal;
 		BubbleColu = BubbleColuPal;
 		FlyColu = FlyColuPal;
+		PreviewColuP = PreviewColuPPal;
+		PreviewColuBK = PreviewColuBkPal;
 	}
 
 	// Apply palette
 	int i = 0;
-	OctopusColor = pcolu[i++];
+	OctopusColor = isNtsc ? pcolu[i] : 0x66;
+	i++;
 	SpiderColor = pcolu[i++];
 	ColuRedWall = pcolu[i++];
 	InitialColuWallWid = pcolu[i++];
@@ -1095,7 +1107,7 @@ void render_title_2600()
 	vcsSta3(PF0);
 	vcsSta3(PF1);
 	vcsSta3(PF2);
-	vcsWrite5(COLUP0, FanChasisColu[18]);
+	vcsWrite5(COLUP0, isNtsc ? FanChasisColu[18] : 0x3f);
 	vcsSta3(COLUP1);
 	vcsWrite5(VDELP0, 1);
 	vcsSta3(VDELP1);
@@ -1490,9 +1502,6 @@ void show_credits()
 	}
 }
 
-const int PreviewsCount = 3;
-const uint8_t PreviewColuP[PreviewsCount] = {0xfe, 0xce, 0xae};
-const uint8_t PreviewColuBK[PreviewsCount] = {0xf2, 0xc2, 0x82};
 const uint8_t *PreviewGraphics[PreviewsCount] = {PreviewFlyHunterGraphics, PreviewBigfootGraphics, PreviewOctopusherGraphics};
 void show_previews()
 {
@@ -1919,7 +1928,38 @@ void update_monkey_arm(MonkeyArm &arm)
 
 void DrawMonkeyArm(MonkeyArm &arm, int offset)
 {
-	const uint8_t *pArmGraphics = arm.closed ? &MonkeyHandClosedGraphics[0] : &MonkeyHandOpenGraphics[0];
+	const uint8_t *pArmGraphics;
+	if (arm.closed)
+	{
+		if (&arm == &left_arm && monkey_0.offScreenCount > EasterThreshold)
+		{
+			pArmGraphics = CatPawClosedGraphics;
+		}
+		else if (&arm == &right_arm && monkey_1.offScreenCount > EasterThreshold)
+		{
+			pArmGraphics = TentacleClosedGraphics;
+		}
+		else
+		{
+			pArmGraphics = MonkeyHandClosedGraphics;
+		}
+	}
+	else
+	{
+		if (&arm == &left_arm && monkey_0.offScreenCount > EasterThreshold)
+		{
+			pArmGraphics = CatPawOpenGraphics;
+		}
+		else if (&arm == &right_arm && monkey_1.offScreenCount > EasterThreshold)
+		{
+			pArmGraphics = TentacleOpenGraphics;
+		}
+		else
+		{
+			pArmGraphics = MonkeyHandOpenGraphics;
+		}
+	}
+
 	auto ix = (39 + arm.hit_box.Y.Round()) * 5 + offset;
 	for (; ix < 175 * 5;)
 	{

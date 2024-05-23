@@ -31,7 +31,7 @@ static uint8_t InitialColuFlyBody = 0x00;
 static uint8_t InitialColuPillow = 0x0f;
 static uint8_t InitialColuHeadboard = 0xf7;
 static uint8_t InitialColuBedPost = 0xf5;
-static uint8_t InitialColuFanBlade = 0x02;
+static uint8_t InitialColuFanBlade = 0x00;
 static uint8_t InitialColuP0Monkey = 0xf3;
 static uint8_t InitialColuScoreBackground = 0x00;
 static uint8_t InitialColuP1Monkey = 0x2f;
@@ -945,7 +945,7 @@ void init_2600(bool ntsc)
 
 	// Apply palette
 	int i = 0;
-	OctopusColor = isNtsc ? pcolu[i] : 0x66;
+	OctopusColor = isNtsc ? pcolu[i] : 0x64;
 	i++;
 	SpiderColor = pcolu[i++];
 	ColuRedWall = pcolu[i++];

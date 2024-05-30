@@ -50,8 +50,8 @@ const uint8_t PreviewColuBkNtsc[PreviewsCount] = {0xf2, 0xc2, 0x82};
 const uint8_t PreviewColuPPal[PreviewsCount] = {0x2e, 0x3e, 0x9e};
 const uint8_t PreviewColuBkPal[PreviewsCount] = {0x20, 0x52, 0xd2};
 
-static const uint8_t* PreviewColuP = PreviewColuPNtsc;
-static const uint8_t* PreviewColuBK= PreviewColuBkNtsc;
+static const uint8_t *PreviewColuP = PreviewColuPNtsc;
+static const uint8_t *PreviewColuBK = PreviewColuBkNtsc;
 
 const int BonusShownFramesMax = 10 * 60;
 const int BonusShownFramesMin = 4 * 60;
@@ -62,7 +62,7 @@ const int FlyValues[] = {1, 2, 5};
 const int BananaValues[] = {5, 10, 25};
 const int OffscreenPenaltyValues[] = {5, 5, 5};
 const int OffbedPenaltyValues[] = {1, 1, 1};
-const int EasterThreshold = -50;
+const int EasterThreshold = 20;
 
 const FP32 MaxFlyVelocity = fp32(2.5);
 const FP32 MaxFlyVelocityMinus = MaxFlyVelocity * fp32(-1.0);
@@ -74,7 +74,7 @@ const int FlyAscentDuration = 32;
 const int BubblePopFrames = 3;
 const int BubbleScoreFrames = 45;
 const int ChallengeFrames = 60 * 20 - 1;
-const int ChallengeThresholds[] = {0, 0, 200};
+const int ChallengeThresholds[] = {25, 100, 200};
 const int BubblePopValue = 5;
 const int ChallengeTimeLeftValue = 10;
 const int ChallengeResultsCountdownFrames = 4;
@@ -654,7 +654,7 @@ static void (*render_frame[(int)FrameTypeEnum::Count])();
 
 extern "C" int elf_main(uint32_t *args)
 {
-	auto systemType =ST_PAL_2600; // args[MP_SYSTEM_TYPE];
+	auto systemType = args[MP_SYSTEM_TYPE];
 	isNtsc = systemType == ST_NTSC_2600 || systemType == ST_NTSC_7800;
 	init_system[systemType](isNtsc);
 
@@ -962,10 +962,11 @@ void init_2600(bool ntsc)
 	InitialColuPillow = pcolu[i++];
 	InitialColuHeadboard = pcolu[i++];
 	InitialColuBedPost = pcolu[i++];
-	InitialColuFanBlade = pcolu[i++];
+	InitialColuFanBlade = 0;
+	i++;
 	InitialColuP1Monkey = pcolu[i++];
-	InitialColuP0Monkey = pcolu[i++];
 	InitialColuScoreBackground = pcolu[i++];
+	InitialColuP0Monkey = pcolu[i++];
 	monkey_0.color = InitialColuP0Monkey;
 	monkey_1.color = InitialColuP1Monkey;
 
@@ -1107,7 +1108,7 @@ void render_title_2600()
 	vcsSta3(PF0);
 	vcsSta3(PF1);
 	vcsSta3(PF2);
-	vcsWrite5(COLUP0, isNtsc ? FanChasisColu[18] : 0x3f);
+	vcsWrite5(COLUP0, FanChasisColu[18]);
 	vcsSta3(COLUP1);
 	vcsWrite5(VDELP0, 1);
 	vcsSta3(VDELP1);
@@ -1139,7 +1140,9 @@ void render_title_2600()
 	render_bed(line, jumping_monkey, standing_monkey);
 	vcsWrite5(VBLANK, 2);
 	joystick = vcsRead4(SWCHA);
+	vcsNop2();
 	but0 = vcsRead4(INPT4);
+	vcsNop2();
 	vcsStartOverblank();
 }
 
@@ -1175,13 +1178,13 @@ void render_48pixel_sprite(int &line, const uint8_t *data, int height)
 /// <param name="level">0-black, 1-16 darkest to brightest luminance</param>
 void fade_color(uint8_t &faded_color, uint8_t original_color, uint8_t level)
 {
-	if (level == 0)
+	if (level == 0 || (level + (original_color & 0xf) < 16))
 	{
 		faded_color = 0;
 	}
 	else
 	{
-		faded_color = ((original_color & 0xf) < level) ? original_color : (original_color & 0xf0) | (uint8_t)(level - 1);
+		faded_color = (original_color & 0xf0) | ((level + (original_color & 0xf)) - 15);
 	}
 }
 
@@ -1345,7 +1348,7 @@ void play_game()
 	{
 		if (challenge_frames_remaining <= 0)
 		{
-			if (player_count < 2 || challenge_player > 0)
+			if (player_count == 1 || challenge_player > 0)
 			{
 				play_substate = ZoomingOut;
 				current_frame = FrameTypeEnum::Zoom;
@@ -3779,6 +3782,51 @@ bool PrintPausedMenu()
 	}
 	return false;
 }
+
+uint8_t getChallengeMove()
+{
+	uint8_t joystick = 0xf;
+
+	int minDistance = 1000000000;
+	int fx = fly.x.Truncate() - 8;
+	int fy = fly.y.Truncate();
+	int minx = 80;
+	int miny = 80;
+	int by = 16 + bubble_offset;
+	for (int i = 2; i < 10; i++)
+	{
+		int bi = (bubble_index + i) & 0xf;
+		if (bubbles[bi].state < 3)
+		{
+			int distance = ((bubbles[bi].x - fx) * (bubbles[bi].x - fx)) + ((by - fy) * (by - fy));
+			if (distance < minDistance)
+			{
+				minDistance = distance;
+				minx = bubbles[bi].x;
+				miny = by;
+			}
+		}
+		by += 16;
+	}
+	if (fx < minx)
+	{
+		joystick &= JoyRight;
+	}
+	if (fx > minx)
+	{
+		joystick &= JoyLeft;
+	}
+	if (fy > miny)
+	{
+		joystick &= JoyUp;
+	}
+	if (fy < miny)
+	{
+		joystick &= JoyDown;
+	}
+	return joystick;
+}
+
 void draw_high_score_2600()
 {
 	if (PrintPausedMenu())
@@ -3815,6 +3863,11 @@ AI::AI(int index) : _monkey(monkeys[index]), _other_monkey(monkeys[(index + 1) &
 
 uint8_t AI::GetMove()
 {
+	if (challenge_mode)
+	{
+		return getChallengeMove();
+	}
+
 	mode_frames--;
 	if (mode_frames < 0)
 	{
@@ -3844,9 +3897,6 @@ uint8_t AI::GetMove()
 	case 2:
 		joystick &= JoyDown;
 		break;
-	case 3:
-		joystick &= JoyUp;
-		break;
 
 	default: // Aim for center
 		if (_monkey->state != Jumping)
@@ -3872,6 +3922,11 @@ AI2::AI2(int index) : _monkey(monkeys[index]), _other_monkey(monkeys[(index + 1)
 
 uint8_t AI2::GetMove()
 {
+	if (challenge_mode)
+	{
+		return getChallengeMove();
+	}
+
 	uint8_t joystick = 0xf;
 	int x = _monkey->x.Round();
 	if (_monkey->state != Jumping)
